@@ -62,6 +62,14 @@ public class AuthController extends HttpServlet {
                 handleLogin(request, response);
                 break;
 
+            case "update":
+                handleUpdate(request, response);
+                break;
+
+            case "delete":
+                handleDelete(request, response);
+                break;
+
             default:
                 response.sendRedirect("login.jsp");
         }
