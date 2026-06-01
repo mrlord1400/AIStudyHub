@@ -161,4 +161,101 @@ public class AuthController extends HttpServlet {
                             + "/login.jsp?error=invalid_credentials");
         }
     }
+
+    private void handleUpdate(HttpServletRequest request,
+                              HttpServletResponse response)
+            throws IOException {
+
+        HttpSession session = request.getSession(false);
+
+        if (session == null) {
+            response.sendRedirect("login.jsp");
+            return;
+        }
+
+        int userId = (int) session.getAttribute("userId");
+
+        String username = request.getParameter("username");
+        String email = request.getParameter("email");
+
+        String currentPassword = request.getParameter("currentPassword");
+        String newPassword = request.getParameter("newPassword");
+
+        UserDAO dao = new UserDAO();
+
+        // 1. verify current password
+        if (!dao.checkPassword(userId, currentPassword)) {
+            response.sendRedirect(
+                    request.getContextPath()
+                            + "/profile.jsp?error=wrong_password");
+            return;
+        }
+
+        // 2. get current user data
+        User existingUser = dao.getUserById(userId);
+
+        // 3. decide password hash
+        String finalPasswordHash = existingUser.getPasswordHash();
+
+        if (newPassword != null && !newPassword.isEmpty()) {
+            finalPasswordHash = org.mindrot.jbcrypt.BCrypt.hashpw(
+                    newPassword,
+                    org.mindrot.jbcrypt.BCrypt.gensalt()
+            );
+        }
+
+        // 4. build updated user
+        User user = new User();
+        user.setUserId(userId);
+        user.setUsername(username);
+        user.setEmail(email);
+        user.setPasswordHash(finalPasswordHash);
+
+        boolean success = dao.updateUser(user);
+
+        if (success) {
+            session.setAttribute("username", username);
+
+            response.sendRedirect(
+                    request.getContextPath()
+                            + "/user_dashboard.jsp?update=success");
+        } else {
+            response.sendRedirect(
+                    request.getContextPath()
+                            + "/profile.jsp?error=update_failed");
+        }
+    }
+
+    private void handleDelete(HttpServletRequest request,
+                              HttpServletResponse response)
+            throws IOException {
+
+        HttpSession session = request.getSession(false);
+
+        if (session == null) {
+            response.sendRedirect("login.jsp");
+            return;
+        }
+
+        int userId = (int) session.getAttribute("userId");
+
+        UserDAO dao = new UserDAO();
+
+        boolean success = dao.deleteUser(userId);
+
+        if (success) {
+
+            session.invalidate();
+
+            response.sendRedirect(
+                    request.getContextPath()
+                            + "/login.jsp?account_deleted=true");
+
+        } else {
+
+            response.sendRedirect(
+                    request.getContextPath()
+                            + "/user_dashboard.jsp?error=delete_failed");
+        }
+    }
 }
