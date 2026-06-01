@@ -85,4 +85,97 @@ public class UserDAO {
 
         return null;
     }
+
+    public boolean updateUser(User user) {
+
+        String sql =
+                "UPDATE users " +
+                        "SET username = ?, email = ?, password_hash = ?" +
+                        "WHERE user_id = ?";
+
+        Connection conn = null;
+
+        try {
+
+            conn = DBUtils.getConnection();
+
+            PreparedStatement ps = conn.prepareStatement(sql);
+
+            ps.setString(1, user.getUsername());
+            ps.setString(2, user.getEmail());
+            ps.setString(3, user.getPasswordHash());
+            ps.setInt(4, user.getUserId());
+
+            return ps.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+
+            System.out.println("[UserDAO.updateUser] " + e.getMessage());
+
+        } finally {
+
+            DBUtils.closeConnection(conn);
+        }
+
+        return false;
+    }
+
+    public User getUserById(int userId) {
+
+        String sql = "SELECT * FROM users WHERE user_id = ?";
+
+        try (Connection conn = DBUtils.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, userId);
+
+            ResultSet rs = ps.executeQuery();
+
+            if (rs.next()) {
+                User user = new User();
+                user.setUserId(rs.getInt("user_id"));
+                user.setUsername(rs.getString("username"));
+                user.setEmail(rs.getString("email"));
+                user.setPasswordHash(rs.getString("password_hash"));
+                user.setRole(rs.getString("role"));
+                user.setTierId(rs.getInt("tier_id"));
+                user.setStatus(rs.getString("status"));
+                return user;
+            }
+
+        } catch (SQLException e) {
+            System.out.println("[UserDAO.getUserById] " + e.getMessage());
+        }
+
+        return null;
+    }
+
+    public boolean deleteUser(int userId) {
+
+        String sql =
+                "DELETE FROM users WHERE user_id = ?";
+
+        Connection conn = null;
+
+        try {
+
+            conn = DBUtils.getConnection();
+
+            PreparedStatement ps = conn.prepareStatement(sql);
+
+            ps.setInt(1, userId);
+
+            return ps.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+
+            System.out.println("[UserDAO.deleteUser] " + e.getMessage());
+
+        } finally {
+
+            DBUtils.closeConnection(conn);
+        }
+
+        return false;
+    }
 }
