@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project-private xmlns="http://www.netbeans.org/ns/project-private/1">
+    <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
+    <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
+        <group>
+            <file>file:/C:/Users/Admin/Desktop/AIStudyHub-main/AIStudyHub/src/java/Controller/DocumentController.java</file>
+            <file>file:/C:/Users/Admin/Desktop/AIStudyHub-main/AIStudyHub/web/document_edit.jsp</file>
+            <file>file:/C:/Users/Admin/Desktop/AIStudyHub-main/AIStudyHub/src/java/Model/User.java</file>
+            <file>file:/C:/Users/Admin/Desktop/AIStudyHub-main/AIStudyHub/src/java/Controller/AdminController.java</file>
+            <file>file:/C:/Users/Admin/Desktop/AIStudyHub-main/AIStudyHub/src/java/Model/UserDAO.java</file>
+            <file>file:/C:/Users/Admin/Desktop/AIStudyHub-main/AIStudyHub/web/user_dashboard.jsp</file>
+            <file>file:/C:/Users/Admin/Desktop/AIStudyHub-main/AIStudyHub/src/java/Model/Document.java</file>
+            <file>file:/C:/Users/Admin/Desktop/AIStudyHub-main/AIStudyHub/src/java/Utils/DBUtils.java</file>
+            <file>file:/C:/Users/Admin/Desktop/AIStudyHub-main/AIStudyHub/src/java/Controller/MainController.java</file>
+            <file>file:/C:/Users/Admin/Desktop/AIStudyHub-main/AIStudyHub/web/document_upload.jsp</file>
+            <file>file:/C:/Users/Admin/Desktop/AIStudyHub-main/AIStudyHub/src/java/Controller/UserController.java</file>
+            <file>file:/C:/Users/Admin/Desktop/AIStudyHub-main/AIStudyHub/src/java/Model/DocumentDAO.java</file>
+            <file>file:/C:/Users/Admin/Desktop/AIStudyHub-main/AIStudyHub/src/java/Controller/UploadController.java</file>
+            <file>file:/C:/Users/Admin/Desktop/AIStudyHub-main/AIStudyHub/src/java/Controller/AuthController.java</file>
+            <file>file:/C:/Users/Admin/Desktop/AIStudyHub-main/AIStudyHub/web/guest_dashboard.jsp</file>
+            <file>file:/C:/Users/Admin/Desktop/AIStudyHub-main/AIStudyHub/web/WEB-INF/web.xml</file>
+            <file>file:/C:/Users/Admin/Desktop/AIStudyHub-main/AIStudyHub/web/profile.jsp</file>
+            <file>file:/C:/Users/Admin/Desktop/AIStudyHub-main/AIStudyHub/web/index.jsp</file>
+            <file>file:/C:/Users/Admin/Desktop/AIStudyHub-main/AIStudyHub/web/login.jsp</file>
+        </group>
+    </open-files>
+</project-private>
