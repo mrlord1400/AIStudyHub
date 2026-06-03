@@ -243,4 +243,55 @@ public class DocumentDAO {
         }
         return list;
     }
+
+    // ─── FOLDER CASCADE DELETE SUPPORT ──────────────────────────────────────
+    /**
+     * Retrieves all documents belonging to a specific folder.
+     * Used before folder deletion to identify physical files that need cleanup.
+     *
+     * @param folderId the folder whose documents to retrieve
+     * @return list of Document objects in the folder
+     */
+    public java.util.List<Document> getDocumentsByFolderId(int folderId) {
+        java.util.List<Document> list = new java.util.ArrayList<>();
+        String sql = "SELECT * FROM documents WHERE folder_id = ?";
+
+        try (Connection conn = DBUtils.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, folderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapRow(rs));
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[DocumentDAO] getDocumentsByFolderId failed: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return list;
+    }
+
+    /**
+     * Deletes ALL document records that belong to a specific folder.
+     * Must be called BEFORE deleting the folder itself.
+     *
+     * @param folderId the folder whose documents should be deleted
+     * @return the number of documents deleted
+     */
+    public int deleteDocumentsByFolderId(int folderId) {
+        String sql = "DELETE FROM documents WHERE folder_id = ?";
+
+        try (Connection conn = DBUtils.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, folderId);
+            return ps.executeUpdate();
+
+        } catch (SQLException e) {
+            System.err.println("[DocumentDAO] deleteDocumentsByFolderId failed: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return 0;
+    }
 }

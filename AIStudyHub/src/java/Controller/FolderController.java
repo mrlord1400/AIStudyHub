@@ -1,5 +1,7 @@
 package Controller;
 
+import Model.Document;
+import Model.DocumentDAO;
 import Model.Folder;
 import Model.FolderDAO;
 import javax.servlet.ServletException;
@@ -8,8 +10,10 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @WebServlet(name = "FolderController", urlPatterns = {"/FolderController"})
 public class FolderController extends HttpServlet {
@@ -52,6 +56,46 @@ public class FolderController extends HttpServlet {
 
             } else if ("deleteFolder".equals(action)) {
                 int folderId = Integer.parseInt(request.getParameter("folderId"));
+                
+                // ── CASCADE DELETE: Remove all documents inside the folder first ──
+                DocumentDAO docDao = new DocumentDAO();
+                
+                // 1. Get all documents in this folder (to find physical files)
+                List<Document> docsInFolder = docDao.getDocumentsByFolderId(folderId);
+                
+                // 2. Delete physical files from server
+                for (Document doc : docsInFolder) {
+                    String cloudUrl = doc.getCloudStorageUrl();
+                    if (cloudUrl != null && !cloudUrl.trim().isEmpty()) {
+                        // Convert URL path back to physical file path
+                        // cloudUrl looks like: /contextPath/uploads/filename
+                        String relativePath = cloudUrl;
+                        // Remove the context path prefix to get the relative path
+                        String contextPath = request.getContextPath();
+                        if (relativePath.startsWith(contextPath)) {
+                            relativePath = relativePath.substring(contextPath.length());
+                        }
+                        // Remove leading slash
+                        if (relativePath.startsWith("/")) {
+                            relativePath = relativePath.substring(1);
+                        }
+                        
+                        String realPath = getServletContext().getRealPath("");
+                        if (realPath != null) {
+                            File physicalFile = new File(realPath + File.separator + relativePath.replace("/", File.separator));
+                            if (physicalFile.exists()) {
+                                boolean deleted = physicalFile.delete();
+                                System.out.println("[FolderController] Deleted physical file: " + physicalFile.getAbsolutePath() + " → " + deleted);
+                            }
+                        }
+                    }
+                }
+                
+                // 3. Delete all document records from DB
+                int deletedDocs = docDao.deleteDocumentsByFolderId(folderId);
+                System.out.println("[FolderController] Cascade deleted " + deletedDocs + " document(s) from folder " + folderId);
+                
+                // 4. Now delete the folder itself
                 boolean success = dao.deleteFolder(folderId, userId);
                 if (success) {
                     // Always redirect to root when deleting a folder
@@ -66,6 +110,7 @@ public class FolderController extends HttpServlet {
             System.err.println("[FolderController Error] " + e.getMessage());
             response.sendRedirect(redirectUrl + (redirectUrl.contains("?") ? "&" : "?") + "error=system_error");
         }
+
     }
 
     @Override
