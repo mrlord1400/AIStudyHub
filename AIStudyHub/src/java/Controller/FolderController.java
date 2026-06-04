@@ -20,9 +20,9 @@ public class FolderController extends HttpServlet {
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        
+
         request.setCharacterEncoding("UTF-8");
-        
+
         // 1. Security Check
         HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute("userId") == null) {
@@ -56,13 +56,13 @@ public class FolderController extends HttpServlet {
 
             } else if ("deleteFolder".equals(action)) {
                 int folderId = Integer.parseInt(request.getParameter("folderId"));
-                
+
                 // ── CASCADE DELETE: Remove all documents inside the folder first ──
                 DocumentDAO docDao = new DocumentDAO();
-                
+
                 // 1. Get all documents in this folder (to find physical files)
                 List<Document> docsInFolder = docDao.getDocumentsByFolderId(folderId);
-                
+
                 // 2. Delete physical files from server
                 for (Document doc : docsInFolder) {
                     String cloudUrl = doc.getCloudStorageUrl();
@@ -79,7 +79,7 @@ public class FolderController extends HttpServlet {
                         if (relativePath.startsWith("/")) {
                             relativePath = relativePath.substring(1);
                         }
-                        
+
                         String realPath = getServletContext().getRealPath("");
                         if (realPath != null) {
                             File physicalFile = new File(realPath + File.separator + relativePath.replace("/", File.separator));
@@ -88,24 +88,30 @@ public class FolderController extends HttpServlet {
                                 System.out.println("[FolderController] Deleted physical file: " + physicalFile.getAbsolutePath() + " → " + deleted);
                             }
                         }
+                        try {
+                            File physicalFile = new File(realPath + File.separator + relativePath.replace("/", File.separator));
+                            if (physicalFile.exists()) {
+                                boolean deleted = physicalFile.delete();
+                                System.out.println("Deleted physical file: " + deleted);
+                            }
+                        } catch (Exception fileEx) {
+                            System.err.println("Skipped file deletion due to OS lock: " + fileEx.getMessage());
+                        }
                     }
                 }
-                
-                // 3. Delete all document records from DB
-                int deletedDocs = docDao.deleteDocumentsByFolderId(folderId);
-                System.out.println("[FolderController] Cascade deleted " + deletedDocs + " document(s) from folder " + folderId);
-                
-                // 4. Now delete the folder itself
-                boolean success = dao.deleteFolder(folderId, userId);
+
+                // 3. Delete BOTH documents and folder from DB in a single transaction
+                boolean success = dao.deleteFolderAndDocuments(folderId, userId);
+
                 if (success) {
                     // Always redirect to root when deleting a folder
                     response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?folderSuccess=deleted");
                 } else {
                     response.sendRedirect(redirectUrl + (redirectUrl.contains("?") ? "&" : "?") + "error=delete_folder_failed");
                 }
-            } 
+            }
             // Note: You can easily add renameFolder here later following the same pattern!
-            
+
         } catch (Exception e) {
             System.err.println("[FolderController Error] " + e.getMessage());
             response.sendRedirect(redirectUrl + (redirectUrl.contains("?") ? "&" : "?") + "error=system_error");
