@@ -41,14 +41,43 @@ public class DocumentController extends HttpServlet {
                 }
 
             } else if ("deleteDoc".equals(action)) {
-                // Delete document and return to dashboard
                 int docId = Integer.parseInt(request.getParameter("docId"));
-                boolean deleted = dao.deleteDocument(docId);
-
-                if (deleted) {
-                    response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?deleteSuccess=1");
+                
+                // 1. Get document info BEFORE deleting (to find the physical file)
+                Document doc = dao.findById(docId);
+                
+                if (doc != null) {
+                    // 2. Delete physical file from server
+                    String cloudUrl = doc.getCloudStorageUrl();
+                    if (cloudUrl != null && !cloudUrl.trim().isEmpty()) {
+                        String relativePath = cloudUrl;
+                        String contextPath = request.getContextPath();
+                        if (relativePath.startsWith(contextPath)) {
+                            relativePath = relativePath.substring(contextPath.length());
+                        }
+                        if (relativePath.startsWith("/")) {
+                            relativePath = relativePath.substring(1);
+                        }
+                        
+                        String realPath = getServletContext().getRealPath("");
+                        if (realPath != null) {
+                            java.io.File physicalFile = new java.io.File(realPath + java.io.File.separator + relativePath.replace("/", java.io.File.separator));
+                            if (physicalFile.exists()) {
+                                boolean fileDeleted = physicalFile.delete();
+                                System.out.println("[DocumentController] Deleted physical file: " + physicalFile.getAbsolutePath() + " → " + fileDeleted);
+                            }
+                        }
+                    }
+                    
+                    // 3. Delete DB record
+                    boolean deleted = dao.deleteDocument(docId);
+                    if (deleted) {
+                        response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?deleteSuccess=1");
+                    } else {
+                        response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=delete_failed");
+                    }
                 } else {
-                    response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=delete_failed");
+                    response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=not_found");
                 }
             } else if ("updateDoc".equals(action)) {
                 int docId = Integer.parseInt(request.getParameter("docId"));

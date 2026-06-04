@@ -22,6 +22,12 @@
     String pendingTitle = (String) userSession.getAttribute("pendingDocumentTitle");
     String errorMessage = (String) request.getAttribute("errorMessage");
     String cancelledParam = request.getParameter("cancelled");
+    String stepParam = request.getParameter("step");
+
+    // 3b. Fetch Duplicate Conflict Data (if redirected from handleConfirm)
+    String conflictTitle = (String) userSession.getAttribute("conflictTitle");
+    Integer conflictFolderId = (Integer) userSession.getAttribute("conflictFolderId");
+    Integer duplicateDocId = (Integer) userSession.getAttribute("duplicateDocId");
 
     // 4. Fetch User's Folders for the dropdown
     FolderDAO folderDao = new FolderDAO();
@@ -142,6 +148,62 @@
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 <span>Tài liệu đã được xoá thành công. Bạn có thể quay lại trang Dashboard để tải lên tài liệu mới.</span>
             </div>
+        <% } else if ("duplicate".equals(stepParam) && conflictTitle != null && pendingDocId != null) { %>
+            <!-- ── DUPLICATE CONFLICT UI ────────────────────────────────── -->
+            <div class="form-card">
+                
+                <div class="mb-6 pb-6 border-b border-gray-100 flex items-start space-x-4">
+                    <div class="p-3 bg-amber-50 rounded-xl text-amber-600">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-bold text-gray-900">Phát hiện tài liệu trùng tên</h2>
+                        <p class="text-sm text-gray-500 mt-1">
+                            Đã có <strong class="text-amber-700">"<%= conflictTitle.replace("<", "&lt;").replace(">", "&gt;") %>"</strong> ở vị trí hiện tại. Vui lòng chọn một trong hai cách xử lý bên dưới.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <!-- Option 1: Replace -->
+                    <form action="<%= request.getContextPath() %>/UploadController" method="POST">
+                        <input type="hidden" name="action" value="replace" />
+                        <button type="submit" class="w-full flex items-center space-x-4 p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-red-400 hover:bg-red-50 transition-all group cursor-pointer">
+                            <div class="p-2.5 bg-red-50 rounded-lg text-red-500 group-hover:bg-red-100 transition-colors flex-shrink-0">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            </div>
+                            <div class="text-left">
+                                <p class="font-semibold text-gray-900 text-sm">Thay thế file cũ</p>
+                                <p class="text-xs text-gray-500 mt-0.5">Xóa tài liệu cũ và giữ lại tài liệu mới vừa tải lên</p>
+                            </div>
+                        </button>
+                    </form>
+
+                    <!-- Option 2: Keep Both -->
+                    <form action="<%= request.getContextPath() %>/UploadController" method="POST">
+                        <input type="hidden" name="action" value="keepBoth" />
+                        <button type="submit" class="w-full flex items-center space-x-4 p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-indigo-400 hover:bg-indigo-50 transition-all group cursor-pointer">
+                            <div class="p-2.5 bg-indigo-50 rounded-lg text-indigo-500 group-hover:bg-indigo-100 transition-colors flex-shrink-0">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                            </div>
+                            <div class="text-left">
+                                <p class="font-semibold text-gray-900 text-sm">Giữ lại cả hai</p>
+                                <p class="text-xs text-gray-500 mt-0.5">Tài liệu mới sẽ được đổi tên thành "<%= conflictTitle.replace("<", "&lt;").replace(">", "&gt;") %> (1)"</p>
+                            </div>
+                        </button>
+                    </form>
+                </div>
+
+                <div class="mt-6 pt-4 border-t border-gray-100">
+                    <form action="<%= request.getContextPath() %>/UploadController" method="POST">
+                        <input type="hidden" name="action" value="cancel" />
+                        <button type="submit" class="text-sm font-medium text-gray-400 hover:text-red-500 transition-colors">
+                            Huỷ tải lên
+                        </button>
+                    </form>
+                </div>
+            </div>
+
         <% } else if (pendingDocId != null) { %>
             
             <div class="form-card">
