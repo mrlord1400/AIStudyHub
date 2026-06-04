@@ -119,7 +119,7 @@ public class AuthController extends HttpServlet {
 
             response.sendRedirect(
                     request.getContextPath()
-                            + "/register.jsp?error=register_failed");
+                            + "/login.jsp?error=register_failed");
         }
     }
 
