@@ -45,6 +45,7 @@ CREATE TABLE users (
     password_hash NVARCHAR(255) NULL,   
     role NVARCHAR(10) DEFAULT 'STUDENT' CHECK (role IN ('GUEST', 'STUDENT', 'ADMIN')), 
     tier_id INT DEFAULT 1, 
+    balance INT DEFAULT 0, 
     status NVARCHAR(10) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'SUSPENDED', 'BANNED')),
     expires_at DATETIME2 NULL,     
     created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
