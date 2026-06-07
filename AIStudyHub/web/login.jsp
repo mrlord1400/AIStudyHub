@@ -80,6 +80,17 @@
                     <%-- Hidden Inputs for Controller Routing --%>
                     <input type="hidden" name="action" id="form-action" value="login">
 
+                    <%-- Username Input (Hidden by default in Login mode) --%>
+                    <div id="username-block" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tên người dùng (Username)</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                            </span>
+                            <input type="text" name="username" id="input-username" placeholder="Nhập tên đăng nhập" class="w-full pl-10 pr-4 py-3 bg-[#f3f3f5] border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-sm">
+                        </div>
+                    </div>
+
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
                         <div class="relative">
@@ -181,14 +192,15 @@
     <script>
         let currentActiveMode = "login"; 
 
-        const emailInput = document.getElementById('input-email');
-        const hiddenEmailInput = document.getElementById('hidden-email');
         const actionInput = document.getElementById('form-action');
-        const formElement = document.getElementById('auth-form');
         const submitBtn = document.getElementById('main-submit-btn');
         const subtitle = document.getElementById('form-subtitle');
         const rememberRow = document.getElementById('remember-row');
         const socialBlock = document.getElementById('social-login-block');
+        
+        // Các DOM element mới cho Username
+        const usernameBlock = document.getElementById('username-block');
+        const usernameInput = document.getElementById('input-username');
 
         // Handles UI tab switching and hidden action parameter updates
         function switchTab(mode) {
@@ -207,6 +219,11 @@
                 
                 rememberRow.classList.remove('hidden');
                 socialBlock.classList.remove('hidden');
+                
+                // Ẩn field Username và loại bỏ thuộc tính bắt buộc nhập
+                usernameBlock.classList.add('hidden');
+                usernameInput.removeAttribute('required');
+                
             } else {
                 tabLogin.className = "flex-1 py-2.5 text-sm font-medium rounded-lg text-gray-500 hover:text-gray-900 transition-all";
                 tabRegister.className = "flex-1 py-2.5 text-sm font-semibold rounded-lg bg-white text-gray-900 shadow-sm transition-all";
@@ -216,23 +233,17 @@
                 
                 rememberRow.classList.add('hidden');
                 socialBlock.classList.add('hidden');
+                
+                // Hiển thị field Username và thêm thuộc tính bắt buộc nhập
+                usernameBlock.classList.remove('hidden');
+                usernameInput.setAttribute('required', 'required');
             }
         }
 
-        // Intercept form submission strictly to map the email to the hidden input for Registration
-        formElement.addEventListener('submit', function(event) {
-            if (currentActiveMode === "register") {
-                // AuthController expects BOTH username and email for registration. 
-                // Since UI only has 1 input, we supply the email value to both.
-                hiddenEmailInput.value = emailInput.value.trim();
-            }
-        });
-
-        // Guest login redirect (Triggers MainController routing if you have a Guest setup later)
+        // Guest login redirect
         const guestButtonElement = document.getElementById('btn-guest');
         if (guestButtonElement) {
             guestButtonElement.addEventListener('click', function() {
-                // Adjust this URL to wherever your guest routing goes, e.g. MainController?action=guest
                 window.location.href = "MainController?action=guest"; 
             });
         }
