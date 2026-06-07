@@ -10,6 +10,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import Utils.PasswordUtil;
 
 public class UserDAO {
 
@@ -30,9 +31,9 @@ public class UserDAO {
             ps.setString(2, user.getEmail());
             ps.setString(3, user.getPasswordHash());
 
-            ps.setString(4, "STUDENT");
-            ps.setInt(5, 1);
-            ps.setString(6, "ACTIVE");
+            ps.setString(4, user.getRole());
+            ps.setInt(5, user.getTierId());
+            ps.setString(6, user.getStatus());
 
             return ps.executeUpdate() > 0;
 
@@ -213,8 +214,10 @@ public class UserDAO {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     String dbPasswordHash = rs.getString("password_hash");
-                    
-                    return dbPasswordHash != null && dbPasswordHash.equals(currentPassword);
+
+                    return PasswordUtil.verifyPassword(
+                            currentPassword,
+                            dbPasswordHash);
                 }
             }
 
@@ -223,5 +226,55 @@ public class UserDAO {
         }
 
         return false;
+    }
+
+    public User getUserByEmail(String email) {
+
+        String sql =
+                "SELECT * FROM users WHERE email = ?";
+
+        try(Connection conn =
+                    DBUtils.getConnection();
+            PreparedStatement ps =
+                    conn.prepareStatement(sql)) {
+
+            ps.setString(1, email);
+
+            ResultSet rs =
+                    ps.executeQuery();
+
+            if(rs.next()) {
+
+                User user = new User();
+
+                user.setUserId(
+                        rs.getInt("user_id"));
+
+                user.setUsername(
+                        rs.getString("username"));
+
+                user.setEmail(
+                        rs.getString("email"));
+
+                user.setPasswordHash(
+                        rs.getString("password_hash"));
+
+                user.setRole(
+                        rs.getString("role"));
+
+                user.setTierId(
+                        rs.getInt("tier_id"));
+
+                user.setStatus(
+                        rs.getString("status"));
+
+                return user;
+            }
+
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
+
+        return null;
     }
 }
