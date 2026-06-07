@@ -87,8 +87,13 @@ public class AuthController extends HttpServlet {
             throws IOException {
 
         String email = request.getParameter("email");
-        String username = email;
+        String username = request.getParameter("username");
         String password = request.getParameter("password");
+
+        // Nếu frontend không gửi username thì dùng email
+        if (username == null || username.trim().isEmpty()) {
+            username = email;
+        }
 
         User user = new User();
 
@@ -148,6 +153,8 @@ public class AuthController extends HttpServlet {
             session.setAttribute("userId", user.getUserId());
             session.setAttribute("username", user.getUsername());
             session.setAttribute("role", user.getRole());
+            session.setAttribute("balance", user.getBalance());
+            session.setAttribute("tierId", user.getTierId());
 
             if ("ADMIN".equalsIgnoreCase(user.getRole())) {
 

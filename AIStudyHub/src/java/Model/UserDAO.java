@@ -85,6 +85,8 @@ public class UserDAO {
                 Timestamp updatedTs = rs.getTimestamp("updated_at");
                 if (updatedTs != null) user.setUpdatedAt(updatedTs.toLocalDateTime());
 
+                user.setBalance(rs.getDouble("balance"));
+
                 return user;
             }
 
@@ -162,6 +164,8 @@ public class UserDAO {
                 Timestamp updatedTs = rs.getTimestamp("updated_at");
                 if (updatedTs != null) user.setUpdatedAt(updatedTs.toLocalDateTime());
                 
+                user.setBalance(rs.getDouble("balance"));
+                
                 return user;
             }
 
@@ -220,6 +224,35 @@ public class UserDAO {
 
         } catch (SQLException e) {
             System.out.println("[UserDAO.checkPassword] " + e.getMessage());
+        }
+
+        return false;
+    }
+
+    /**
+     * Cập nhật balance cho user.
+     * amount > 0 → cộng tiền, amount < 0 → trừ tiền.
+     */
+    public boolean updateBalance(int userId, double amount) {
+
+        String sql = "UPDATE users SET balance = balance + ? WHERE user_id = ?";
+
+        Connection conn = null;
+
+        try {
+            conn = DBUtils.getConnection();
+
+            PreparedStatement ps = conn.prepareStatement(sql);
+
+            ps.setDouble(1, amount);
+            ps.setInt(2, userId);
+
+            return ps.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+            System.out.println("[UserDAO.updateBalance] " + e.getMessage());
+        } finally {
+            DBUtils.closeConnection(conn);
         }
 
         return false;

@@ -41,8 +41,13 @@ public class DocumentController extends HttpServlet {
                 }
 
             } else if ("deleteDoc".equals(action)) {
+<<<<<<< Updated upstream
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 
+=======
+                
+                int docId = Integer.parseInt(request.getParameter("docId"));
+>>>>>>> Stashed changes
                 // 1. Get document info BEFORE deleting (to find the physical file)
                 Document doc = dao.findById(docId);
                 
@@ -76,7 +81,11 @@ public class DocumentController extends HttpServlet {
                     } else {
                         response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=delete_failed");
                     }
+<<<<<<< Updated upstream
                 } else {
+=======
+                }else{
+>>>>>>> Stashed changes
                     response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=not_found");
                 }
             } else if ("updateDoc".equals(action)) {
