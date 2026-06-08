@@ -294,4 +294,87 @@ public class DocumentDAO {
         }
         return 0;
     }
+
+    // ─── DUPLICATE CHECK SUPPORT ────────────────────────────────────────────
+    /**
+     * Checks if a document with the same title already exists at the same location
+     * (same user, same folder). Used during upload confirmation to detect duplicates.
+     *
+     * @param userId   the owner of the document
+     * @param title    the title to check for duplicates
+     * @param folderId the folder to check in (null = root directory)
+     * @return the existing Document if a duplicate is found, null otherwise
+     */
+    public Document findDuplicateByTitle(int userId, String title, Integer folderId) {
+        String sql;
+        if (folderId == null) {
+            sql = "SELECT * FROM documents WHERE user_id = ? AND title = ? AND folder_id IS NULL";
+        } else {
+            sql = "SELECT * FROM documents WHERE user_id = ? AND title = ? AND folder_id = ?";
+        }
+
+        try (Connection conn = DBUtils.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, userId);
+            ps.setString(2, title);
+            if (folderId != null) {
+                ps.setInt(3, folderId);
+            }
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapRow(rs);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[DocumentDAO] findDuplicateByTitle failed: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    /**
+     * Checks if a title already exists at a location, excluding a specific document.
+     * Used when auto-generating names like "file (1)", "file (2)" to find the next
+     * available number.
+     *
+     * @param userId      the owner
+     * @param title       the title to check
+     * @param folderId    the folder (null = root)
+     * @param excludeDocId document ID to exclude from the check (the new upload itself)
+     * @return true if a document with this title exists at this location
+     */
+    public boolean titleExistsAtLocation(int userId, String title, Integer folderId, int excludeDocId) {
+        String sql;
+        if (folderId == null) {
+            sql = "SELECT COUNT(*) FROM documents WHERE user_id = ? AND title = ? AND folder_id IS NULL AND document_id != ?";
+        } else {
+            sql = "SELECT COUNT(*) FROM documents WHERE user_id = ? AND title = ? AND folder_id = ? AND document_id != ?";
+        }
+
+        try (Connection conn = DBUtils.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, userId);
+            ps.setString(2, title);
+            if (folderId == null) {
+                ps.setInt(3, excludeDocId);
+            } else {
+                ps.setInt(3, folderId);
+                ps.setInt(4, excludeDocId);
+            }
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[DocumentDAO] titleExistsAtLocation failed: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return false;
+    }
 }
+

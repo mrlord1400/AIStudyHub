@@ -66,6 +66,10 @@ public class UploadController extends HttpServlet {
             handleConfirm(request, response);
         } else if ("cancel".equals(action)) {
             handleCancel(request, response);
+        } else if ("replace".equals(action)) {
+            handleReplace(request, response);
+        } else if ("keepBoth".equals(action)) {
+            handleKeepBoth(request, response);
         } else {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid action.");
         }
@@ -170,6 +174,7 @@ public class UploadController extends HttpServlet {
 
     // ─────────────────────────────────────────────────────────────────────────
     // STEP 2 — User confirms / edits document info → update DB
+    //          NOW WITH DUPLICATE CHECK!
     // ─────────────────────────────────────────────────────────────────────────
     private void handleConfirm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -182,6 +187,8 @@ public class UploadController extends HttpServlet {
             response.sendRedirect(request.getContextPath() + "/document_upload.jsp?error=session_expired");
             return;
         }
+
+        int userId = (int) session.getAttribute("userId");
 
         // Read user-submitted data
         String newTitle = request.getParameter("title");
@@ -205,8 +212,24 @@ public class UploadController extends HttpServlet {
             }
         }
 
-        // Update DB
+        // ── DUPLICATE CHECK ──────────────────────────────────────────────────
         DocumentDAO dao = new DocumentDAO();
+        Document duplicate = dao.findDuplicateByTitle(userId, newTitle, newFolderId);
+
+        // Make sure we're not detecting the document itself as a duplicate
+        if (duplicate != null && duplicate.getDocumentId() != documentId) {
+            // Duplicate found! Save conflict info to session and redirect to conflict page
+            session.setAttribute("conflictTitle", newTitle);
+            session.setAttribute("conflictFolderId", newFolderId);
+            session.setAttribute("conflictSharingPermission", sharingPermission);
+            session.setAttribute("duplicateDocId", duplicate.getDocumentId());
+
+            response.sendRedirect(request.getContextPath() + "/document_upload.jsp?step=duplicate");
+            return;
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
+        // No duplicate → proceed normally
         boolean updated = dao.updateDocumentInfo(documentId, newTitle, newFolderId, sharingPermission);
 
         // Clean up session
@@ -222,6 +245,123 @@ public class UploadController extends HttpServlet {
         } else {
             request.setAttribute("errorMessage", "Failed to update document info. Please try again.");
             request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // DUPLICATE OPTION 1 — Replace: Delete old file, keep new file with same name
+    // ─────────────────────────────────────────────────────────────────────────
+    private void handleReplace(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            response.sendRedirect(request.getContextPath() + "/document_upload.jsp?error=session_expired");
+            return;
+        }
+
+        Integer pendingDocId = (Integer) session.getAttribute("pendingDocumentId");
+        Integer duplicateDocId = (Integer) session.getAttribute("duplicateDocId");
+        String conflictTitle = (String) session.getAttribute("conflictTitle");
+        Integer conflictFolderId = (Integer) session.getAttribute("conflictFolderId");
+        String conflictSharingPermission = (String) session.getAttribute("conflictSharingPermission");
+
+        if (pendingDocId == null || duplicateDocId == null || conflictTitle == null) {
+            response.sendRedirect(request.getContextPath() + "/document_upload.jsp?error=session_expired");
+            return;
+        }
+
+        DocumentDAO dao = new DocumentDAO();
+
+        // 1. Get the old document to find its physical file
+        Document oldDoc = dao.findById(duplicateDocId);
+        if (oldDoc != null) {
+            // Delete physical file of the old document
+            String cloudUrl = oldDoc.getCloudStorageUrl();
+            if (cloudUrl != null && !cloudUrl.trim().isEmpty()) {
+                String relativePath = cloudUrl;
+                String contextPath = request.getContextPath();
+                if (relativePath.startsWith(contextPath)) {
+                    relativePath = relativePath.substring(contextPath.length());
+                }
+                if (relativePath.startsWith("/")) {
+                    relativePath = relativePath.substring(1);
+                }
+
+                String realPath = getServletContext().getRealPath("");
+                if (realPath != null) {
+                    File physicalFile = new File(realPath + File.separator + relativePath.replace("/", File.separator));
+                    if (physicalFile.exists()) {
+                        boolean deleted = physicalFile.delete();
+                        System.out.println("[UploadController] Replaced old physical file: " + physicalFile.getAbsolutePath() + " → " + deleted);
+                    }
+                }
+            }
+
+            // Delete old document from DB
+            dao.deleteDocument(duplicateDocId);
+        }
+
+        // 2. Update the new document with the confirmed title and folder
+        boolean updated = dao.updateDocumentInfo(pendingDocId, conflictTitle, conflictFolderId, conflictSharingPermission);
+
+        // 3. Clean up session
+        clearPendingSession(session);
+        clearDuplicateSession(session);
+
+        if (updated) {
+            if (conflictFolderId != null) {
+                response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?folderId=" + conflictFolderId + "&uploadSuccess=replaced");
+            } else {
+                response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?uploadSuccess=replaced");
+            }
+        } else {
+            response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=replace_failed");
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // DUPLICATE OPTION 2 — Keep Both: Rename new file with auto-increment (1), (2)...
+    // ─────────────────────────────────────────────────────────────────────────
+    private void handleKeepBoth(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            response.sendRedirect(request.getContextPath() + "/document_upload.jsp?error=session_expired");
+            return;
+        }
+
+        Integer pendingDocId = (Integer) session.getAttribute("pendingDocumentId");
+        String conflictTitle = (String) session.getAttribute("conflictTitle");
+        Integer conflictFolderId = (Integer) session.getAttribute("conflictFolderId");
+        String conflictSharingPermission = (String) session.getAttribute("conflictSharingPermission");
+        int userId = (int) session.getAttribute("userId");
+
+        if (pendingDocId == null || conflictTitle == null) {
+            response.sendRedirect(request.getContextPath() + "/document_upload.jsp?error=session_expired");
+            return;
+        }
+
+        // Generate a unique title: "file (1)", "file (2)", etc.
+        DocumentDAO dao = new DocumentDAO();
+        String uniqueTitle = generateUniqueTitle(dao, userId, conflictTitle, conflictFolderId, pendingDocId);
+
+        // Update the new document with the unique title
+        boolean updated = dao.updateDocumentInfo(pendingDocId, uniqueTitle, conflictFolderId, conflictSharingPermission);
+
+        // Clean up session
+        clearPendingSession(session);
+        clearDuplicateSession(session);
+
+        if (updated) {
+            if (conflictFolderId != null) {
+                response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?folderId=" + conflictFolderId + "&uploadSuccess=kept_both");
+            } else {
+                response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?uploadSuccess=kept_both");
+            }
+        } else {
+            response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=keep_both_failed");
         }
     }
 
@@ -259,6 +399,7 @@ public class UploadController extends HttpServlet {
 
         // 3. Clean up session
         clearPendingSession(session);
+        clearDuplicateSession(session);
 
         // Quay lại trang upload với thông báo đã huỷ
         response.sendRedirect(request.getContextPath() + "/document_upload.jsp?cancelled=1");
@@ -306,5 +447,30 @@ public class UploadController extends HttpServlet {
         session.removeAttribute("pendingDocumentId");
         session.removeAttribute("pendingDocumentPath");
         session.removeAttribute("pendingDocumentTitle");
+    }
+
+    /**
+     * Remove duplicate-conflict-related attributes from the session.
+     */
+    private void clearDuplicateSession(HttpSession session) {
+        session.removeAttribute("conflictTitle");
+        session.removeAttribute("conflictFolderId");
+        session.removeAttribute("conflictSharingPermission");
+        session.removeAttribute("duplicateDocId");
+    }
+
+    /**
+     * Generates a unique title by appending (1), (2), (3)... until no conflict is found.
+     * Example: "Bài giảng" → "Bài giảng (1)" → "Bài giảng (2)"
+     */
+    private String generateUniqueTitle(DocumentDAO dao, int userId, String baseTitle, Integer folderId, int excludeDocId) {
+        int counter = 1;
+        String candidate;
+        do {
+            candidate = baseTitle + " (" + counter + ")";
+            counter++;
+        } while (dao.titleExistsAtLocation(userId, candidate, folderId, excludeDocId));
+
+        return candidate;
     }
 }
