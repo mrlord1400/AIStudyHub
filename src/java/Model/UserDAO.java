@@ -16,9 +16,9 @@ public class UserDAO {
 
     public boolean register(User user) {
 
-        String sql =
-                "INSERT INTO users(username,email,password_hash,role,tier_id,status) " +
-                        "VALUES(?,?,?,?,?,?)";
+        String sql
+                = "INSERT INTO users(username,email,password_hash,role,tier_id,status) "
+                + "VALUES(?,?,?,?,?,?)";
 
         Connection conn = null;
 
@@ -48,45 +48,56 @@ public class UserDAO {
 
     public User login(String email, String password) {
 
-        String sql =
-                "SELECT * FROM users " +
-                        "WHERE email = ? AND password_hash = ?";
-
+        // ONLY query by email. Do not include password in the WHERE clause!
+        String sql = "SELECT * FROM users WHERE email = ?";
         Connection conn = null;
 
         try {
             conn = DBUtils.getConnection();
-
             PreparedStatement ps = conn.prepareStatement(sql);
-
             ps.setString(1, email);
-            ps.setString(2, password);
 
             ResultSet rs = ps.executeQuery();
 
             if (rs.next()) {
+                // Get the hash stored in the database
+                String dbPasswordHash = rs.getString("password_hash");
 
-                User user = new User();
+                // Verify the plain text password against the DB hash
+                // Note: I am assuming verifyPassword exists based on your checkPassword method!
+                // If it doesn't, use: org.mindrot.jbcrypt.BCrypt.checkpw(password, dbPasswordHash)
+                if (PasswordUtil.verifyPassword(password, dbPasswordHash)) {
 
-                user.setUserId(rs.getInt("user_id"));
-                user.setUsername(rs.getString("username"));
-                user.setEmail(rs.getString("email"));
-                user.setPasswordHash(rs.getString("password_hash"));
-                user.setRole(rs.getString("role"));
-                user.setTierId(rs.getInt("tier_id"));
-                user.setStatus(rs.getString("status"));
+                    User user = new User();
+                    user.setUserId(rs.getInt("user_id"));
+                    user.setUsername(rs.getString("username"));
+                    user.setEmail(rs.getString("email"));
+                    user.setPasswordHash(dbPasswordHash);
+                    user.setRole(rs.getString("role"));
+                    user.setTierId(rs.getInt("tier_id"));
+                    user.setStatus(rs.getString("status"));
 
-                // Backwards-compatible DATETIME2 parsing
-                Timestamp expiresTs = rs.getTimestamp("expires_at");
-                if (expiresTs != null) user.setExpiresAt(expiresTs.toLocalDateTime());
+                    // Backwards-compatible DATETIME2 parsing
+                    Timestamp expiresTs = rs.getTimestamp("expires_at");
+                    if (expiresTs != null) {
+                        user.setExpiresAt(expiresTs.toLocalDateTime());
+                    }
 
-                Timestamp createdTs = rs.getTimestamp("created_at");
-                if (createdTs != null) user.setCreatedAt(createdTs.toLocalDateTime());
+                    Timestamp createdTs = rs.getTimestamp("created_at");
+                    if (createdTs != null) {
+                        user.setCreatedAt(createdTs.toLocalDateTime());
+                    }
 
-                Timestamp updatedTs = rs.getTimestamp("updated_at");
-                if (updatedTs != null) user.setUpdatedAt(updatedTs.toLocalDateTime());
+                    Timestamp updatedTs = rs.getTimestamp("updated_at");
+                    if (updatedTs != null) {
+                        user.setUpdatedAt(updatedTs.toLocalDateTime());
+                    }
 
-                return user;
+                    return user; // Successful login
+                } else {
+                    System.out.println("[UserDAO.login] Invalid password for email: " + email);
+                    return null; // Passwords did not match
+                }
             }
 
         } catch (SQLException e) {
@@ -95,15 +106,15 @@ public class UserDAO {
             DBUtils.closeConnection(conn);
         }
 
-        return null;
+        return null; // User not found or error occurred
     }
 
     public boolean updateUser(User user) {
 
-        String sql =
-                "UPDATE users " +
-                        "SET username = ?, email = ?, password_hash = ? " +
-                        "WHERE user_id = ?";
+        String sql
+                = "UPDATE users "
+                + "SET username = ?, email = ?, password_hash = ? "
+                + "WHERE user_id = ?";
 
         Connection conn = null;
 
@@ -136,8 +147,7 @@ public class UserDAO {
 
         String sql = "SELECT * FROM users WHERE user_id = ?";
 
-        try (Connection conn = DBUtils.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, userId);
 
@@ -155,13 +165,19 @@ public class UserDAO {
 
                 // Backwards-compatible DATETIME2 parsing
                 Timestamp expiresTs = rs.getTimestamp("expires_at");
-                if (expiresTs != null) user.setExpiresAt(expiresTs.toLocalDateTime());
+                if (expiresTs != null) {
+                    user.setExpiresAt(expiresTs.toLocalDateTime());
+                }
 
                 Timestamp createdTs = rs.getTimestamp("created_at");
-                if (createdTs != null) user.setCreatedAt(createdTs.toLocalDateTime());
+                if (createdTs != null) {
+                    user.setCreatedAt(createdTs.toLocalDateTime());
+                }
 
                 Timestamp updatedTs = rs.getTimestamp("updated_at");
-                if (updatedTs != null) user.setUpdatedAt(updatedTs.toLocalDateTime());
+                if (updatedTs != null) {
+                    user.setUpdatedAt(updatedTs.toLocalDateTime());
+                }
 
                 return user;
             }
@@ -175,8 +191,8 @@ public class UserDAO {
 
     public boolean deleteUser(int userId) {
 
-        String sql =
-                "DELETE FROM users WHERE user_id = ?";
+        String sql
+                = "DELETE FROM users WHERE user_id = ?";
 
         Connection conn = null;
 
@@ -206,12 +222,11 @@ public class UserDAO {
 
         String sql = "SELECT password_hash FROM users WHERE user_id = ?";
 
-        try (Connection conn = DBUtils.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, userId);
 
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     String dbPasswordHash = rs.getString("password_hash");
 
@@ -230,20 +245,19 @@ public class UserDAO {
 
     public User getUserByEmail(String email) {
 
-        String sql =
-                "SELECT * FROM users WHERE email = ?";
+        String sql
+                = "SELECT * FROM users WHERE email = ?";
 
-        try(Connection conn =
-                    DBUtils.getConnection();
-            PreparedStatement ps =
-                    conn.prepareStatement(sql)) {
+        try ( Connection conn
+                = DBUtils.getConnection();  PreparedStatement ps
+                = conn.prepareStatement(sql)) {
 
             ps.setString(1, email);
 
-            ResultSet rs =
-                    ps.executeQuery();
+            ResultSet rs
+                    = ps.executeQuery();
 
-            if(rs.next()) {
+            if (rs.next()) {
 
                 User user = new User();
 
@@ -271,10 +285,54 @@ public class UserDAO {
                 return user;
             }
 
-        } catch(Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
         return null;
+    }
+
+    public void updateBalance(int userId, double amount) {
+
+    }
+    
+    //Insert Test Users into database
+    public boolean seedTestUsers() {
+        String sql = "INSERT INTO users(username, email, password_hash, role, tier_id, status) VALUES(?,?,?,?,?,?)";
+        Connection conn = null;
+
+        try {
+            conn = DBUtils.getConnection();
+            PreparedStatement ps = conn.prepareStatement(sql);
+
+            // --- Insert User 1: Student ---
+            ps.setString(1, "student_user");
+            ps.setString(2, "user@gmail.com");
+            ps.setString(3, PasswordUtil.hashPassword("123")); // Hashing via Java
+            ps.setString(4, "STUDENT");
+            ps.setInt(5, 1); // Assuming 1 is the default Free/Guest tier
+            ps.setString(6, "ACTIVE");
+            ps.addBatch();
+
+            // --- Insert User 2: Admin ---
+            ps.setString(1, "admin_user");
+            ps.setString(2, "admin@gmail.com");
+            ps.setString(3, PasswordUtil.hashPassword("123")); // Hashing via Java
+            ps.setString(4, "ADMIN");
+            ps.setInt(5, 3); // Assuming 3 is a higher tier
+            ps.setString(6, "ACTIVE");
+            ps.addBatch();
+
+            // Execute both inserts
+            int[] results = ps.executeBatch();
+            return results.length == 2;
+
+        } catch (SQLException e) {
+            System.out.println("[UserDAO.seedTestUsers] " + e.getMessage());
+        } finally {
+            DBUtils.closeConnection(conn);
+        }
+
+        return false;
     }
 }
