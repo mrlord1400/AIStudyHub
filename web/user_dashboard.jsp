@@ -24,8 +24,8 @@
     }
 
     // Khởi tạo số dư ví Coin
-    int userBalance = (Integer) userSession.getAttribute("balance");
-    if (userBalance < 0) {
+    Integer userBalance = (Integer) userSession.getAttribute("balance");
+    if (userBalance == null) {
         userBalance = 0;
     }
 
