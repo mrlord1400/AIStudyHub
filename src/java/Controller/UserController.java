@@ -2,6 +2,7 @@ package Controller;
 
 import Model.User;
 import Model.UserDAO;
+import Utils.PasswordUtil;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -15,9 +16,9 @@ public class UserController extends HttpServlet {
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        
+
         request.setCharacterEncoding("UTF-8");
-        
+
         HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute("userId") == null) {
             response.sendRedirect(request.getContextPath() + "/login.jsp");
@@ -53,10 +54,13 @@ public class UserController extends HttpServlet {
 
                 User existingUser = dao.getUserById(userId);
                 String finalPasswordHash = existingUser.getPasswordHash();
-                
+
                 // If the user typed a new password, update it. Otherwise, keep the old one.
                 if (newPassword != null && !newPassword.trim().isEmpty()) {
-                    finalPasswordHash = newPassword; 
+                    finalPasswordHash =
+                            PasswordUtil.hashPassword(
+                                    newPassword
+                            );
                 }
 
                 User userToUpdate = new User();
