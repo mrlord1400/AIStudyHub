@@ -234,7 +234,7 @@
                 <div class="brand-container">
                     <div class="brand-logo">
                         <!-- LOGO 1: Vương miện 3 răng tròn - sidebar brand -->
-                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="20" viewBox="0 0 44 38" fill="none">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"></path><path d="M6 18.8V13.5"></path><path d="M18 13.5v5.3a2.1 2.1 0 0 1-2 2h-8a2.1 2.1 0 0 1-2-2v-5.3"></path></svg>
                         <path d="M4 32 L4 14 L13 22 L22 6 L31 22 L40 14 L40 32 Z" fill="#F59E0B"/>
                         <rect x="4" y="32" width="36" height="5" rx="2.5" fill="#D97706"/>
                         <circle cx="4" cy="14" r="3.5" fill="#FBBF24"/>
