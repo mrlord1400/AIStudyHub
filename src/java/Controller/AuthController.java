@@ -12,6 +12,9 @@ import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.*;
 import Utils.PasswordUtil;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @WebServlet(name = "AuthController", urlPatterns = {"/AuthController"})
 public class AuthController extends HttpServlet {
@@ -150,9 +153,10 @@ public class AuthController extends HttpServlet {
             session.setAttribute("userId", user.getUserId());
             session.setAttribute("username", user.getUsername());
             session.setAttribute("role", user.getRole());
+            session.setAttribute("tierId", user.getTierId());
+            session.setAttribute("balance", user.getBalance());
 
-            if ("ADMIN".equalsIgnoreCase(user.getRole())) {
-
+            if ("ADMIN".equalsIgnoreCase(user.getRole())) {              
                 response.sendRedirect(
                         request.getContextPath()
                                 + "/admin_dashboard.jsp");

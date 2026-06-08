@@ -113,7 +113,7 @@ public class UserDAO {
 
         String sql
                 = "UPDATE users "
-                + "SET username = ?, email = ?, password_hash = ? "
+                + "SET username = ?, email = ?, role = ?, status = ?, balance = ?, tier_id = ? "
                 + "WHERE user_id = ?";
 
         Connection conn = null;
@@ -124,10 +124,18 @@ public class UserDAO {
 
             PreparedStatement ps = conn.prepareStatement(sql);
 
+            // Set the original fields
             ps.setString(1, user.getUsername());
             ps.setString(2, user.getEmail());
-            ps.setString(3, user.getPasswordHash());
-            ps.setInt(4, user.getUserId());
+            
+            // Set the new admin-editable fields
+            ps.setString(3, user.getRole());
+            ps.setString(4, user.getStatus());
+            ps.setInt(5, user.getBalance());
+            ps.setInt(6, user.getTierId());
+            
+            // Set the WHERE condition
+            ps.setInt(7, user.getUserId());
 
             return ps.executeUpdate() > 0;
 
