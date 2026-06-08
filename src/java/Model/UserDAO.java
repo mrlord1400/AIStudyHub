@@ -85,7 +85,7 @@ public class UserDAO {
                 Timestamp updatedTs = rs.getTimestamp("updated_at");
                 if (updatedTs != null) user.setUpdatedAt(updatedTs.toLocalDateTime());
 
-                user.setBalance(rs.getDouble("balance"));
+                user.setBalance(rs.getInt("balance"));
 
                 return user;
             }
@@ -164,7 +164,7 @@ public class UserDAO {
                 Timestamp updatedTs = rs.getTimestamp("updated_at");
                 if (updatedTs != null) user.setUpdatedAt(updatedTs.toLocalDateTime());
                 
-                user.setBalance(rs.getDouble("balance"));
+                user.setBalance(rs.getInt("balance"));
                 
                 return user;
             }
