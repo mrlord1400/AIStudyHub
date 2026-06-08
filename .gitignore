@@ -7,3 +7,21 @@
 
 # Compiled class files (just in case they end up outside the build folder)
 *.class
+### Windows
+# Windows thumbnail cache files
+Thumbs.db
+
+# Folder config file
+[Dd]esktop.ini
+
+# Recycle Bin used on file shares
+$RECYCLE.BIN/
+
+# Windows shortcuts
+*.lnk
+
+# Word documents
+*.docx
+
+# NetBeans specific files
+nbproject/private/
