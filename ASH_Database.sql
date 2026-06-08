@@ -139,3 +139,21 @@ CREATE TABLE chat_messages (
     FOREIGN KEY (session_id) REFERENCES chat_sessions(session_id) ON DELETE CASCADE
 );
 GO
+
+-- -----------------------------------------------------
+-- 7. TRANSACTIONS
+-- Handles user deposits, withdrawals, and payments
+-- -----------------------------------------------------
+CREATE TABLE transactions (
+    transaction_id INT IDENTITY(1,1) PRIMARY KEY,
+    user_id INT NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL, -- Recommended over FLOAT for financial exactness
+    type NVARCHAR(20) NOT NULL CHECK (type IN ('DEPOSIT', 'WITHDRAW')),
+    status NVARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'PROCESSING', 'SUCCESS', 'CANCELLED')),
+    started_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
+    completed_at DATETIME2 NULL,
+    
+    -- Link to the existing users table
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+GO

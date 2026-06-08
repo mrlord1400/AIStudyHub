@@ -47,7 +47,7 @@
         totalTransactions = transactionList.size();
         for (Transaction t : transactionList) {
             if ("SUCCESS".equalsIgnoreCase(t.getStatus())) {
-                if ("nạp tiền vào ví".equalsIgnoreCase(t.getType()) || "DEPOSIT".equalsIgnoreCase(t.getType())) {
+                if ("DEPOSIT".equalsIgnoreCase(t.getType())) {
                     totalDeposit += (int) t.getAmount();
                 } else {
                     totalSpent += (int) t.getAmount();
@@ -374,7 +374,7 @@
             <div class="space-y-2">
                 <form action="<%= request.getContextPath() %>/TransactionController" method="POST">
                     <input type="hidden" name="action" value="createTransaction" />
-                    <input type="hidden" name="type" value="nạp tiền vào ví" /> <input type="hidden" name="amount" id="formDepositAmount" value="0" />
+                    <input type="hidden" name="type" value="DEPOSIT" /> <input type="hidden" name="amount" id="formDepositAmount" value="0" />
                     <button type="submit" class="w-full py-3 bg-[#5c3cf5] hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-all shadow-md">
                         Xác nhận đã chuyển khoản thành công
                     </button>
