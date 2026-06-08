@@ -75,7 +75,7 @@ public class TransactionController extends HttpServlet {
         // Validate input
         if (amountStr == null || type == null || amountStr.trim().isEmpty()) {
             response.sendRedirect(request.getContextPath()
-                    + "/user_wallet.jsp?error=invalid_input");
+                    + "/CreditWallet.jsp?error=invalid_input");
             return;
         }
 
@@ -84,12 +84,12 @@ public class TransactionController extends HttpServlet {
             amount = Double.parseDouble(amountStr);
             if (amount <= 0) {
                 response.sendRedirect(request.getContextPath()
-                        + "/user_wallet.jsp?error=invalid_amount");
+                        + "/CreditWallet.jsp?error=invalid_amount");
                 return;
             }
         } catch (NumberFormatException e) {
             response.sendRedirect(request.getContextPath()
-                    + "/user_wallet.jsp?error=invalid_amount");
+                    + "/CreditWallet.jsp?error=invalid_amount");
             return;
         }
 
@@ -106,7 +106,7 @@ public class TransactionController extends HttpServlet {
                     + "/MainController?action=listTransactions&transactionSuccess=1");
         } else {
             response.sendRedirect(request.getContextPath()
-                    + "/user_wallet.jsp?error=create_failed");
+                    + "/CreditWallet.jsp?error=create_failed");
         }
     }
 
@@ -129,7 +129,7 @@ public class TransactionController extends HttpServlet {
         List<Transaction> transactions = dao.getTransactionsByUserId(userId);
 
         request.setAttribute("transactions", transactions);
-        request.getRequestDispatcher("/user_wallet.jsp").forward(request, response);
+        request.getRequestDispatcher("/CreditWallet.jsp").forward(request, response);
     }
 
     /**

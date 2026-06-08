@@ -26,7 +26,13 @@
         userBalance = 0;
     }
     
-    // 3. Khởi tạo các biến thống kê từ Controller gửi xuống (Mặc định bằng 0)
+    // 3. Khởi tạo danh sách giao dịch từ TransactionController
+    List<Transaction> transactionList = (List<Transaction>) request.getAttribute("transactions");
+    if (transactionList == null) {
+        transactionList = new ArrayList<>();
+    }
+
+    // 4. Khởi tạo các biến thống kê từ Controller gửi xuống (nếu có)
     Integer totalDeposit = (Integer) request.getAttribute("totalDeposit");
     if (totalDeposit == null) totalDeposit = 0;
 
@@ -35,19 +41,13 @@
 
     Integer totalTransactions = (Integer) request.getAttribute("totalTransactions");
     if (totalTransactions == null) totalTransactions = 0;
-
-    // 4. Đồng bộ Key dữ liệu "transactions" chuẩn xác từ TransactionController
-    List<Transaction> transactionList = (List<Transaction>) request.getAttribute("transactions");
-    if (transactionList == null) {
-        transactionList = new ArrayList<>();
-    }
     
-    // Tự động tính toán sơ bộ bộ đếm thống kê nếu Controller chưa kịp tính
+    // Tự động tính toán sơ bộ bộ đếm thống kê nếu Controller chưa truyền xuống
     if (totalTransactions == 0 && !transactionList.isEmpty()) {
         totalTransactions = transactionList.size();
         for (Transaction t : transactionList) {
-            if ("SUCCESS".equals(t.getStatus())) {
-                if ("DEPOSIT".equals(t.getType())) {
+            if ("SUCCESS".equalsIgnoreCase(t.getStatus())) {
+                if ("nạp tiền vào ví".equalsIgnoreCase(t.getType()) || "DEPOSIT".equalsIgnoreCase(t.getType())) {
                     totalDeposit += (int) t.getAmount();
                 } else {
                     totalSpent += (int) t.getAmount();
@@ -264,7 +264,7 @@
                 <h3 class="content-title">Nhật ký giao dịch Coin</h3>
             </div>
             <div class="divide-y divide-gray-100 dark:divide-gray-700">
-                <% if (transactionList.isEmpty()) { %>
+                <% if (transactionList == null || transactionList.isEmpty()) { %>
                     <div class="empty-state-box p-12 flex flex-col items-center justify-center text-center">
                         <div class="empty-state-icon w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 mb-3 transition-colors duration-200">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -272,7 +272,6 @@
                         <p class="text-gray-500 font-medium text-sm">Bạn chưa thực hiện bất kỳ giao dịch nào.</p>
                     </div>
                 <% } else { %>
-                    <%-- THỰC THI HIỂN THỊ LOGIC DANH SÁCH GIAO DỊCH --%>
                     <div class="overflow-x-auto w-full">
                         <table class="w-full text-left text-sm border-collapse">
                             <thead>
@@ -284,20 +283,23 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                                <% for (Transaction t : transactionList) { %>
+                                <% for (Transaction t : transactionList) { 
+                                    String transactionType = t.getType() != null ? t.getType() : "";
+                                    boolean isDeposit = "nạp tiền vào ví".equalsIgnoreCase(transactionType) || "DEPOSIT".equalsIgnoreCase(transactionType);
+                                %>
                                     <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
                                         <td class="p-4 font-mono text-xs text-gray-500 dark:text-gray-400">#<%= t.getTransactionId() != 0 ? t.getTransactionId() : "N/A" %></td>
                                         <td class="p-4 font-semibold">
-                                            <% if ("DEPOSIT".equalsIgnoreCase(t.getType())) { %>
+                                            <% if (isDeposit) { %>
                                                 <span class="text-emerald-600 dark:text-emerald-400">Nạp xu hệ thống</span>
-                                            <% } else if ("WITHDRAW".equalsIgnoreCase(t.getType())) { %>
+                                            <% } else if ("WITHDRAW".equalsIgnoreCase(transactionType)) { %>
                                                 <span class="text-rose-600 dark:text-rose-400">Rút tiền mặt</span>
                                             <% } else { %>
                                                 <span class="text-indigo-600 dark:text-indigo-400">Nâng cấp tài khoản</span>
                                             <% } %>
                                         </td>
                                         <td class="p-4 font-bold text-base">
-                                            <%= "DEPOSIT".equalsIgnoreCase(t.getType()) ? "+" : "-" %> <%= String.format("%,d", (int)t.getAmount()) %> Coin
+                                            <%= isDeposit ? "+" : "-" %> <%= String.format("%,d", (int)t.getAmount()) %> Coin
                                         </td>
                                         <td class="p-4">
                                             <% if ("SUCCESS".equalsIgnoreCase(t.getStatus())) { %>
@@ -372,8 +374,7 @@
             <div class="space-y-2">
                 <form action="<%= request.getContextPath() %>/TransactionController" method="POST">
                     <input type="hidden" name="action" value="createTransaction" />
-                    <input type="hidden" name="type" value="DEPOSIT" />
-                    <input type="hidden" name="amount" id="formDepositAmount" value="0" />
+                    <input type="hidden" name="type" value="nạp tiền vào ví" /> <input type="hidden" name="amount" id="formDepositAmount" value="0" />
                     <button type="submit" class="w-full py-3 bg-[#5c3cf5] hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-all shadow-md">
                         Xác nhận đã chuyển khoản thành công
                     </button>
@@ -391,7 +392,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             </div>
             <h3 class="text-lg font-bold text-gray-900 mb-2">Hệ thống ghi nhận</h3>
-            <p class="text-sm text-gray-600 font-medium leading-relaxed mb-6">Chờ một chút để admin xác nhận nhé!</p>
+            <p class="text-sm text-gray-600 font-medium leading-relaxed mb-6">Chờ Admin xác nhận giao dịch của bạn nhé!</p>
             <button onclick="closeAdminPendingModal();" class="w-full btn-primary py-3">Đồng ý</button>
         </div>
     </div>
@@ -492,6 +493,7 @@
             window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
         }
 
+        // Bắt tham số từ TransactionController trả về nếu form submit thành công
         document.addEventListener("DOMContentLoaded", function() {
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('transactionSuccess') === '1') {
