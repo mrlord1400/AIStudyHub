@@ -17,10 +17,14 @@
     int userId = (Integer) userSession.getAttribute("userId");
     String username = (String) userSession.getAttribute("username");
     String role = (String) userSession.getAttribute("role");
+    Integer tierId = (Integer) userSession.getAttribute("tierId");
 
     // Phân quyền: Nếu user mới đăng ký chưa có role, gán mặc định là Free
     if (role == null || role.trim().isEmpty()) {
         role = "Free";
+    }
+    if (tierId == null || tierId <= 0) {
+        tierId = 1;
     }
 
     // Khởi tạo số dư ví Coin
@@ -29,7 +33,7 @@
         userBalance = 0;
     }
 
-    boolean isPremiumUser = "Premium".equalsIgnoreCase(role);
+    boolean isPremiumUser = tierId == 2;
     long maxUploadSizeBytes = isPremiumUser ? 100L * 1024 * 1024 : 50L * 1024 * 1024;
 
     String folderIdParam = request.getParameter("folderId");

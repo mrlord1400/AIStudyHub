@@ -29,10 +29,10 @@ public class AdminController extends HttpServlet {
 
             List<User> users = dao.getAllUsers();
 
-            request.setAttribute("users", users);
+            request.setAttribute("user_list", users);
 
             request.getRequestDispatcher(
-                            "/admin_dashboard.jsp")
+                    "/admin_manageUser.jsp")
                     .forward(request, response);
         }
     }
@@ -52,19 +52,19 @@ public class AdminController extends HttpServlet {
 
             case "createUser":
 
-                String username =
-                        request.getParameter("username");
+                String username
+                        = request.getParameter("username");
 
-                String email =
-                        request.getParameter("email");
+                String email
+                        = request.getParameter("email");
 
-                String password =
-                        request.getParameter("password");
+                String password
+                        = request.getParameter("password");
 
                 // JSP should send:
                 // free / premium / admin
-                String accountType =
-                        request.getParameter("role");
+                String accountType
+                        = request.getParameter("role");
 
                 String role = "STUDENT";
                 int tierId = 2;
@@ -105,28 +105,24 @@ public class AdminController extends HttpServlet {
                 break;
 
             case "updateUser":
+                int userId = Integer.parseInt(request.getParameter("user_id"));
+                String newUsername = request.getParameter("newUsername");
+                String newEmail = request.getParameter("newEmail");
+                String newRole = request.getParameter("newRole");
+                String newStatus = request.getParameter("newStatus");
+                int newBalance = Integer.parseInt(request.getParameter("newBalance"));
+                int newTierId = Integer.parseInt(request.getParameter("newTierId"));
 
-                int userId =
-                        Integer.parseInt(
-                                request.getParameter("user_id"));
-
-                String newUsername =
-                        request.getParameter("newUsername");
-
-                String newEmail =
-                        request.getParameter("newEmail");
-
-                User user =
-                        userDAO.getUserById(userId);
-
+                User user = userDAO.getUserById(userId);
                 if (user != null) {
-
                     user.setUsername(newUsername);
                     user.setEmail(newEmail);
-
+                    user.setRole(newRole);
+                    user.setStatus(newStatus);
+                    user.setBalance(newBalance);
+                    user.setTierId(newTierId);
                     userDAO.updateUser(user);
                 }
-
                 break;
 
             case "deleteUser":
@@ -141,6 +137,6 @@ public class AdminController extends HttpServlet {
 
         response.sendRedirect(
                 request.getContextPath()
-                        + "/AdminController?action=listUsers");
+                + "/AdminController?action=listUsers");
     }
 }

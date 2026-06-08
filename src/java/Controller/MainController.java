@@ -21,6 +21,7 @@ public class MainController extends HttpServlet {
     private static final String USER_CONTROLLER = "UserController";
     private static final String FOLDER_CONTROLLER = "FolderController";
     private static final String TRANSACTION_CONTROLLER = "TransactionController";
+    private static final String ADMIN_CONTROLLER = "AdminController";
 
     // --- Future Controllers (Uncomment when you build them) ---
     // private static final String DOCUMENT_CONTROLLER = "DocumentController";
@@ -72,6 +73,12 @@ public class MainController extends HttpServlet {
                     case "adminListTransactions":
                     case "updateTransactionStatus":
                         url = TRANSACTION_CONTROLLER;
+                        break;
+                    case "listUsers":
+                    case "createUser":
+                    case "updateUser":
+                    case "deleteUser":
+                        url = ADMIN_CONTROLLER;
                         break;
                     default:
                         // If an unknown action is sent, redirect to login as a failsafe

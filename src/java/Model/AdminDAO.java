@@ -29,6 +29,7 @@ public class AdminDAO {
                 user.setRole(rs.getString("role"));
                 user.setTierId(rs.getInt("tier_id"));
                 user.setStatus(rs.getString("status"));
+                user.setBalance(rs.getInt("balance"));
 
                 users.add(user);
             }
