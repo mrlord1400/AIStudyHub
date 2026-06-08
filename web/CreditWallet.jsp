@@ -1,6 +1,7 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="java.util.List" %>
 <%@ page import="java.util.ArrayList" %>
+<%@ page import="Model.Transaction" %>
 <%
     // 1. Kiểm tra trạng thái đăng nhập
     HttpSession userSession = request.getSession(false);
@@ -19,7 +20,7 @@
     }
     boolean isPremiumUser = "Premium".equalsIgnoreCase(role);
 
-    // 2. Lấy số dư ví Coin (Mặc định cho User mới là 0 Coin)
+    // 2. Lấy số dư ví Coin
     Integer userBalance = (Integer) userSession.getAttribute("balance");
     if (userBalance == null) {
         userBalance = 0;
@@ -35,10 +36,24 @@
     Integer totalTransactions = (Integer) request.getAttribute("totalTransactions");
     if (totalTransactions == null) totalTransactions = 0;
 
-    // 4. Khởi tạo danh sách lịch sử giao dịch Coin
-    List<?> transactionList = (List<?>) request.getAttribute("transactionList");
+    // 4. Đồng bộ Key dữ liệu "transactions" chuẩn xác từ TransactionController
+    List<Transaction> transactionList = (List<Transaction>) request.getAttribute("transactions");
     if (transactionList == null) {
         transactionList = new ArrayList<>();
+    }
+    
+    // Tự động tính toán sơ bộ bộ đếm thống kê nếu Controller chưa kịp tính
+    if (totalTransactions == 0 && !transactionList.isEmpty()) {
+        totalTransactions = transactionList.size();
+        for (Transaction t : transactionList) {
+            if ("SUCCESS".equals(t.getStatus())) {
+                if ("DEPOSIT".equals(t.getType())) {
+                    totalDeposit += (int) t.getAmount();
+                } else {
+                    totalSpent += (int) t.getAmount();
+                }
+            }
+        }
     }
 %>
 <!DOCTYPE html>
@@ -59,7 +74,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <style type="text/tailwindcss">
-        /* CSS THUẦN CHO CHẾ ĐỘ TỐI (DARK MODE) */
         html.dark .page-body { background-color: #111827; color: #f3f4f6; }
         html.dark .sidebar { background-color: #1f2937; border-color: #374151; }
         html.dark .brand-text { color: #ffffff; }
@@ -80,7 +94,6 @@
         html.dark .empty-state-box { background-color: #1f2937 !important; border-color: #374151 !important; }
         html.dark .empty-state-icon { background-color: #374151 !important; color: #d1d5db !important; }
 
-        /* ÉP MÀU FIX LỖI MODAL TRÊN DARK MODE */
         html.dark #deposit-modal > div, html.dark #qr-modal > div, html.dark #admin-pending-modal > div { background-color: #1f2937 !important; color: #ffffff !important; }
         html.dark #deposit-modal h3, html.dark #qr-modal h3, html.dark #admin-pending-modal h3 { color: #ffffff !important; }
         html.dark #deposit-modal label { color: #e5e7eb !important; }
@@ -259,7 +272,47 @@
                         <p class="text-gray-500 font-medium text-sm">Bạn chưa thực hiện bất kỳ giao dịch nào.</p>
                     </div>
                 <% } else { %>
-                    <%-- Vòng lặp hiển thị transaction thực tế --%>
+                    <%-- THỰC THI HIỂN THỊ LOGIC DANH SÁCH GIAO DỊCH --%>
+                    <div class="overflow-x-auto w-full">
+                        <table class="w-full text-left text-sm border-collapse">
+                            <thead>
+                                <tr class="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-xs uppercase font-semibold border-b border-gray-100 dark:border-gray-700">
+                                    <th class="p-4">Mã GD</th>
+                                    <th class="p-4">Loại hình</th>
+                                    <th class="p-4">Số lượng xu</th>
+                                    <th class="p-4">Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                <% for (Transaction t : transactionList) { %>
+                                    <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
+                                        <td class="p-4 font-mono text-xs text-gray-500 dark:text-gray-400">#<%= t.getTransactionId() != 0 ? t.getTransactionId() : "N/A" %></td>
+                                        <td class="p-4 font-semibold">
+                                            <% if ("DEPOSIT".equalsIgnoreCase(t.getType())) { %>
+                                                <span class="text-emerald-600 dark:text-emerald-400">Nạp xu hệ thống</span>
+                                            <% } else if ("WITHDRAW".equalsIgnoreCase(t.getType())) { %>
+                                                <span class="text-rose-600 dark:text-rose-400">Rút tiền mặt</span>
+                                            <% } else { %>
+                                                <span class="text-indigo-600 dark:text-indigo-400">Nâng cấp tài khoản</span>
+                                            <% } %>
+                                        </td>
+                                        <td class="p-4 font-bold text-base">
+                                            <%= "DEPOSIT".equalsIgnoreCase(t.getType()) ? "+" : "-" %> <%= String.format("%,d", (int)t.getAmount()) %> Coin
+                                        </td>
+                                        <td class="p-4">
+                                            <% if ("SUCCESS".equalsIgnoreCase(t.getStatus())) { %>
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400">Thành công</span>
+                                            <% } else if ("PENDING".equalsIgnoreCase(t.getStatus())) { %>
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-400">Đang chờ duyệt</span>
+                                            <% } else { %>
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400">Đã hủy</span>
+                                            <% } %>
+                                        </td>
+                                    </tr>
+                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
                 <% } %>
             </div>
         </div>
@@ -317,8 +370,9 @@
             </div>
 
             <div class="space-y-2">
-                <form action="<%= request.getContextPath() %>/MainController" method="POST">
-                    <input type="hidden" name="action" value="depositCredit" />
+                <form action="<%= request.getContextPath() %>/TransactionController" method="POST">
+                    <input type="hidden" name="action" value="createTransaction" />
+                    <input type="hidden" name="type" value="DEPOSIT" />
                     <input type="hidden" name="amount" id="formDepositAmount" value="0" />
                     <button type="submit" class="w-full py-3 bg-[#5c3cf5] hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-all shadow-md">
                         Xác nhận đã chuyển khoản thành công
@@ -366,22 +420,17 @@
             toggleSubmitButton(true);
         }
 
-        // Tự động định dạng dấu phân cách hàng nghìn khi người dùng gõ
         document.getElementById('custom-amount-input').addEventListener('input', function(e) {
-            // Lấy giá trị chuỗi thô, chỉ giữ lại các chữ số
             let rawValue = e.target.value.replace(/\D/g, '');
             
             if (rawValue !== "") {
-                resetPresetButtons(); // Reset active của các ô preset cố định khi gõ tay
+                resetPresetButtons(); 
                 
-                // Đổi chuỗi số sang kiểu số nguyên để xử lý định dạng
                 let numericValue = parseInt(rawValue, 10);
                 selectedAmount = numericValue;
                 
-                // Định dạng hiển thị chuỗi có dấu chấm phân cách hàng nghìn (.)
                 e.target.value = numericValue.toLocaleString('vi-VN');
                 
-                // Kích hoạt hoặc vô hiệu hóa nút Tiếp tục (tối thiểu 10.000 Coin)
                 if (selectedAmount >= 10000) {
                     toggleSubmitButton(true);
                 } else {
@@ -445,7 +494,7 @@
 
         document.addEventListener("DOMContentLoaded", function() {
             const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('depositPending') === 'true') {
+            if (urlParams.get('transactionSuccess') === '1') {
                 document.getElementById('admin-pending-modal').classList.remove('hidden');
             }
         });
