@@ -11,6 +11,7 @@ import java.io.IOException;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.*;
+import Utils.PasswordUtil;
 
 @WebServlet(name = "AuthController", urlPatterns = {"/AuthController"})
 public class AuthController extends HttpServlet {
@@ -62,14 +63,6 @@ public class AuthController extends HttpServlet {
                 handleLogin(request, response);
                 break;
 
-            case "update":
-                handleUpdate(request, response);
-                break;
-
-            case "delete":
-                handleDelete(request, response);
-                break;
-
             default:
                 response.sendRedirect("login.jsp");
         }
@@ -87,25 +80,26 @@ public class AuthController extends HttpServlet {
             throws IOException {
 
         String email = request.getParameter("email");
-        String username = request.getParameter("username");
+        String username = email;
         String password = request.getParameter("password");
-
-        // Nếu frontend không gửi username thì dùng email
-        if (username == null || username.trim().isEmpty()) {
-            username = email;
-        }
 
         User user = new User();
 
         user.setUsername(username);
         user.setEmail(email);
-        user.setPasswordHash(password);
+        user.setPasswordHash(
+                PasswordUtil.hashPassword(
+                        password));
+
+        user.setRole("STUDENT");
+        user.setTierId(2); // Free Tier
+        user.setStatus("ACTIVE");
 
         // Assignment requirement
         user.setRole("STUDENT");
 
         // Free tier by default
-        user.setTierId(1);
+        user.setTierId(2);
 
         // Active account by default
         user.setStatus("ACTIVE");
@@ -144,17 +138,18 @@ public class AuthController extends HttpServlet {
 
         UserDAO dao = new UserDAO();
 
-        User user = dao.login(email, password);
+        User user = dao.getUserByEmail(email);
 
-        if (user != null) {
+        if(user != null &&
+                PasswordUtil.verifyPassword(
+                        password,
+                        user.getPasswordHash())){
 
             HttpSession session = request.getSession();
 
             session.setAttribute("userId", user.getUserId());
             session.setAttribute("username", user.getUsername());
             session.setAttribute("role", user.getRole());
-            session.setAttribute("balance", user.getBalance());
-            session.setAttribute("tierId", user.getTierId());
 
             if ("ADMIN".equalsIgnoreCase(user.getRole())) {
 
@@ -214,7 +209,7 @@ public class AuthController extends HttpServlet {
 
         if (newPassword != null && !newPassword.isEmpty()) {
             // If you decide to implement BCrypt later, do it in Register, Login, AND here.
-            finalPasswordHash = newPassword; 
+            finalPasswordHash = newPassword;
         }
 
         // 4. build updated user

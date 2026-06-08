@@ -10,6 +10,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import Utils.PasswordUtil;
 
 public class UserDAO {
 
@@ -30,9 +31,9 @@ public class UserDAO {
             ps.setString(2, user.getEmail());
             ps.setString(3, user.getPasswordHash());
 
-            ps.setString(4, "STUDENT");
-            ps.setInt(5, 1);
-            ps.setString(6, "ACTIVE");
+            ps.setString(4, user.getRole());
+            ps.setInt(5, user.getTierId());
+            ps.setString(6, user.getStatus());
 
             return ps.executeUpdate() > 0;
 
@@ -74,18 +75,16 @@ public class UserDAO {
                 user.setRole(rs.getString("role"));
                 user.setTierId(rs.getInt("tier_id"));
                 user.setStatus(rs.getString("status"));
-                
+
                 // Backwards-compatible DATETIME2 parsing
                 Timestamp expiresTs = rs.getTimestamp("expires_at");
                 if (expiresTs != null) user.setExpiresAt(expiresTs.toLocalDateTime());
-                
+
                 Timestamp createdTs = rs.getTimestamp("created_at");
                 if (createdTs != null) user.setCreatedAt(createdTs.toLocalDateTime());
-                
+
                 Timestamp updatedTs = rs.getTimestamp("updated_at");
                 if (updatedTs != null) user.setUpdatedAt(updatedTs.toLocalDateTime());
-
-                user.setBalance(rs.getInt("balance"));
 
                 return user;
             }
@@ -153,19 +152,17 @@ public class UserDAO {
                 user.setRole(rs.getString("role"));
                 user.setTierId(rs.getInt("tier_id"));
                 user.setStatus(rs.getString("status"));
-                
+
                 // Backwards-compatible DATETIME2 parsing
                 Timestamp expiresTs = rs.getTimestamp("expires_at");
                 if (expiresTs != null) user.setExpiresAt(expiresTs.toLocalDateTime());
-                
+
                 Timestamp createdTs = rs.getTimestamp("created_at");
                 if (createdTs != null) user.setCreatedAt(createdTs.toLocalDateTime());
-                
+
                 Timestamp updatedTs = rs.getTimestamp("updated_at");
                 if (updatedTs != null) user.setUpdatedAt(updatedTs.toLocalDateTime());
-                
-                user.setBalance(rs.getInt("balance"));
-                
+
                 return user;
             }
 
@@ -206,7 +203,7 @@ public class UserDAO {
     }
 
     public boolean checkPassword(int userId, String currentPassword) {
-        
+
         String sql = "SELECT password_hash FROM users WHERE user_id = ?";
 
         try (Connection conn = DBUtils.getConnection();
@@ -217,8 +214,10 @@ public class UserDAO {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     String dbPasswordHash = rs.getString("password_hash");
-                    
-                    return dbPasswordHash != null && dbPasswordHash.equals(currentPassword);
+
+                    return PasswordUtil.verifyPassword(
+                            currentPassword,
+                            dbPasswordHash);
                 }
             }
 
@@ -229,32 +228,53 @@ public class UserDAO {
         return false;
     }
 
-    /**
-     * Cập nhật balance cho user.
-     * amount > 0 → cộng tiền, amount < 0 → trừ tiền.
-     */
-    public boolean updateBalance(int userId, double amount) {
+    public User getUserByEmail(String email) {
 
-        String sql = "UPDATE users SET balance = balance + ? WHERE user_id = ?";
+        String sql =
+                "SELECT * FROM users WHERE email = ?";
 
-        Connection conn = null;
+        try(Connection conn =
+                    DBUtils.getConnection();
+            PreparedStatement ps =
+                    conn.prepareStatement(sql)) {
 
-        try {
-            conn = DBUtils.getConnection();
+            ps.setString(1, email);
 
-            PreparedStatement ps = conn.prepareStatement(sql);
+            ResultSet rs =
+                    ps.executeQuery();
 
-            ps.setDouble(1, amount);
-            ps.setInt(2, userId);
+            if(rs.next()) {
 
-            return ps.executeUpdate() > 0;
+                User user = new User();
 
-        } catch (SQLException e) {
-            System.out.println("[UserDAO.updateBalance] " + e.getMessage());
-        } finally {
-            DBUtils.closeConnection(conn);
+                user.setUserId(
+                        rs.getInt("user_id"));
+
+                user.setUsername(
+                        rs.getString("username"));
+
+                user.setEmail(
+                        rs.getString("email"));
+
+                user.setPasswordHash(
+                        rs.getString("password_hash"));
+
+                user.setRole(
+                        rs.getString("role"));
+
+                user.setTierId(
+                        rs.getInt("tier_id"));
+
+                user.setStatus(
+                        rs.getString("status"));
+
+                return user;
+            }
+
+        } catch(Exception e) {
+            e.printStackTrace();
         }
 
-        return false;
+        return null;
     }
 }
