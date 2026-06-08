@@ -16,9 +16,9 @@ public class UserDAO {
 
     public boolean register(User user) {
 
-        String sql =
-                "INSERT INTO users(username,email,password_hash,role,tier_id,status) " +
-                        "VALUES(?,?,?,?,?,?)";
+        String sql
+                = "INSERT INTO users(username,email,password_hash,role,tier_id,status) "
+                + "VALUES(?,?,?,?,?,?)";
 
         Connection conn = null;
 
@@ -48,9 +48,9 @@ public class UserDAO {
 
     public User login(String email, String password) {
 
-        String sql =
-                "SELECT * FROM users " +
-                        "WHERE email = ? AND password_hash = ?";
+        String sql
+                = "SELECT * FROM users "
+                + "WHERE email = ? AND password_hash = ?";
 
         Connection conn = null;
 
@@ -78,13 +78,19 @@ public class UserDAO {
 
                 // Backwards-compatible DATETIME2 parsing
                 Timestamp expiresTs = rs.getTimestamp("expires_at");
-                if (expiresTs != null) user.setExpiresAt(expiresTs.toLocalDateTime());
+                if (expiresTs != null) {
+                    user.setExpiresAt(expiresTs.toLocalDateTime());
+                }
 
                 Timestamp createdTs = rs.getTimestamp("created_at");
-                if (createdTs != null) user.setCreatedAt(createdTs.toLocalDateTime());
+                if (createdTs != null) {
+                    user.setCreatedAt(createdTs.toLocalDateTime());
+                }
 
                 Timestamp updatedTs = rs.getTimestamp("updated_at");
-                if (updatedTs != null) user.setUpdatedAt(updatedTs.toLocalDateTime());
+                if (updatedTs != null) {
+                    user.setUpdatedAt(updatedTs.toLocalDateTime());
+                }
 
                 return user;
             }
@@ -100,10 +106,10 @@ public class UserDAO {
 
     public boolean updateUser(User user) {
 
-        String sql =
-                "UPDATE users " +
-                        "SET username = ?, email = ?, password_hash = ? " +
-                        "WHERE user_id = ?";
+        String sql
+                = "UPDATE users "
+                + "SET username = ?, email = ?, password_hash = ? "
+                + "WHERE user_id = ?";
 
         Connection conn = null;
 
@@ -136,8 +142,7 @@ public class UserDAO {
 
         String sql = "SELECT * FROM users WHERE user_id = ?";
 
-        try (Connection conn = DBUtils.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, userId);
 
@@ -155,13 +160,19 @@ public class UserDAO {
 
                 // Backwards-compatible DATETIME2 parsing
                 Timestamp expiresTs = rs.getTimestamp("expires_at");
-                if (expiresTs != null) user.setExpiresAt(expiresTs.toLocalDateTime());
+                if (expiresTs != null) {
+                    user.setExpiresAt(expiresTs.toLocalDateTime());
+                }
 
                 Timestamp createdTs = rs.getTimestamp("created_at");
-                if (createdTs != null) user.setCreatedAt(createdTs.toLocalDateTime());
+                if (createdTs != null) {
+                    user.setCreatedAt(createdTs.toLocalDateTime());
+                }
 
                 Timestamp updatedTs = rs.getTimestamp("updated_at");
-                if (updatedTs != null) user.setUpdatedAt(updatedTs.toLocalDateTime());
+                if (updatedTs != null) {
+                    user.setUpdatedAt(updatedTs.toLocalDateTime());
+                }
 
                 return user;
             }
@@ -173,30 +184,54 @@ public class UserDAO {
         return null;
     }
 
-    public boolean deleteUser(int userId) {
+    public boolean deleteUserAndAssociatedData(int userId) {
+        // 1. Define SQL statements from the bottom of the hierarchy up to the user
+        String deleteBookmarksSql = "DELETE FROM bookmarks WHERE user_id = ?";
+        String deleteChatSessionsSql = "DELETE FROM chat_sessions WHERE user_id = ?";
+        String deleteDocsSql = "DELETE FROM documents WHERE user_id = ?";
+        String deleteFolderSql = "DELETE FROM folders WHERE user_id = ?";
+        String deleteUserSql = "DELETE FROM users WHERE user_id = ?";
 
-        String sql =
-                "DELETE FROM users WHERE user_id = ?";
+        try ( Connection conn = DBUtils.getConnection()) {
+            // 2. Start a single transaction
+            conn.setAutoCommit(false);
 
-        Connection conn = null;
+            try (
+                     PreparedStatement psBookmarks = conn.prepareStatement(deleteBookmarksSql);  PreparedStatement psChat = conn.prepareStatement(deleteChatSessionsSql);  PreparedStatement psDocs = conn.prepareStatement(deleteDocsSql);  PreparedStatement psFolder = conn.prepareStatement(deleteFolderSql);  PreparedStatement psUser = conn.prepareStatement(deleteUserSql)) {
+                // Step A: Delete lowest-level dependencies (Bookmarks & Chat History)
+                psBookmarks.setInt(1, userId);
+                psBookmarks.executeUpdate();
 
-        try {
+                psChat.setInt(1, userId);
+                psChat.executeUpdate();
 
-            conn = DBUtils.getConnection();
+                // Step B: Delete Documents
+                psDocs.setInt(1, userId);
+                psDocs.executeUpdate();
 
-            PreparedStatement ps = conn.prepareStatement(sql);
+                // Step C: Delete Folders
+                psFolder.setInt(1, userId);
+                psFolder.executeUpdate();
 
-            ps.setInt(1, userId);
+                // Step D: Finally, delete the User
+                psUser.setInt(1, userId);
+                int userDeleted = psUser.executeUpdate();
 
-            return ps.executeUpdate() > 0;
+                // 3. Commit the transaction if everything succeeds
+                conn.commit();
+                return userDeleted > 0;
+
+            } catch (SQLException ex) {
+                // 4. If anything fails, rollback everything to prevent partial data loss
+                conn.rollback();
+                System.err.println("[UserDAO.deleteUserAndAssociatedData] Transaction rolled back: " + ex.getMessage());
+            } finally {
+                // 5. Restore auto-commit behavior for the connection pool
+                conn.setAutoCommit(true);
+            }
 
         } catch (SQLException e) {
-
-            System.out.println("[UserDAO.deleteUser] " + e.getMessage());
-
-        } finally {
-
-            DBUtils.closeConnection(conn);
+            System.err.println("[UserDAO.deleteUserAndAssociatedData] Connection error: " + e.getMessage());
         }
 
         return false;
@@ -206,12 +241,11 @@ public class UserDAO {
 
         String sql = "SELECT password_hash FROM users WHERE user_id = ?";
 
-        try (Connection conn = DBUtils.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, userId);
 
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     String dbPasswordHash = rs.getString("password_hash");
 
@@ -230,20 +264,19 @@ public class UserDAO {
 
     public User getUserByEmail(String email) {
 
-        String sql =
-                "SELECT * FROM users WHERE email = ?";
+        String sql
+                = "SELECT * FROM users WHERE email = ?";
 
-        try(Connection conn =
-                    DBUtils.getConnection();
-            PreparedStatement ps =
-                    conn.prepareStatement(sql)) {
+        try ( Connection conn
+                = DBUtils.getConnection();  PreparedStatement ps
+                = conn.prepareStatement(sql)) {
 
             ps.setString(1, email);
 
-            ResultSet rs =
-                    ps.executeQuery();
+            ResultSet rs
+                    = ps.executeQuery();
 
-            if(rs.next()) {
+            if (rs.next()) {
 
                 User user = new User();
 
@@ -271,10 +304,14 @@ public class UserDAO {
                 return user;
             }
 
-        } catch(Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
         return null;
+    }
+
+    public void updateBalance(int userId, double amount) {
+        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
     }
 }
