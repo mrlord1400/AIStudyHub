@@ -1,3 +1,12 @@
+# Build and Output Directories
+/build/
+/dist/
+
+# NetBeans Private Settings
+/nbproject/private/
+
+# Compiled class files (just in case they end up outside the build folder)
+*.class
 ### Windows
 # Windows thumbnail cache files
 Thumbs.db
