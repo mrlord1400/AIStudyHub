@@ -673,7 +673,7 @@
 
                     if (item.isFolder) {
                         return `
-                    <div onclick="window.location.href='<%= request.getContextPath()%>/user_dashboard.jsp?folderId=' + item.id" class="file-card group relative">
+                    <div onclick="window.location.href='<%= request.getContextPath()%>/user_dashboard.jsp?folderId=\${item.id}'" class="file-card group relative">
                         <div class="file-icon-wrapper">
                             <div class="file-icon-box \${style.bg} transition-transform group-hover:scale-105">\${style.icon}</div>
                             <div class="opacity-0 group-hover:opacity-100 transition-opacity">

@@ -79,7 +79,7 @@ public class UserController extends HttpServlet {
                 }
 
             } else if ("deleteAccount".equals(action)) {
-                boolean success = dao.deleteUser(userId);
+                boolean success = dao.deleteUserAndAssociatedData(userId);
                 if (success) {
                     session.invalidate();
                     response.sendRedirect(request.getContextPath() + "/login.jsp?account_deleted=1");
