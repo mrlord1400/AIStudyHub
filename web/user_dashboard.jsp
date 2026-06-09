@@ -7,7 +7,7 @@
 <%@ page import="java.util.ArrayList" %>
 <%@ page import="java.time.format.DateTimeFormatter" %>
 <%
-    // 1. Ensure user is logged in
+    // 1. Kiểm tra trạng thái đăng nhập của người dùng
     HttpSession userSession = request.getSession(false);
     if (userSession == null || userSession.getAttribute("userId") == null) {
         response.sendRedirect(request.getContextPath() + "/login.jsp");
@@ -19,22 +19,33 @@
     String role = (String) userSession.getAttribute("role");
     Integer tierId = (Integer) userSession.getAttribute("tierId");
 
-    // Phân quyền: Nếu user mới đăng ký chưa có role, gán mặc định là Free
-    if (role == null || role.trim().isEmpty()) {
-        role = "Free";
-    }
-    if (tierId == null || tierId <= 0) {
-        tierId = 1;
+    // ------------------------------------------------------------------
+    // FIX 1: QUẢN LÝ QUYỀN (ROLE)
+    // Ép kiểu Quyền: Bất kỳ ai không phải ADMIN thì đều mặc định là quyền STUDENT
+    if (role == null || !"ADMIN".equalsIgnoreCase(role.trim())) {
+        role = "STUDENT"; 
+    } else {
+        role = "ADMIN";
     }
 
+    // ------------------------------------------------------------------
+    // FIX 2: QUẢN LÝ GÓI (TIER)
+    // Theo DB hệ thống: tierId = 2 là FREE, tierId = 3 là PREMIUM.
+    if (tierId == null || tierId < 2) {
+        tierId = 2; // Mặc định gán 2 cho người mới đăng ký (Gói FREE)
+    }
+
+    // Từ tier 3 trở lên mới được hệ thống nhận diện là tài khoản Premium
+    boolean isPremiumUser = (tierId >= 3);
+    
     // Khởi tạo số dư ví Coin
     Integer userBalance = (Integer) userSession.getAttribute("balance");
     if (userBalance == null) {
         userBalance = 0;
     }
 
-    boolean isPremiumUser = tierId == 2;
     long maxUploadSizeBytes = isPremiumUser ? 100L * 1024 * 1024 : 50L * 1024 * 1024;
+    double maxStorageGb = isPremiumUser ? 55.0 : 5.0; // Gói Free có 5GB, Gói Premium có 55GB
 
     String folderIdParam = request.getParameter("folderId");
     Integer currentFolderId = null;
@@ -42,6 +53,7 @@
         try {
             currentFolderId = Integer.parseInt(folderIdParam);
         } catch (Exception e) {
+            // Xử lý ngoại lệ an toàn
         }
     }
 
@@ -54,6 +66,7 @@
     }
     List<Document> myDocuments = docDao.getDocumentsByFolder(userId, currentFolderId);
 
+    // Tính toán dung lượng lưu trữ động thực tế của tài khoản
     List<Document> allDocs = docDao.getDocumentsByUserId(userId);
     double totalSizeMb = 0.0;
     if (allDocs != null) {
@@ -62,10 +75,10 @@
         }
     }
     double totalSizeGb = totalSizeMb / 1024.0;
-    double maxStorageGb = isPremiumUser ? 55.0 : 5.0;
     double storagePercent = (totalSizeGb / maxStorageGb) * 100.0;
-    if (storagePercent > 100)
+    if (storagePercent > 100) {
         storagePercent = 100;
+    }
 %>
 <!DOCTYPE html>
 <html lang="vi" class="dark">
@@ -76,7 +89,6 @@
 
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
-            // Cấu hình Tailwind nhận biết dark mode qua class
             tailwind.config = {
                 darkMode: 'class'
             }
@@ -86,211 +98,68 @@
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
         <style type="text/tailwindcss">
-            /* CSS CHẾ ĐỘ TỐI (DARK MODE) */
-            html.dark .page-body {
-                background-color: #111827;
-                color: #f3f4f6;
-            }
-            html.dark .sidebar {
-                background-color: #1f2937;
-                border-color: #374151;
-            }
-            html.dark .brand-text {
-                color: #ffffff;
-            }
-            html.dark .nav-link {
-                color: #d1d5db;
-            }
-            html.dark .nav-link:hover {
-                background-color: #374151;
-            }
-            html.dark .nav-link-active {
-                background-color: rgba(49, 46, 129, 0.6);
-                color: #818cf8;
-            }
-            html.dark .user-name {
-                color: #ffffff;
-            }
-            html.dark .user-profile-link:hover {
-                background-color: #374151;
-            }
-            html.dark .logout-btn {
-                color: #9ca3af;
-            }
-            html.dark .logout-btn:hover {
-                background-color: rgba(127, 29, 29, 0.3);
-                color: #f87171;
-            }
-            html.dark .btn-secondary {
-                background-color: #1f2937;
-                border-color: #374151;
-                color: #e5e7eb;
-            }
-            html.dark .btn-secondary:hover {
-                background-color: #374151;
-            }
-            html.dark .file-card {
-                background-color: #1f2937;
-                border-color: #374151;
-            }
-            html.dark .file-title {
-                color: #f3f4f6;
-            }
-            html.dark .file-icon-box {
-                background-color: rgba(55, 65, 81, 0.5);
-            }
-
-            html.dark .empty-state-box {
-                background-color: #1f2937 !important;
-                border-color: #374151 !important;
-            }
-            html.dark .empty-state-icon {
-                background-color: #374151 !important;
-                color: #d1d5db !important;
-            }
-            html.dark .empty-state-text {
-                color: #9ca3af !important;
-            }
-
-            /* POPUP CHÀO MỪNG DARK MODE */
-            html.dark #welcomeModal > div {
-                background-color: #1f2937 !important;
-                border-color: #374151 !important;
-            }
-            html.dark #welcomeModal h2 {
-                color: #ffffff !important;
-            }
-            html.dark #welcomeModal p {
-                color: #9ca3af !important;
-            }
-            html.dark #welcomeModal h4 {
-                color: #e5e7eb !important;
-            }
-            html.dark #welcomeModal span {
-                color: #9ca3af !important;
-            }
-            html.dark #welcomeModal .bg-gray-50 {
-                background-color: #2d3748 !important;
-            }
-            html.dark #welcomeModal .text-gray-800 {
-                color: #f3f4f6 !important;
-            }
-            html.dark #welcomeModal .text-gray-500 {
-                color: #cbd5e0 !important;
-            }
-
-            html.dark #createFolderModal > div {
-                background-color: #1f2937;
-                color: #ffffff;
-            }
-            html.dark #createFolderModal input {
-                background-color: #374151;
-                border-color: #4b5563;
-                color: #ffffff;
-            }
-            html.dark #fileViewerModal > div {
-                background-color: #1f2937;
-            }
-            html.dark #modalFileTitle {
-                color: #ffffff;
-            }
+            html.dark .page-body { background-color: #111827; color: #f3f4f6; }
+            html.dark .sidebar { background-color: #1f2937; border-color: #374151; }
+            html.dark .brand-text { color: #ffffff; }
+            html.dark .nav-link { color: #d1d5db; }
+            html.dark .nav-link:hover { background-color: #374151; }
+            html.dark .nav-link-active { background-color: rgba(49, 46, 129, 0.6); color: #818cf8; }
+            html.dark .user-name { color: #ffffff; }
+            html.dark .user-profile-link:hover { background-color: #374151; }
+            html.dark .logout-btn { color: #9ca3af; }
+            html.dark .logout-btn:hover { background-color: rgba(127, 29, 29, 0.3); color: #f87171; }
+            html.dark .btn-secondary { background-color: #1f2937; border-color: #374151; color: #e5e7eb; }
+            html.dark .btn-secondary:hover { background-color: #374151; }
+            html.dark .file-card { background-color: #1f2937; border-color: #374151; }
+            html.dark .file-title { color: #f3f4f6; }
+            html.dark .file-icon-box { background-color: rgba(55, 65, 81, 0.5); }
+            html.dark .empty-state-box { background-color: #1f2937 !important; border-color: #374151 !important; }
+            html.dark .empty-state-icon { background-color: #374151 !important; color: #d1d5db !important; }
+            html.dark .empty-state-text { color: #9ca3af !important; }
+            html.dark #welcomeModal > div { background-color: #1f2937 !important; border-color: #374151 !important; }
+            html.dark #welcomeModal h2 { color: #ffffff !important; }
+            html.dark #welcomeModal p { color: #9ca3af !important; }
+            html.dark #welcomeModal h4 { color: #e5e7eb !important; }
+            html.dark #welcomeModal span { color: #9ca3af !important; }
+            html.dark #welcomeModal .bg-gray-50 { background-color: #2d3748 !important; }
+            html.dark #welcomeModal .text-gray-800 { color: #f3f4f6 !important; }
+            html.dark #welcomeModal .text-gray-500 { color: #cbd5e0 !important; }
+            html.dark #createFolderModal > div { background-color: #1f2937; color: #ffffff; }
+            html.dark #createFolderModal input { background-color: #374151; border-color: #4b5563; color: #ffffff; }
+            html.dark #fileViewerModal > div { background-color: #1f2937; }
+            html.dark #modalFileTitle { color: #ffffff; }
 
             @layer components {
-                .page-body {
-                    @apply flex min-h-screen w-full text-gray-800 bg-[#f8f9fa] font-sans transition-colors duration-200;
-                }
-                .sidebar {
-                    @apply w-64 bg-white border-r border-gray-100 flex flex-col justify-between p-4 flex-shrink-0 min-h-screen shadow-sm z-10 transition-colors duration-200;
-                }
-                .brand-container {
-                    @apply flex items-center space-x-3 px-2 py-1;
-                }
-                .brand-logo {
-                    @apply w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-sm shadow-indigo-600/20;
-                }
-                .brand-text {
-                    @apply font-bold text-gray-900 text-base tracking-tight;
-                }
-                .nav-link {
-                    @apply flex items-center space-x-3 px-4 py-2.5 text-gray-600 hover:bg-gray-50 rounded-xl font-medium text-sm transition-all w-full text-left;
-                }
-                .nav-link-active {
-                    @apply flex items-center space-x-3 px-4 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl font-semibold text-sm transition-colors w-full text-left;
-                }
-
-                .wallet-widget {
-                    @apply w-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white p-4 rounded-2xl shadow-md shadow-indigo-600/10 relative overflow-hidden;
-                }
-                .wallet-header {
-                    @apply flex justify-between items-center opacity-85;
-                }
-                .wallet-title {
-                    @apply text-xs font-medium tracking-wide;
-                }
-                .wallet-balance {
-                    @apply text-xl font-bold mt-2 tracking-tight;
-                }
-
-                .user-area {
-                    @apply pt-2 border-t border-gray-100 flex flex-col gap-1;
-                }
-                .user-profile-link {
-                    @apply flex items-center space-x-3 px-2 py-2 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer;
-                }
-                .user-avatar {
-                    @apply w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 flex-shrink-0 font-bold text-xs uppercase;
-                }
-                .user-info {
-                    @apply flex-1 min-w-0;
-                }
-                .user-name {
-                    @apply text-sm font-bold text-gray-900 truncate;
-                }
-                .user-role {
-                    @apply text-[11px] text-gray-400 font-medium;
-                }
-                .logout-btn {
-                    @apply w-full flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors text-left;
-                }
-
-                .main-content {
-                    @apply flex-1 p-8 overflow-y-auto h-screen relative;
-                }
-                .header-container {
-                    @apply flex justify-between items-center mb-6;
-                }
-                .page-title {
-                    @apply text-2xl font-bold text-gray-900 tracking-tight;
-                }
-
-                .btn-primary {
-                    @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-[#5c3cf5] text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm shadow-sm shadow-indigo-100 cursor-pointer;
-                }
-                .btn-secondary {
-                    @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm shadow-sm cursor-pointer;
-                }
-
-                .file-grid {
-                    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5;
-                }
-                .file-card {
-                    @apply bg-white border border-gray-100 rounded-2xl p-5 hover:shadow-md transition-all cursor-pointer;
-                }
-                .file-icon-wrapper {
-                    @apply mb-5 flex justify-between items-start;
-                }
-                .file-icon-box {
-                    @apply p-4 rounded-[16px] flex items-center justify-center;
-                }
-                .file-title {
-                    @apply font-semibold text-gray-800 text-[15px] mb-1 truncate;
-                }
-                .file-size {
-                    @apply text-xs text-gray-400 font-medium mb-3;
-                }
-                .file-grid .file-card .file-date {
-                    @apply text-[11px] text-gray-400 font-medium;
-                }
+                .page-body { @apply flex min-h-screen w-full text-gray-800 bg-[#f8f9fa] font-sans transition-colors duration-200; }
+                .sidebar { @apply w-64 bg-white border-r border-gray-100 flex flex-col justify-between p-4 flex-shrink-0 min-h-screen shadow-sm z-10 transition-colors duration-200; }
+                .brand-container { @apply flex items-center space-x-3 px-2 py-1; }
+                .brand-logo { @apply w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-sm shadow-indigo-600/20; }
+                .brand-text { @apply font-bold text-gray-900 text-base tracking-tight; }
+                .nav-link { @apply flex items-center space-x-3 px-4 py-2.5 text-gray-600 hover:bg-gray-50 rounded-xl font-medium text-sm transition-all w-full text-left; }
+                .nav-link-active { @apply flex items-center space-x-3 px-4 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl font-semibold text-sm transition-colors w-full text-left; }
+                .wallet-widget { @apply w-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white p-4 rounded-2xl shadow-md shadow-indigo-600/10 relative overflow-hidden; }
+                .wallet-header { @apply flex justify-between items-center opacity-85; }
+                .wallet-title { @apply text-xs font-medium tracking-wide; }
+                .wallet-balance { @apply text-xl font-bold mt-2 tracking-tight; }
+                .user-area { @apply pt-2 border-t border-gray-100 flex flex-col gap-1; }
+                .user-profile-link { @apply flex items-center space-x-3 px-2 py-2 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer; }
+                .user-avatar { @apply w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 flex-shrink-0 font-bold text-xs uppercase; }
+                .user-info { @apply flex-1 min-w-0; }
+                .user-name { @apply text-sm font-bold text-gray-900 truncate; }
+                .user-role { @apply text-[11px] text-gray-400 font-medium; }
+                .logout-btn { @apply w-full flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors text-left; }
+                .main-content { @apply flex-1 p-8 overflow-y-auto h-screen relative; }
+                .header-container { @apply flex justify-between items-center mb-6; }
+                .page-title { @apply text-2xl font-bold text-gray-900 tracking-tight; }
+                .btn-primary { @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-[#5c3cf5] text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm shadow-sm shadow-indigo-100 cursor-pointer; }
+                .btn-secondary { @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm shadow-sm cursor-pointer; }
+                .file-grid { @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5; }
+                .file-card { @apply bg-white border border-gray-100 rounded-2xl p-5 hover:shadow-md transition-all cursor-pointer; }
+                .file-icon-wrapper { @apply mb-5 flex justify-between items-start; }
+                .file-icon-box { @apply p-4 rounded-[16px] flex items-center justify-center; }
+                .file-title { @apply font-semibold text-gray-800 text-[15px] mb-1 truncate; }
+                .file-size { @apply text-xs text-gray-400 font-medium mb-3; }
+                .file-grid .file-card .file-date { @apply text-[11px] text-gray-400 font-medium; }
             }
         </style>
     </head>
@@ -298,6 +167,7 @@
 
         <div id="toastContainer" class="fixed top-5 right-5 z-[200] flex flex-col gap-3 pointer-events-none"></div>
 
+        <!-- SIDEBAR COMPONENT -->
         <aside class="sidebar">
             <div class="space-y-6 w-full">
                 <div class="brand-container">
@@ -321,7 +191,7 @@
                         <span>AI Chatbot</span>
                     </a>
                     <a href="CreditWallet.jsp" class="nav-link">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/><path d="M16 14h2"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><path d="M16 14h2"/></svg>
                         <span>Ví cá nhân</span>
                     </a>
                     <a href="Membership.jsp" class="nav-link text-amber-600 !text-amber-600 hover:bg-amber-50 dark:!text-amber-500 dark:hover:bg-amber-950/30">
@@ -342,19 +212,23 @@
                 <div class="user-area">
                     <div class="flex items-center justify-between w-full">
                         <a href="<%= request.getContextPath()%>/MainController?action=profile" class="user-profile-link flex-1 min-w-0">
+                            <!-- FIX 3: Luôn sử dụng username gốc, cắt ký tự đầu in hoa làm Avatar -->
                             <div class="user-avatar">
-                                <%= username != null && !username.isEmpty() ? username.substring(0, 1) : "U"%>
+                                <%= username != null && !username.trim().isEmpty() ? username.trim().substring(0, 1).toUpperCase() : "U"%>
                             </div>
                             <div class="user-info">
                                 <div class="flex items-center gap-1.5 min-w-0">
-                                    <p class="user-name"><%= username != null ? username : "Khách"%></p>
+                                    <p class="user-name"><%= username != null && !username.trim().isEmpty() ? username : "Học viên"%></p>
+                                    
+                                    <!-- HUY HIỆU GÓI HIỂN THỊ DỰA TRÊN isPremiumUser ĐÃ FIX BÊN TRÊN -->
                                     <% if (isPremiumUser) { %>
                                     <span class="flex-shrink-0 px-1.5 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-[9px] rounded-full shadow-sm scale-90 origin-left">PRO</span>
                                     <% } else { %>
                                     <span class="flex-shrink-0 px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-400 dark:border-emerald-700 font-bold text-[10px] rounded-full shadow-sm scale-90 origin-left tracking-wide">FREE</span>
                                     <% }%>
                                 </div>
-                                <p class="user-role">Quyền: <%= role != null ? role : "Free"%></p>
+                                <!-- ĐOẠN NÀY LÀ QUYỀN (ROLE): SẼ HIỂN THỊ "STUDENT" THAY VÌ FREE/PREMIUM NHƯ CŨ -->
+                                <p class="user-role">Quyền: <%= role %></p>
                             </div>
                         </a>
                     </div>
@@ -367,6 +241,7 @@
             </div>
         </aside>
 
+        <!-- MAIN CONTENT COMPONENT -->
         <main class="main-content">
             <div class="header-container">
                 <div class="flex items-center space-x-3">
@@ -401,21 +276,27 @@
                 </div>
             </div>
 
+            <!-- Widget Thống kê Dung lượng Động -->
             <div class="mb-8 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm transition-colors duration-200 dark:bg-gray-800 dark:border-gray-700">
                 <div class="flex items-center justify-between mb-3">
-                    <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Dung lượng đã sử dụng (STUDENT)</span>
-                    <span class="text-sm font-bold text-black dark:text-white">0.00 GB / 5 GB</span>
+                    <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Dung lượng đã sử dụng (<%= isPremiumUser ? "PREMIUM" : "FREE" %>)</span>
+                    <span class="text-sm font-bold text-black dark:text-white"><%= String.format("%.2f", totalSizeGb) %> GB / <%= (int)maxStorageGb %> GB</span>
                 </div>
                 <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                    <div class="bg-[#5c3cf5] h-2.5 rounded-full transition-all duration-500 ease-out" style="width: 0.0%"></div>
+                    <div class="bg-[#5c3cf5] h-2.5 rounded-full transition-all duration-500 ease-out" style="width: <%= storagePercent %>%"></div>
                 </div>
                 <p class="text-xs mt-3 font-medium text-gray-500 dark:text-gray-400">
-                    Nâng cấp lên Premium để có thêm 50GB dung lượng &amp; mở rộng giới hạn file lên đến 100MB.
+                    <% if (!isPremiumUser) { %>
+                    Nâng cấp lên Premium để có thêm 50GB dung lượng lưu trữ &amp; mở rộng giới hạn file tải lên đến 100MB.
+                    <% } else { %>
+                    Tài khoản Premium đang hoạt động tối ưu. Chúc bạn có những trải nghiệm học tập tuyệt vời!
+                    <% } %>
                 </p>
             </div>
 
             <div id="file-grid-list" class="file-grid"></div>
 
+            <!-- MODAL CORES -->
             <div id="fileViewerModal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm flex justify-center items-center">
                 <div class="bg-white w-11/12 max-w-5xl h-[90vh] rounded-2xl flex flex-col shadow-2xl overflow-hidden dark:bg-gray-800">
                     <div class="flex justify-between items-center px-6 py-4 border-b border-gray-100 bg-gray-50/50 dark:bg-gray-800 dark:border-gray-700">
@@ -452,6 +333,7 @@
             </div>
         </main>
 
+        <!-- POPUP CHÀO MỪNG THÀNH VIÊN MỚI -->
         <div id="welcomeModal" class="fixed inset-0 z-[100] hidden bg-gray-950/70 backdrop-blur-md flex justify-center items-center p-4">
             <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl p-8 border border-gray-100 text-center transform scale-95 transition-all duration-300">
                 <div class="w-20 h-20 bg-gradient-to-tr from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white mx-auto mb-6 shadow-lg shadow-indigo-500/30">
@@ -459,9 +341,9 @@
                 </div>
 
                 <h2 class="text-2xl font-extrabold text-gray-900 mb-2 tracking-tight">
-                    Chào mừng bạn, <span class="text-indigo-600"><%= username != null ? username : "Học viên"%></span>! 👋
+                    Chào mừng bạn, <span class="text-indigo-600"><%= username != null && !username.trim().isEmpty() ? username : "Học viên"%></span>! 👋
                 </h2>
-                <p class="text-sm text-gray-500 mb-6 font-medium">Khám phá không gian học tập công nghệ mới của riêng bạn tại</p>
+                <p class="text-sm text-gray-500 mb-6 font-medium">Khám phá không gian học tập công nghệ mới của riêng bạn tại AI Study Hub</p>
 
                 <div class="space-y-4 text-left mb-6">
                     <div class="flex items-start space-x-3.5 p-3.5 bg-gray-50 rounded-2xl">
@@ -510,8 +392,8 @@
 
         <script>
             const MAX_FILE_SIZE_BYTES = <%= maxUploadSizeBytes%>;
-            const USER_ROLE_STR = "<%= role%>";
-            const CURRENT_USER_ID = "<%= userId%>";
+            const USER_ROLE_STR = "<%= isPremiumUser ? "Premium" : "Free" %>";
+            const CURRENT_USER_ID = "<%= userId%>;";
             const ALLOWED_EXTENSIONS = ['pptx', 'docx', 'xlsx', 'pdf'];
 
             const dbItems = [
@@ -550,8 +432,7 @@
 
             function showToast(message, type = 'success') {
                 const container = document.getElementById('toastContainer');
-                if (!container)
-                    return;
+                if (!container) return;
 
                 const toast = document.createElement('div');
                 toast.className = `flex items-center space-x-3 px-5 py-3.5 bg-white dark:bg-gray-800 text-gray-800 dark:text-white rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 pointer-events-auto transition-all duration-300 translate-x-20 opacity-0 min-w-[280px] max-w-md`;
@@ -568,9 +449,7 @@
                 }, 50);
                 setTimeout(() => {
                     toast.classList.add('opacity-0', 'translate-x-10');
-                    setTimeout(() => {
-                        toast.remove();
-                    }, 300);
+                    setTimeout(() => { toast.remove(); }, 300);
                 }, 4000);
             }
 
@@ -584,8 +463,7 @@
 
             function handleFileSelect(input) {
                 const file = input.files[0];
-                if (!file)
-                    return;
+                if (!file) return;
 
                 const fileExtension = file.name.split('.').pop().toLowerCase();
                 if (!ALLOWED_EXTENSIONS.includes(fileExtension)) {
@@ -595,8 +473,8 @@
                 }
 
                 if (file.size > MAX_FILE_SIZE_BYTES) {
-                    const limitMb = USER_ROLE_STR === 'Premium' ? '100MB' : '50MB';
-                    alert(`Tài khoản của bạn (${USER_ROLE_STR}) bị giới hạn kích thước dung lượng tải lên tối đa là \${limitMb} cho mỗi tài liệu.\n\nTập tin hiện tại của bạn nặng: \${(file.size / (1024 * 1024)).toFixed(2)} MB.`);
+                    const limitMb = <%= isPremiumUser ? "100" : "50" %>;
+                    alert(`Tài khoản của bạn (\${USER_ROLE_STR}) bị giới hạn kích thước dung lượng tải lên tối đa là \${limitMb}MB cho mỗi tài liệu.\n\nTập tin hiện tại của bạn nặng: \${(file.size / (1024 * 1024)).toFixed(2)} MB.`);
                     input.value = '';
                     return;
                 }
@@ -617,16 +495,11 @@
             function initToastNotifications() {
                 const urlParams = new URLSearchParams(window.location.search);
 
-                if (urlParams.has('uploadSuccess'))
-                    showToast("🎉 Đã upload file thành công!", "success");
-                if (urlParams.has('createFolderSuccess'))
-                    showToast("📁 Đã tạo folder thành công!", "success");
-                if (urlParams.has('deleteSuccess'))
-                    showToast("🗑️ Đã xóa folder hoặc file thành công!", "success");
-                if (urlParams.has('depositSuccess'))
-                    showToast("🔑 Nạp Coin thành công! Số dư đã cập nhật.", "success");
-                if (urlParams.has('upgradeSuccess'))
-                    showToast("👑 Nâng cấp tài khoản Premium thành công!", "success");
+                if (urlParams.has('uploadSuccess')) showToast("🎉 Đã upload file thành công!", "success");
+                if (urlParams.has('createFolderSuccess')) showToast("📁 Đã tạo folder thành công!", "success");
+                if (urlParams.has('deleteSuccess')) showToast("🗑️ Đã xóa folder hoặc file thành công!", "success");
+                if (urlParams.has('depositSuccess')) showToast("🔑 Nạp Coin thành công! Số dư đã cập nhật.", "success");
+                if (urlParams.has('upgradeSuccess')) showToast("👑 Nâng cấp tài khoản Premium thành công!", "success");
 
                 if (<%= storagePercent%> >= 85.0) {
                     showToast("⚠️ Cảnh báo: Dung lượng lưu trữ sắp đầy!", "info");
@@ -660,8 +533,8 @@
 
             function renderFileGrid() {
                 const gridContainer = document.getElementById('file-grid-list');
-                if (!gridContainer)
-                    return;
+                if (!gridContainer) return;
+                
                 if (dbItems.length === 0) {
                     gridContainer.innerHTML = `<div class="empty-state-box col-span-full flex flex-col items-center justify-center py-16 bg-white border border-gray-100 rounded-2xl shadow-sm transition-colors duration-200">
                     <div class="empty-state-icon w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 mb-4 transition-colors duration-200">
