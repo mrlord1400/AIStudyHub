@@ -45,7 +45,7 @@
     }
 
     long maxUploadSizeBytes = isPremiumUser ? 100L * 1024 * 1024 : 50L * 1024 * 1024;
-    double maxStorageGb = isPremiumUser ? 55.0 : 5.0; // Gói Free có 5GB, Gói Premium có 55GB
+    double maxStorageGb = isPremiumUser ? 50.0 : 5.0; // Gói Free có 5GB, Gói Premium có 55GB
 
     String folderIdParam = request.getParameter("folderId");
     Integer currentFolderId = null;
