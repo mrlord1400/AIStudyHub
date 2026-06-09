@@ -1,3 +1,5 @@
+<%@page import="Model.User"%>
+<%@page import="Model.UserDAO"%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="java.util.List" %>
 <%
@@ -7,7 +9,7 @@
         return;
     }
 
-    int userId = (Integer) userSession.getAttribute("userId");
+    Integer userId = (Integer) userSession.getAttribute("userId");
     String username = (String) userSession.getAttribute("username");
     String role = (String) userSession.getAttribute("role");
     Integer tierId = (Integer) userSession.getAttribute("tierId");
@@ -31,9 +33,11 @@
     // Từ tier 3 trở lên mới được hệ thống nhận diện là tài khoản Premium
     boolean isPremiumUser = (tierId >= 3);
 
-    Integer userBalance = (Integer) userSession.getAttribute("balance");
-    if (userBalance == null) {
-        userBalance = 0;
+    UserDAO dao = new UserDAO();
+    int userBalance = 0;
+    if (userId != null) {
+        User user = dao.getUserById(userId);
+        userBalance = user.getBalance();
     }
     int premiumPrice = 99000;
 %>

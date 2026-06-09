@@ -204,6 +204,7 @@ public class UserDAO {
         String deleteChatSessionsSql = "DELETE FROM chat_sessions WHERE user_id = ?";
         String deleteDocsSql = "DELETE FROM documents WHERE user_id = ?";
         String deleteFolderSql = "DELETE FROM folders WHERE user_id = ?";
+        String deleteTransactionSql = "DELETE FROM transactions WHERE user_id = ?";
         String deleteUserSql = "DELETE FROM users WHERE user_id = ?";
 
         try ( Connection conn = DBUtils.getConnection()) {
@@ -211,7 +212,7 @@ public class UserDAO {
             conn.setAutoCommit(false);
 
             try (
-                     PreparedStatement psBookmarks = conn.prepareStatement(deleteBookmarksSql);  PreparedStatement psChat = conn.prepareStatement(deleteChatSessionsSql);  PreparedStatement psDocs = conn.prepareStatement(deleteDocsSql);  PreparedStatement psFolder = conn.prepareStatement(deleteFolderSql);  PreparedStatement psUser = conn.prepareStatement(deleteUserSql)) {
+                     PreparedStatement psBookmarks = conn.prepareStatement(deleteBookmarksSql);  PreparedStatement psChat = conn.prepareStatement(deleteChatSessionsSql);  PreparedStatement psDocs = conn.prepareStatement(deleteDocsSql);  PreparedStatement psFolder = conn.prepareStatement(deleteFolderSql);  PreparedStatement psUser = conn.prepareStatement(deleteUserSql); PreparedStatement psTrans = conn.prepareStatement(deleteTransactionSql)) {
                 // Step A: Delete lowest-level dependencies (Bookmarks & Chat History)
                 psBookmarks.setInt(1, userId);
                 psBookmarks.executeUpdate();
@@ -227,6 +228,10 @@ public class UserDAO {
                 psFolder.setInt(1, userId);
                 psFolder.executeUpdate();
 
+                // Step D: Finally, delete the User
+                psTrans.setInt(1, userId);
+                psTrans.executeUpdate();
+                
                 // Step D: Finally, delete the User
                 psUser.setInt(1, userId);
                 int userDeleted = psUser.executeUpdate();
@@ -341,7 +346,7 @@ public class UserDAO {
             User user = getUserById(userId);
             int newBalance = user.getBalance() + amount;
             PreparedStatement ps = conn.prepareStatement(sql);
-            
+
             // Set the original fields
             ps.setInt(1, newBalance);
             ps.setInt(2, userId);
