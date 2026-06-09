@@ -23,11 +23,7 @@
     // 3. Tính toán số lượng người dùng thực tế (loại trừ các tài khoản quyền ADMIN)
     int totalUsers = 0;
     if (userList != null) {
-        for (User u : userList) {
-            if (!"ADMIN".equalsIgnoreCase(u.getRole())) {
-                totalUsers++;
-            }
-        }
+        totalUsers = userList.size();
     }
 
     // Lấy dữ liệu thống kê giao dịch từ Controller truyền sang thông qua Attribute

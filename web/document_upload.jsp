@@ -1,3 +1,5 @@
+<%@page import="Model.User"%>
+<%@page import="Model.UserDAO"%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="Model.Folder" %>
 <%@ page import="Model.FolderDAO" %>
@@ -32,9 +34,11 @@
     boolean isPremiumUser = (tierId >= 3);
 
     // Khởi tạo số dư ví Coin
-    Integer userBalance = (Integer) userSession.getAttribute("balance");
-    if (userBalance == null) {
-        userBalance = 0;
+    UserDAO dao = new UserDAO();
+    int userBalance = 0;
+    if (userId != null) {
+        User user = dao.getUserById(userId);
+        userBalance = user.getBalance();
     }
 
     // 3. Fetch Pending Document Data

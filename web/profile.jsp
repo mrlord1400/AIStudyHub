@@ -1,3 +1,4 @@
+<%@page import="Model.UserDAO"%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="Model.User" %>
 <%
@@ -14,6 +15,7 @@
         return;
     }
 
+    Integer userId = (Integer) userSession.getAttribute("userId");
     String username = (String) userSession.getAttribute("username");
     String role = (String) userSession.getAttribute("role");
     Integer tierId = (Integer) userSession.getAttribute("tierId");
@@ -22,7 +24,7 @@
     // FIX 1: QUẢN LÝ QUYỀN (ROLE)
     // Ép kiểu Quyền: Bất kỳ ai không phải ADMIN thì đều mặc định là quyền STUDENT
     if (role == null || !"ADMIN".equalsIgnoreCase(role.trim())) {
-        role = "STUDENT"; 
+        role = "STUDENT";
     } else {
         role = "ADMIN";
     }
@@ -37,9 +39,11 @@
     // Từ tier 3 trở lên mới được hệ thống nhận diện là tài khoản Premium
     boolean isPremiumUser = (tierId >= 3);
 
-    Integer userBalance = (Integer) userSession.getAttribute("balance");
-    if (userBalance == null) {
-        userBalance = 0;
+    UserDAO dao = new UserDAO();
+    int userBalance = 0;
+    if (userId != null) {
+        User user = dao.getUserById(userId);
+        userBalance = user.getBalance();
     }
 
     // Status Parameters

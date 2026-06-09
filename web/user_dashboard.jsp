@@ -1,3 +1,5 @@
+<%@page import="Model.User"%>
+<%@page import="Model.UserDAO"%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="Model.Document" %>
 <%@ page import="Model.DocumentDAO" %>
@@ -13,8 +15,8 @@
         response.sendRedirect(request.getContextPath() + "/login.jsp");
         return;
     }
-
-    int userId = (Integer) userSession.getAttribute("userId");
+    
+    Integer userId = (Integer) userSession.getAttribute("userId");
     String username = (String) userSession.getAttribute("username");
     String role = (String) userSession.getAttribute("role");
     Integer tierId = (Integer) userSession.getAttribute("tierId");
@@ -39,9 +41,11 @@
     boolean isPremiumUser = (tierId >= 3);
     
     // Khởi tạo số dư ví Coin
-    Integer userBalance = (Integer) userSession.getAttribute("balance");
-    if (userBalance == null) {
-        userBalance = 0;
+    UserDAO dao = new UserDAO();
+    int userBalance = 0;
+    if (userId != null) {
+        User user = dao.getUserById((int) userId);
+        userBalance = user.getBalance();
     }
 
     long maxUploadSizeBytes = isPremiumUser ? 100L * 1024 * 1024 : 50L * 1024 * 1024;

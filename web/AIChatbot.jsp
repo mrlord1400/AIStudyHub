@@ -1,3 +1,5 @@
+<%@page import="Model.User"%>
+<%@page import="Model.UserDAO"%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%
     // 1. Kiểm tra trạng thái đăng nhập
@@ -7,7 +9,7 @@
         return;
     }
 
-    int userId = (Integer) userSession.getAttribute("userId");
+    Integer userId = (Integer) userSession.getAttribute("userId");
     String username = (String) userSession.getAttribute("username");
     String role = (String) userSession.getAttribute("role");
     Integer tierId = (Integer) userSession.getAttribute("tierId");
@@ -32,9 +34,11 @@
     boolean isPremiumUser = (tierId >= 3);
 
     // 2. Lấy số dư ví Coin
-    Integer userBalance = (Integer) userSession.getAttribute("balance");
-    if (userBalance == null) {
-        userBalance = 0;
+    UserDAO dao = new UserDAO();
+    int userBalance = 0;
+    if (userId != null) {
+        User user = dao.getUserById(userId);
+        userBalance = user.getBalance();
     }
 %>
 <!DOCTYPE html>

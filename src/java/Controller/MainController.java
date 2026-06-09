@@ -72,6 +72,7 @@ public class MainController extends HttpServlet {
                     case "listTransactions":
                     case "adminListTransactions":
                     case "adminUpdateTransaction":
+                    case "buyPremium":
                         url = TRANSACTION_CONTROLLER;
                         break;
                     case "listUsers":
@@ -80,6 +81,9 @@ public class MainController extends HttpServlet {
                     case "deleteUser":
                     case "listDashboard":
                         url = ADMIN_CONTROLLER;
+                        break;
+                    case "wallet":
+                        url = "CreditWallet.jsp";
                         break;
                     default:
                         // If an unknown action is sent, redirect to login as a failsafe
