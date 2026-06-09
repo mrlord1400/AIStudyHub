@@ -83,9 +83,9 @@ public class AuthController extends HttpServlet {
             throws IOException {
 
         String email = request.getParameter("email");
-        String username = email;
+        String username = request.getParameter("username");
         String password = request.getParameter("password");
-
+        
         User user = new User();
 
         user.setUsername(username);

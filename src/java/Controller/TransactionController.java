@@ -13,7 +13,7 @@ import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.List;
 
-@WebServlet(name = "TransactionController", urlPatterns = { "/TransactionController" })
+@WebServlet(name = "TransactionController", urlPatterns = {"/TransactionController"})
 public class TransactionController extends HttpServlet {
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
@@ -38,7 +38,7 @@ public class TransactionController extends HttpServlet {
                     handleAdminListTransactions(request, response);
                     break;
 
-                case "updateTransactionStatus":
+                case "adminUpdateTransaction":
                     handleUpdateTransactionStatus(request, response);
                     break;
 
@@ -53,8 +53,7 @@ public class TransactionController extends HttpServlet {
     }
 
     /**
-     * User tạo giao dịch mới.
-     * Nhận từ JSP: amount, type (DEPOSIT / WITHDRAW)
+     * User tạo giao dịch mới. Nhận từ JSP: amount, type (DEPOSIT / WITHDRAW)
      * Status mặc định = PENDING
      */
     private void handleCreateTransaction(HttpServletRequest request,
@@ -148,17 +147,14 @@ public class TransactionController extends HttpServlet {
         TransactionDAO dao = new TransactionDAO();
         List<Transaction> transactions = dao.getAllTransactions();
 
-        request.setAttribute("transactions", transactions);
-        request.getRequestDispatcher("/admin_dashboard.jsp").forward(request, response);
+        request.setAttribute("transaction_list", transactions);
+        request.getRequestDispatcher("/admin_manageTrans.jsp").forward(request, response);
     }
 
     /**
-     * Admin cập nhật trạng thái giao dịch.
-     * Nếu approve (SUCCESS):
-     * - DEPOSIT → cộng balance cho user
-     * - WITHDRAW → trừ balance cho user
-     * Nếu cancel (CANCELLED):
-     * - Không thay đổi balance
+     * Admin cập nhật trạng thái giao dịch. Nếu approve (SUCCESS): - DEPOSIT →
+     * cộng balance cho user - WITHDRAW → trừ balance cho user Nếu cancel
+     * (CANCELLED): - Không thay đổi balance
      */
     private void handleUpdateTransactionStatus(HttpServletRequest request,
             HttpServletResponse response)
@@ -206,9 +202,9 @@ public class TransactionController extends HttpServlet {
         if (statusUpdated && "SUCCESS".equals(newStatus)) {
             // Cập nhật balance cho user
             if ("DEPOSIT".equals(t.getType())) {
-                userDAO.updateBalance(t.getUserId(), t.getAmount());
+                userDAO.updateBalance(t.getUserId(), (int) t.getAmount());
             } else if ("WITHDRAW".equals(t.getType()) || "PREMIUM_PURCHASE".equals(t.getType())) {
-                userDAO.updateBalance(t.getUserId(), -t.getAmount());
+                userDAO.updateBalance(t.getUserId(), (int) -t.getAmount());
             }
         }
 
