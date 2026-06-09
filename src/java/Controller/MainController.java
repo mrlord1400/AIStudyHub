@@ -71,13 +71,14 @@ public class MainController extends HttpServlet {
                     case "createTransaction":
                     case "listTransactions":
                     case "adminListTransactions":
-                    case "updateTransactionStatus":
+                    case "adminUpdateTransaction":
                         url = TRANSACTION_CONTROLLER;
                         break;
                     case "listUsers":
                     case "createUser":
                     case "updateUser":
                     case "deleteUser":
+                    case "listDashboard":
                         url = ADMIN_CONTROLLER;
                         break;
                     default:
