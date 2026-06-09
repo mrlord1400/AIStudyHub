@@ -1,3 +1,4 @@
+<%@page import="Model.UserDAO"%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="Model.User" %>
 <%
@@ -14,19 +15,36 @@
         return;
     }
 
+    Integer userId = (Integer) userSession.getAttribute("userId");
     String username = (String) userSession.getAttribute("username");
     String role = (String) userSession.getAttribute("role");
+    Integer tierId = (Integer) userSession.getAttribute("tierId");
 
-    if (role == null || role.trim().isEmpty()) {
-        role = "Free";
+    // ------------------------------------------------------------------
+    // FIX 1: QUẢN LÝ QUYỀN (ROLE)
+    // Ép kiểu Quyền: Bất kỳ ai không phải ADMIN thì đều mặc định là quyền STUDENT
+    if (role == null || !"ADMIN".equalsIgnoreCase(role.trim())) {
+        role = "STUDENT";
+    } else {
+        role = "ADMIN";
     }
 
-    Integer userBalance = (Integer) userSession.getAttribute("balance");
-    if (userBalance == null) {
-        userBalance = 0;
+    // ------------------------------------------------------------------
+    // FIX 2: QUẢN LÝ GÓI (TIER)
+    // Theo DB hệ thống: tierId = 2 là FREE, tierId = 3 là PREMIUM.
+    if (tierId == null || tierId < 2) {
+        tierId = 2; // Mặc định gán 2 cho người mới đăng ký (Gói FREE)
     }
 
-    boolean isPremiumUser = "Premium".equalsIgnoreCase(role);
+    // Từ tier 3 trở lên mới được hệ thống nhận diện là tài khoản Premium
+    boolean isPremiumUser = (tierId >= 3);
+
+    UserDAO dao = new UserDAO();
+    int userBalance = 0;
+    if (userId != null) {
+        User user = dao.getUserById(userId);
+        userBalance = user.getBalance();
+    }
 
     // Status Parameters
     String error = request.getParameter("error");
@@ -224,7 +242,7 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
                         <span>AI Chatbot</span>
                     </a>
-                    <a href="CreditWallet.jsp" class="nav-link">
+                    <a href="MainController?action=listTransactions" class="nav-link">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/><path d="M16 14h2"/></svg>
                         <span>Ví cá nhân</span>
                     </a>

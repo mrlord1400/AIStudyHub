@@ -2,6 +2,7 @@ package Controller;
 
 import Model.Transaction;
 import Model.TransactionDAO;
+import Model.User;
 import Model.UserDAO;
 
 import javax.servlet.ServletException;
@@ -13,7 +14,7 @@ import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.List;
 
-@WebServlet(name = "TransactionController", urlPatterns = { "/TransactionController" })
+@WebServlet(name = "TransactionController", urlPatterns = {"/TransactionController"})
 public class TransactionController extends HttpServlet {
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
@@ -38,10 +39,12 @@ public class TransactionController extends HttpServlet {
                     handleAdminListTransactions(request, response);
                     break;
 
-                case "updateTransactionStatus":
+                case "adminUpdateTransaction":
                     handleUpdateTransactionStatus(request, response);
                     break;
-
+                case "buyPremium":
+                    handleBuyPremium(request, response);
+                    break;
                 default:
                     response.sendRedirect(request.getContextPath() + "/login.jsp");
                     break;
@@ -53,8 +56,7 @@ public class TransactionController extends HttpServlet {
     }
 
     /**
-     * User tạo giao dịch mới.
-     * Nhận từ JSP: amount, type (DEPOSIT / WITHDRAW)
+     * User tạo giao dịch mới. Nhận từ JSP: amount, type (DEPOSIT / WITHDRAW)
      * Status mặc định = PENDING
      */
     private void handleCreateTransaction(HttpServletRequest request,
@@ -148,17 +150,14 @@ public class TransactionController extends HttpServlet {
         TransactionDAO dao = new TransactionDAO();
         List<Transaction> transactions = dao.getAllTransactions();
 
-        request.setAttribute("transactions", transactions);
-        request.getRequestDispatcher("/admin_dashboard.jsp").forward(request, response);
+        request.setAttribute("transaction_list", transactions);
+        request.getRequestDispatcher("/admin_manageTrans.jsp").forward(request, response);
     }
 
     /**
-     * Admin cập nhật trạng thái giao dịch.
-     * Nếu approve (SUCCESS):
-     * - DEPOSIT → cộng balance cho user
-     * - WITHDRAW → trừ balance cho user
-     * Nếu cancel (CANCELLED):
-     * - Không thay đổi balance
+     * Admin cập nhật trạng thái giao dịch. Nếu approve (SUCCESS): - DEPOSIT →
+     * cộng balance cho user - WITHDRAW → trừ balance cho user Nếu cancel
+     * (CANCELLED): - Không thay đổi balance
      */
     private void handleUpdateTransactionStatus(HttpServletRequest request,
             HttpServletResponse response)
@@ -206,14 +205,77 @@ public class TransactionController extends HttpServlet {
         if (statusUpdated && "SUCCESS".equals(newStatus)) {
             // Cập nhật balance cho user
             if ("DEPOSIT".equals(t.getType())) {
-                userDAO.updateBalance(t.getUserId(), t.getAmount());
+                userDAO.updateBalance(t.getUserId(), (int) t.getAmount());
             } else if ("WITHDRAW".equals(t.getType()) || "PREMIUM_PURCHASE".equals(t.getType())) {
-                userDAO.updateBalance(t.getUserId(), -t.getAmount());
+                userDAO.updateBalance(t.getUserId(), (int) -t.getAmount());
             }
         }
 
         response.sendRedirect(request.getContextPath()
                 + "/MainController?action=adminListTransactions&updateSuccess=1");
+    }
+
+    private void handleBuyPremium(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+
+        HttpSession session = request.getSession(false);
+        if (session == null || session.getAttribute("userId") == null) {
+            response.sendRedirect(request.getContextPath() + "/login.jsp");
+            return;
+        }
+
+        int userId = (int) session.getAttribute("userId");
+        int premiumCost = 99000;
+
+        UserDAO userDAO = new UserDAO();
+        TransactionDAO transactionDAO = new TransactionDAO();
+
+        // 1. Fetch current user to verify they have enough balance
+        User currentUser = userDAO.getUserById(userId);
+        if (currentUser == null) {
+            response.sendRedirect(request.getContextPath() + "/login.jsp");
+            return;
+        }
+
+        if (currentUser.getBalance() < premiumCost) {
+            // Redirect with an error if they don't have enough credits
+            response.sendRedirect(request.getContextPath() + "/CreditWallet.jsp?error=insufficient_balance");
+            return;
+        }
+
+        // 2. Create the Transaction record
+        Transaction t = new Transaction();
+        t.setUserId(userId);
+        t.setAmount(-99000);     // Set to exactly -99000 as requested
+        t.setType("WITHDRAW");   // Set type to withdraw
+        t.setStatus("SUCCESS");  // Automatically set to SUCCESS since it's an instant purchase
+
+        boolean txSuccess = transactionDAO.createTransaction(t);
+
+        if (txSuccess) {
+            // 3. Atomically deduct the balance using the safe updateBalance method
+            boolean balanceUpdated = userDAO.updateBalance(userId, -99000);
+
+            if (balanceUpdated) {
+                // 4. Update the user's tier
+                // IMPORTANT: We re-fetch the user here to get the newly updated balance from the DB. 
+                // If we used `currentUser`, the `updateUser()` method would overwrite the database 
+                // with the old balance still stored in Java memory!
+                User updatedUser = userDAO.getUserById(userId);
+                updatedUser.setTierId(3);
+                userDAO.updateUser(updatedUser);
+
+                // Update the session attribute so the UI reflects the new tier immediately
+                session.setAttribute("tierId", 3);
+
+                // Redirect to a success page or dashboard
+                response.sendRedirect(request.getContextPath() + "/MainController?action=listTransactions&premiumSuccess=1");
+            } else {
+                response.sendRedirect(request.getContextPath() + "/CreditWallet.jsp?error=balance_update_failed");
+            }
+        } else {
+            response.sendRedirect(request.getContextPath() + "/CreditWallet.jsp?error=transaction_failed");
+        }
     }
 
     @Override

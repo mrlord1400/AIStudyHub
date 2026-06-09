@@ -19,7 +19,7 @@
     String currentUsername = (String) userSession.getAttribute("username");
     
     // 2. Nhận dữ liệu danh sách giao dịch từ Controller truyền sang
-    List<Transaction> transList = (List<Transaction>) request.getAttribute("TransactionList");
+    List<Transaction> transList = (List<Transaction>) request.getAttribute("transaction_list");
     
     // Tính toán số liệu nhanh để hiển thị các Thẻ Thống kê (Stat Cards)
     int totalTrans = (transList != null) ? transList.size() : 0;
@@ -78,7 +78,7 @@
     <!-- SIDEBAR COMPONENT -->
     <aside class="sidebar">
         <div class="space-y-6 w-full">
-            <a href="<%= request.getContextPath()%>/AdminController?action=dashboard" class="flex items-center space-x-3 px-2 py-1 transition-opacity hover:opacity-80 block w-full">
+            <a href="<%= request.getContextPath()%>/MainController?action=listDashboard" class="flex items-center space-x-3 px-2 py-1 transition-opacity hover:opacity-80 block w-full">
                 <div class="w-9 h-9 bg-red-600 rounded-xl flex items-center justify-center text-white shadow-sm">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                 </div>
@@ -86,15 +86,15 @@
             </a>
 
             <nav class="space-y-1 w-full">
-                <a href="<%= request.getContextPath()%>/AdminController?action=listDashboard" class="nav-link">
+                <a href="<%= request.getContextPath()%>/MainController?action=listDashboard" class="nav-link">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
                     <span>Dashboard</span>
                 </a>
-                <a href="<%= request.getContextPath()%>/AdminController?action=listUsers" class="nav-link">
+                <a href="<%= request.getContextPath()%>/MainController?action=listUsers" class="nav-link">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                     <span>Quản lý người dùng</span>
                 </a>
-                <a href="<%= request.getContextPath()%>/AdminController?action=listTransactions" class="nav-link-active">
+                <a href="<%= request.getContextPath()%>/MainController?action=adminListTransactions" class="nav-link-active">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
                     <span>Quản lý giao dịch</span>
                 </a>
@@ -140,7 +140,7 @@
             <!-- Doanh thu nạp sạch -->
             <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between dark:bg-gray-800 dark:border-gray-700">
                 <div>
-                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Doanh thu nạp sạch</p>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Doanh thu tổng</p>
                     <h3 class="text-2xl font-bold text-emerald-600 dark:text-emerald-400"><%= String.format("%,.0f", totalDeposit) %> <span class="text-sm font-semibold">Coin</span></h3>
                 </div>
                 <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center dark:bg-emerald-900/30 dark:text-emerald-400">
@@ -216,10 +216,11 @@
                                         <input type="hidden" name="action" value="adminUpdateTransaction" />
                                         <input type="hidden" name="transactionId" value="<%= t.getTransactionId() %>" />
                                         
-                                        <select name="status" class="status-select" onchange="this.form.submit()">
-                                            <option value="PENDING" <%= "PENDING".equalsIgnoreCase(t.getStatus()) ? "selected" : "" %>>⏳ Đang xử lý</option>
+                                        <select name="newStatus" class="status-select" onchange="this.form.submit()">
+                                            <option value="PENDING" <%= "PENDING".equalsIgnoreCase(t.getStatus()) ? "selected" : "" %>>⏳ Đang chờ</option>
+                                            <option value="PROCESSING" <%= "PROCESSING".equalsIgnoreCase(t.getStatus()) ? "selected" : "" %>>⏳ Đang xử lý</option>
                                             <option value="SUCCESS" <%= "SUCCESS".equalsIgnoreCase(t.getStatus()) ? "selected" : "" %>>✅ Thành công</option>
-                                            <option value="FAILED" <%= "FAILED".equalsIgnoreCase(t.getStatus()) ? "selected" : "" %>>❌ Thất bại / Hủy</option>
+                                            <option value="CANCELLED" <%= "CANCELLED".equalsIgnoreCase(t.getStatus()) ? "selected" : "" %>>❌ Thất bại / Hủy</option>
                                         </select>
                                     </form>
                                 </div>
