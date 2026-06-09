@@ -1,6 +1,8 @@
 package Controller;
 
 import Model.AdminDAO;
+import Model.Transaction;
+import Model.TransactionDAO;
 import Model.User;
 import Model.UserDAO;
 import Utils.PasswordUtil;
@@ -24,6 +26,7 @@ public class AdminController extends HttpServlet {
         String action = request.getParameter("action");
         AdminDAO dao = new AdminDAO();
         UserDAO userDAO = new UserDAO(); // Khởi tạo thêm UserDAO để dùng cho dữ liệu profile
+        TransactionDAO tranDAO = new TransactionDAO();
 
         if ("listUsers".equals(action)) {
             List<User> users = dao.getAllUsers();
@@ -34,18 +37,10 @@ public class AdminController extends HttpServlet {
 
         if ("listDashboard".equals(action)) {
             List<User> users = dao.getAllUsers();
-
-            // Đếm số lượng loại trừ ADMIN
-            int userCount = 0;
-            for (User u : users) {
-                if (!"ADMIN".equalsIgnoreCase(u.getRole())) {
-                    userCount++;
-                }
-            }
-
+            List<Transaction> trans = tranDAO.getAllTransactions();
             // Đặt đúng tên thuộc tính mà file JSP cũ của bạn đang tìm kiếm
-            request.setAttribute("totalUserAmount", userCount);
-            request.setAttribute("totalTransactionAmount", 0); // Đóng gói tạm số 0 hoặc hàm đếm của bạn
+            request.setAttribute("totalUserAmount", users.size());
+            request.setAttribute("totalTransactionAmount", trans.size()); // Đóng gói tạm số 0 hoặc hàm đếm của bạn
 
             request.setAttribute("user_list", users);
             request.getRequestDispatcher("/admin_dashboard.jsp").forward(request, response);

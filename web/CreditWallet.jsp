@@ -13,12 +13,26 @@
     int userId = (Integer) userSession.getAttribute("userId");
     String username = (String) userSession.getAttribute("username");
     String role = (String) userSession.getAttribute("role");
+    Integer tierId = (Integer) userSession.getAttribute("tierId");
 
-    // Phân quyền mặc định nếu chưa có
-    if (role == null || role.trim().isEmpty()) {
-        role = "Free";
+    // ------------------------------------------------------------------
+    // FIX 1: QUẢN LÝ QUYỀN (ROLE)
+    // Ép kiểu Quyền: Bất kỳ ai không phải ADMIN thì đều mặc định là quyền STUDENT
+    if (role == null || !"ADMIN".equalsIgnoreCase(role.trim())) {
+        role = "STUDENT"; 
+    } else {
+        role = "ADMIN";
     }
-    boolean isPremiumUser = "Premium".equalsIgnoreCase(role);
+
+    // ------------------------------------------------------------------
+    // FIX 2: QUẢN LÝ GÓI (TIER)
+    // Theo DB hệ thống: tierId = 2 là FREE, tierId = 3 là PREMIUM.
+    if (tierId == null || tierId < 2) {
+        tierId = 2; // Mặc định gán 2 cho người mới đăng ký (Gói FREE)
+    }
+
+    // Từ tier 3 trở lên mới được hệ thống nhận diện là tài khoản Premium
+    boolean isPremiumUser = (tierId >= 3);
 
     // 2. Lấy số dư ví Coin
     Integer userBalance = (Integer) userSession.getAttribute("balance");

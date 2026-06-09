@@ -127,13 +127,13 @@ public class UserDAO {
             // Set the original fields
             ps.setString(1, user.getUsername());
             ps.setString(2, user.getEmail());
-            
+
             // Set the new admin-editable fields
             ps.setString(3, user.getRole());
             ps.setString(4, user.getStatus());
             ps.setInt(5, user.getBalance());
             ps.setInt(6, user.getTierId());
-            
+
             // Set the WHERE condition
             ps.setInt(7, user.getUserId());
 
@@ -170,6 +170,7 @@ public class UserDAO {
                 user.setRole(rs.getString("role"));
                 user.setTierId(rs.getInt("tier_id"));
                 user.setStatus(rs.getString("status"));
+                user.setBalance(rs.getInt("balance"));
 
                 // Backwards-compatible DATETIME2 parsing
                 Timestamp expiresTs = rs.getTimestamp("expires_at");
@@ -313,6 +314,8 @@ public class UserDAO {
 
                 user.setStatus(
                         rs.getString("status"));
+                user.setBalance(
+                        rs.getInt("balance"));
 
                 return user;
             }
@@ -324,10 +327,39 @@ public class UserDAO {
         return null;
     }
 
-    public void updateBalance(int userId, double amount) {
+    public boolean updateBalance(int userId, int amount) {
+        String sql
+                = "UPDATE users "
+                + "SET balance = ? "
+                + "WHERE user_id = ?";
 
+        Connection conn = null;
+
+        try {
+
+            conn = DBUtils.getConnection();
+            User user = getUserById(userId);
+            int newBalance = user.getBalance() + amount;
+            PreparedStatement ps = conn.prepareStatement(sql);
+            
+            // Set the original fields
+            ps.setInt(1, newBalance);
+            ps.setInt(2, userId);
+
+            return ps.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+
+            System.out.println("[UserDAO.updateUserBalance] " + e.getMessage());
+
+        } finally {
+
+            DBUtils.closeConnection(conn);
+        }
+
+        return false;
     }
-    
+
     //Insert Test Users into database
     public boolean seedTestUsers() {
         String sql = "INSERT INTO users(username, email, password_hash, role, tier_id, status) VALUES(?,?,?,?,?,?)";

@@ -45,7 +45,7 @@
     }
 
     long maxUploadSizeBytes = isPremiumUser ? 100L * 1024 * 1024 : 50L * 1024 * 1024;
-    double maxStorageGb = isPremiumUser ? 55.0 : 5.0; // Gói Free có 5GB, Gói Premium có 55GB
+    double maxStorageGb = isPremiumUser ? 50.0 : 5.0; // Gói Free có 5GB, Gói Premium có 55GB
 
     String folderIdParam = request.getParameter("folderId");
     Integer currentFolderId = null;
@@ -190,7 +190,7 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
                         <span>AI Chatbot</span>
                     </a>
-                    <a href="CreditWallet.jsp" class="nav-link">
+                    <a href="MainController?action=listTransactions" class="nav-link">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><path d="M16 14h2"/></svg>
                         <span>Ví cá nhân</span>
                     </a>
