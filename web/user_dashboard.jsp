@@ -45,7 +45,7 @@
     }
 
     long maxUploadSizeBytes = isPremiumUser ? 100L * 1024 * 1024 : 50L * 1024 * 1024;
-    double maxStorageGb = isPremiumUser ? 50.0 : 5.0; // Gói Free có 5GB, Gói Premium có 55GB
+    double maxStorageGb = isPremiumUser ? 50.0 : 5.0; // Gói Free có 5GB, Gói Premium có 50GB
 
     String folderIdParam = request.getParameter("folderId");
     Integer currentFolderId = null;
@@ -497,7 +497,7 @@
 
                 if (urlParams.has('uploadSuccess')) showToast("🎉 Đã upload file thành công!", "success");
                 if (urlParams.has('createFolderSuccess')) showToast("📁 Đã tạo folder thành công!", "success");
-                if (urlParams.has('deleteSuccess')) showToast("🗑️ Đã xóa folder hoặc file thành công!", "success");
+                if (urlParams.has('deleteSuccess')) showToast("🗑️ Đã xóa file thành công!", "success");
                 if (urlParams.has('depositSuccess')) showToast("🔑 Nạp Coin thành công! Số dư đã cập nhật.", "success");
                 if (urlParams.has('upgradeSuccess')) showToast("👑 Nâng cấp tài khoản Premium thành công!", "success");
 
