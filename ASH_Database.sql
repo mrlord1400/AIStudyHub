@@ -74,9 +74,12 @@ GO
 CREATE TABLE folders (
     folder_id INT IDENTITY(1,1) PRIMARY KEY,
     user_id INT NOT NULL,
+    parent_folder_id INT DEFAULT NULL, -- ADDED: Enables folder hierarchy (child folders)
     folder_name NVARCHAR(100) NOT NULL,
+    sharing_permission NVARCHAR(20) DEFAULT 'PRIVATE' CHECK (sharing_permission IN ('PRIVATE', 'FRIENDS_ONLY', 'PUBLIC')), -- ADDED: Folder level permissions
     created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (parent_folder_id) REFERENCES folders(folder_id) -- Self-referencing foreign key
 );
 GO
 
@@ -89,6 +92,7 @@ CREATE TABLE documents (
     user_id INT NOT NULL,
     folder_id INT DEFAULT NULL,
     title NVARCHAR(255) NOT NULL,
+    file_extension NVARCHAR(10) NOT NULL, -- ADDED: Tracks file extension (e.g., 'pdf', 'docx')
     cloud_storage_url NVARCHAR(500) NOT NULL, -- AWS or similar storage link
     file_size_mb DECIMAL(5,2) NOT NULL,
     ai_parsing_status NVARCHAR(20) DEFAULT 'PENDING' CHECK (ai_parsing_status IN ('PENDING', 'PROCESSING', 'READY', 'FAILED')), 
@@ -96,9 +100,23 @@ CREATE TABLE documents (
     share_link_token NVARCHAR(100) UNIQUE,    -- For sharing via links
     is_flagged BIT DEFAULT 0,                 -- Content moderation (BIT: 0=False, 1=True)
     created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME2 DEFAULT CURRENT_TIMESTAMP, -- ADDED: Tracks the modification day
     FOREIGN KEY (user_id) REFERENCES users(user_id), -- Cascade removed to prevent multiple path errors
     FOREIGN KEY (folder_id) REFERENCES folders(folder_id) -- Set Null removed to prevent multiple path errors
 );
+GO
+
+-- Trigger to handle automated updated_at timestamps for documents
+CREATE TRIGGER trg_documents_updated_at
+ON documents
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE documents
+    SET updated_at = CURRENT_TIMESTAMP
+    WHERE document_id IN (SELECT DISTINCT document_id FROM Inserted);
+END;
 GO
 
 -- -----------------------------------------------------
