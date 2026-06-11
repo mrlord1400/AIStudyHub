@@ -22,48 +22,56 @@ public class DocumentDAO {
      *
      * @return the generated documentId (auto-increment), or -1 on failure.
      */
+    /**
+     * Chèn một tài liệu mới vào cơ sở dữ liệu ngay sau khi tải lên thành công.
+     * Đã cập nhật để lưu thêm trường file_extension.
+     *
+     * @param doc Đối tượng Document chứa thông tin tệp tải lên
+     * @return ID tự tăng (document_id) vừa được sinh ra, hoặc -1 nếu thất bại.
+     */
     public int insertDocument(Document doc) {
         String sql = "INSERT INTO documents "
-                + "(user_id, folder_id, title, cloud_storage_url, file_size_mb, "
+                + "(user_id, folder_id, title, file_extension, cloud_storage_url, file_size_mb, "
                 + " ai_parsing_status, sharing_permission, share_link_token, is_flagged, created_at) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"; // 11 dấu chấm hỏi dữ liệu
 
-        // Force SQL Server to specifically return 'document_id' to avoid driver quirks
-        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql, new String[]{"document_id"})) {
+        // Cấu hình String[]{"document_id"} để ép SQL Server trả về khóa tự tăng chính xác
+        try ( Connection conn = Utils.DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql, new String[]{"document_id"})) {
 
             ps.setInt(1, doc.getUserId());
 
             if (doc.getFolderId() != null) {
                 ps.setInt(2, doc.getFolderId());
             } else {
-                ps.setNull(2, Types.INTEGER);
+                ps.setNull(2, java.sql.Types.INTEGER);
             }
 
             ps.setString(3, doc.getTitle());
-            ps.setString(4, doc.getCloudStorageUrl());
-            ps.setDouble(5, doc.getFileSizeMb());
-            ps.setString(6, doc.getAiParsingStatus());
-            ps.setString(7, doc.getSharingPermission());
+            ps.setString(4, doc.getFileExtension()); // Trường mới thêm
+            ps.setString(5, doc.getCloudStorageUrl());
+            ps.setDouble(6, doc.getFileSizeMb());
+            ps.setString(7, doc.getAiParsingStatus());
+            ps.setString(8, doc.getSharingPermission());
 
             if (doc.getShareLinkToken() != null) {
-                ps.setString(8, doc.getShareLinkToken());
+                ps.setString(9, doc.getShareLinkToken());
             } else {
-                ps.setNull(8, Types.VARCHAR);
+                ps.setNull(9, java.sql.Types.VARCHAR);
             }
 
-            ps.setBoolean(9, doc.isIsFlagged());
-            ps.setTimestamp(10, Timestamp.valueOf(
-                    doc.getCreatedAt() != null ? doc.getCreatedAt() : LocalDateTime.now()));
+            ps.setBoolean(10, doc.isFlagged());
+            ps.setTimestamp(11, java.sql.Timestamp.valueOf(
+                    doc.getCreatedAt() != null ? doc.getCreatedAt() : java.time.LocalDateTime.now()));
 
             int affectedRows = ps.executeUpdate();
             if (affectedRows == 0) {
-                System.err.println("[DocumentDAO] Insert failed, no rows affected.");
+                System.err.println("[DocumentDAO] Thêm tài liệu thất bại, không có hàng nào bị ảnh hưởng.");
                 return -1;
             }
 
             try ( ResultSet rs = ps.getGeneratedKeys()) {
                 if (rs.next()) {
-                    return rs.getInt(1);
+                    return rs.getInt(1); // Trả về document_id vừa sinh ra
                 }
             }
 
@@ -178,7 +186,7 @@ public class DocumentDAO {
         doc.setAiParsingStatus(rs.getString("ai_parsing_status"));
         doc.setSharingPermission(rs.getString("sharing_permission"));
         doc.setShareLinkToken(rs.getString("share_link_token"));
-        doc.setIsFlagged(rs.getBoolean("is_flagged"));
+        doc.setFlagged(rs.getBoolean("is_flagged"));
 
         Timestamp ts = rs.getTimestamp("created_at");
         if (ts != null) {
@@ -209,13 +217,14 @@ public class DocumentDAO {
         }
         return list;
     }
-    
-    /** * Retrieves documents for a user inside a specific folder. 
-     * If folderId is null, it retrieves documents in the root directory.
+
+    /**
+     * * Retrieves documents for a user inside a specific folder. If folderId is
+     * null, it retrieves documents in the root directory.
      */
     public java.util.List<Document> getDocumentsByFolder(int userId, Integer folderId) {
         java.util.List<Document> list = new java.util.ArrayList<>();
-        
+
         // Dynamic SQL based on whether we are looking inside a folder or at the root
         String sql;
         if (folderId == null) {
@@ -224,15 +233,14 @@ public class DocumentDAO {
             sql = "SELECT * FROM documents WHERE user_id = ? AND folder_id = ? ORDER BY created_at DESC";
         }
 
-        try (Connection conn = DBUtils.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, userId);
             if (folderId != null) {
                 ps.setInt(2, folderId);
             }
-            
-            try (ResultSet rs = ps.executeQuery()) {
+
+            try ( ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     list.add(mapRow(rs)); // Assuming you have your mapRow helper method from before
                 }
@@ -246,8 +254,8 @@ public class DocumentDAO {
 
     // ─── FOLDER CASCADE DELETE SUPPORT ──────────────────────────────────────
     /**
-     * Retrieves all documents belonging to a specific folder.
-     * Used before folder deletion to identify physical files that need cleanup.
+     * Retrieves all documents belonging to a specific folder. Used before
+     * folder deletion to identify physical files that need cleanup.
      *
      * @param folderId the folder whose documents to retrieve
      * @return list of Document objects in the folder
@@ -256,11 +264,10 @@ public class DocumentDAO {
         java.util.List<Document> list = new java.util.ArrayList<>();
         String sql = "SELECT * FROM documents WHERE folder_id = ?";
 
-        try (Connection conn = DBUtils.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, folderId);
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     list.add(mapRow(rs));
                 }
@@ -273,8 +280,8 @@ public class DocumentDAO {
     }
 
     /**
-     * Deletes ALL document records that belong to a specific folder.
-     * Must be called BEFORE deleting the folder itself.
+     * Deletes ALL document records that belong to a specific folder. Must be
+     * called BEFORE deleting the folder itself.
      *
      * @param folderId the folder whose documents should be deleted
      * @return the number of documents deleted
@@ -282,8 +289,7 @@ public class DocumentDAO {
     public int deleteDocumentsByFolderId(int folderId) {
         String sql = "DELETE FROM documents WHERE folder_id = ?";
 
-        try (Connection conn = DBUtils.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, folderId);
             return ps.executeUpdate();
@@ -297,11 +303,12 @@ public class DocumentDAO {
 
     // ─── DUPLICATE CHECK SUPPORT ────────────────────────────────────────────
     /**
-     * Checks if a document with the same title already exists at the same location
-     * (same user, same folder). Used during upload confirmation to detect duplicates.
+     * Checks if a document with the same title already exists at the same
+     * location (same user, same folder). Used during upload confirmation to
+     * detect duplicates.
      *
-     * @param userId   the owner of the document
-     * @param title    the title to check for duplicates
+     * @param userId the owner of the document
+     * @param title the title to check for duplicates
      * @param folderId the folder to check in (null = root directory)
      * @return the existing Document if a duplicate is found, null otherwise
      */
@@ -313,8 +320,7 @@ public class DocumentDAO {
             sql = "SELECT * FROM documents WHERE user_id = ? AND title = ? AND folder_id = ?";
         }
 
-        try (Connection conn = DBUtils.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, userId);
             ps.setString(2, title);
@@ -322,7 +328,7 @@ public class DocumentDAO {
                 ps.setInt(3, folderId);
             }
 
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return mapRow(rs);
                 }
@@ -335,14 +341,15 @@ public class DocumentDAO {
     }
 
     /**
-     * Checks if a title already exists at a location, excluding a specific document.
-     * Used when auto-generating names like "file (1)", "file (2)" to find the next
-     * available number.
+     * Checks if a title already exists at a location, excluding a specific
+     * document. Used when auto-generating names like "file (1)", "file (2)" to
+     * find the next available number.
      *
-     * @param userId      the owner
-     * @param title       the title to check
-     * @param folderId    the folder (null = root)
-     * @param excludeDocId document ID to exclude from the check (the new upload itself)
+     * @param userId the owner
+     * @param title the title to check
+     * @param folderId the folder (null = root)
+     * @param excludeDocId document ID to exclude from the check (the new upload
+     * itself)
      * @return true if a document with this title exists at this location
      */
     public boolean titleExistsAtLocation(int userId, String title, Integer folderId, int excludeDocId) {
@@ -353,8 +360,7 @@ public class DocumentDAO {
             sql = "SELECT COUNT(*) FROM documents WHERE user_id = ? AND title = ? AND folder_id = ? AND document_id != ?";
         }
 
-        try (Connection conn = DBUtils.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, userId);
             ps.setString(2, title);
@@ -365,7 +371,7 @@ public class DocumentDAO {
                 ps.setInt(4, excludeDocId);
             }
 
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return rs.getInt(1) > 0;
                 }
@@ -377,4 +383,3 @@ public class DocumentDAO {
         return false;
     }
 }
-
