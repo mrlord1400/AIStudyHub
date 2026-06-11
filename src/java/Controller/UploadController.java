@@ -16,39 +16,27 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 
 /**
- * DocumentController — Servlet handling the 3-step document upload flow:
- *
- * POST /DocumentController?action=upload → Step 1: Receive file, save
- * temporarily, insert to DB, redirect to edit form POST
- * /DocumentController?action=confirm → Step 2: User confirms/edits document
- * info → update DB POST /DocumentController?action=cancel → Step 3: User
- * cancels → delete physical file + delete DB record
- *
- * Requirements: - User must be logged in (session must have "userId" attribute)
- * - @MultipartConfig allows receiving multipart/form-data file uploads
+ * UploadController — Servlet xử lý luồng tải lên tài liệu 3 bước:
+ * * POST /UploadController?action=upload  → Bước 1: Tiếp nhận file, lưu tạm, trích xuất Extension, thêm DB, chuyển sang form chỉnh sửa
+ * POST /UploadController?action=confirm → Bước 2: Xác nhận thông tin tài liệu từ phía user → Cập nhật DB
+ * POST /UploadController?action=cancel  → Bước 3: Người dùng hủy tác vụ → Xóa file vật lý + Xóa bản ghi tạm trong DB
  */
 @WebServlet(name = "UploadController", urlPatterns = {"/UploadController"})
 @MultipartConfig(
-        fileSizeThreshold = 1024 * 1024, // 1 MB — ghi thẳng vào disk nếu vượt ngưỡng này
-        maxFileSize = 50 * 1024 * 1024, // 50 MB — giới hạn mỗi file
-        maxRequestSize = 55 * 1024 * 1024 // 55 MB — giới hạn toàn request
+        fileSizeThreshold = 1024 * 1024,      // 1 MB — ghi thẳng vào đĩa nếu vượt ngưỡng
+        maxFileSize = 50 * 1024 * 1024,       // 50 MB — giới hạn tối đa mỗi file
+        maxRequestSize = 55 * 1024 * 1024     // 55 MB — giới hạn toàn bộ request payload
 )
 public class UploadController extends HttpServlet {
 
-    // Directory to store files on the server (relative to web root).
-    // In production, use an absolute path or cloud storage.
     private static final String UPLOAD_DIR = "uploads";
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // doPost — dispatch by action
-    // ─────────────────────────────────────────────────────────────────────────
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
         request.setCharacterEncoding("UTF-8");
 
-        // Check login
         HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute("userId") == null) {
             response.sendRedirect(request.getContextPath() + "/login.jsp");
@@ -60,23 +48,30 @@ public class UploadController extends HttpServlet {
             action = "";
         }
 
-        if ("upload".equals(action)) {
-            handleUpload(request, response);
-        } else if ("confirm".equals(action)) {
-            handleConfirm(request, response);
-        } else if ("cancel".equals(action)) {
-            handleCancel(request, response);
-        } else if ("replace".equals(action)) {
-            handleReplace(request, response);
-        } else if ("keepBoth".equals(action)) {
-            handleKeepBoth(request, response);
-        } else {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid action.");
+        switch (action) {
+            case "upload":
+                handleUpload(request, response);
+                break;
+            case "confirm":
+                handleConfirm(request, response);
+                break;
+            case "cancel":
+                handleCancel(request, response);
+                break;
+            case "replace":
+                handleReplace(request, response);
+                break;
+            case "keepBoth":
+                handleKeepBoth(request, response);
+                break;
+            default:
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Hành động không hợp lệ.");
+                break;
         }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // STEP 1 — Upload file → save temporarily → insert to DB → redirect to edit form
+    // BƯỚC 1 — Tiếp nhận file → Trích xuất thông tin & định dạng → Lưu DB tạm
     // ─────────────────────────────────────────────────────────────────────────
     private void handleUpload(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -84,35 +79,42 @@ public class UploadController extends HttpServlet {
         try {
             int userId = (int) request.getSession().getAttribute("userId");
 
-            // 1. Safely grab the file part
             Part filePart = request.getPart("file");
             if (filePart == null || filePart.getSize() == 0) {
-                System.err.println("[DocumentController] Upload failed: filePart is null or empty.");
+                System.err.println("[UploadController] Tải lên thất bại: File trống hoặc null.");
                 request.setAttribute("errorMessage", "Vui lòng chọn một file hợp lệ.");
                 request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
                 return;
             }
 
-            // 2. Use native Servlet 3.1 method instead of manual header parsing
+            // Trích xuất tên tệp tin gốc
             String originalFileName = filePart.getSubmittedFileName();
             if (originalFileName == null || originalFileName.trim().isEmpty()) {
                 originalFileName = "document_" + System.currentTimeMillis();
             }
 
-            // 3. Bulletproof Directory Pathing
+            // 🚀 BỔ SUNG: Trích xuất phần mở rộng (File Extension) chuẩn hóa
+            String fileExtension = "";
+            int dotIndex = originalFileName.lastIndexOf('.');
+            if (dotIndex > 0 && dotIndex < originalFileName.length() - 1) {
+                fileExtension = originalFileName.substring(dotIndex + 1).toLowerCase().trim();
+            } else {
+                fileExtension = "unknown"; // Trường hợp file không có đuôi mở rộng
+            }
+
+            // Thiết lập đường dẫn thư mục lưu trữ vật lý trên Server
             String realPath = getServletContext().getRealPath("");
             if (realPath == null) {
-                // Fallback if running as a packed WAR
                 realPath = System.getProperty("java.io.tmpdir");
             }
             String uploadPath = realPath + File.separator + UPLOAD_DIR;
 
             File uploadDir = new File(uploadPath);
             if (!uploadDir.exists() && !uploadDir.mkdirs()) {
-                throw new IOException("Failed to create upload directory at: " + uploadPath);
+                throw new IOException("Không thể khởi tạo thư mục lưu trữ tại: " + uploadPath);
             }
 
-            // 4. Save physical file
+            // Tạo tên file ngẫu nhiên chống trùng lặp trên ổ đĩa
             String savedFileName = System.currentTimeMillis() + "_" + sanitizeFileName(originalFileName);
             String savedFilePath = uploadPath + File.separator + savedFileName;
             filePart.write(savedFilePath);
@@ -120,68 +122,65 @@ public class UploadController extends HttpServlet {
             double fileSizeMb = filePart.getSize() / (1024.0 * 1024.0);
             String cloudStorageUrl = request.getContextPath() + "/" + UPLOAD_DIR + "/" + savedFileName;
 
-// 5. Parse optional Folder ID
+            // Xử lý thông tin Folder ID đích chuyển lên từ Form hiển thị
             Integer folderId = null;
             String folderIdParam = request.getParameter("folderId");
-            // 🚀 FIX: Ignore literal "null" strings that HTML forms sometimes send
             if (folderIdParam != null && !folderIdParam.trim().isEmpty() && !folderIdParam.equals("null")) {
                 try {
                     folderId = Integer.parseInt(folderIdParam);
-                } catch (NumberFormatException ignored) {
-                }
+                } catch (NumberFormatException ignored) {}
             }
 
-            // 6. Database Execution
+            // Đóng gói đối tượng mô hình dữ liệu Document
             Document doc = new Document();
             doc.setUserId(userId);
             doc.setFolderId(folderId);
-            doc.setTitle(stripExtension(originalFileName));
+            doc.setTitle(stripExtension(originalFileName)); // Chỉ lấy phần tên hiển thị làm Title ban đầu
+            doc.setFileExtension(fileExtension);            // 🔥 Gán giá trị File Extension mới vào đây
             doc.setCloudStorageUrl(cloudStorageUrl);
             doc.setFileSizeMb(Math.round(fileSizeMb * 100.0) / 100.0);
             doc.setAiParsingStatus("PENDING");
             doc.setSharingPermission("PRIVATE");
             doc.setShareLinkToken(java.util.UUID.randomUUID().toString());
-            doc.setIsFlagged(false);
+            doc.setFlagged(false);                          // Cập nhật theo JavaBean chuẩn hóa mới
             doc.setCreatedAt(LocalDateTime.now());
+            doc.setUpdatedAt(LocalDateTime.now());
 
             DocumentDAO dao = new DocumentDAO();
             int newDocumentId = dao.insertDocument(doc);
 
             if (newDocumentId == -1) {
-                // DB Insert failed → clean up the orphaned file
+                // Nếu DB Insert lỗi → Tiến hành dọn dẹp xóa file rác vừa ghi trên đĩa tránh tràn ổ cứng
                 new File(savedFilePath).delete();
-                request.setAttribute("errorMessage", "Lỗi lưu database. Vui lòng kiểm tra console server.");
+                request.setAttribute("errorMessage", "Lỗi lưu cơ sở dữ liệu hệ thống.");
                 request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
                 return;
             }
 
-            // 7. Route to Step 2
+            // Lưu thông tin tạm vào Session để quản lý luồng Xác nhận/Hủy ở Bước 2 & 3
             HttpSession session = request.getSession();
             session.setAttribute("pendingDocumentId", newDocumentId);
             session.setAttribute("pendingDocumentPath", savedFilePath);
             session.setAttribute("pendingDocumentTitle", doc.getTitle());
 
+            // Điều hướng sang Bước 2 (Form Edit/Confirm)
             response.sendRedirect(request.getContextPath() + "/document_upload.jsp?step=edit&docId=" + newDocumentId);
 
         } catch (Exception e) {
-            // Catch ALL exceptions to figure out exactly what "key" is failing
-            System.err.println("[DocumentController] CRITICAL UPLOAD ERROR: " + e.getMessage());
+            System.err.println("[UploadController] CRITICAL UPLOAD ERROR: " + e.getMessage());
             e.printStackTrace();
-            request.setAttribute("errorMessage", "Hệ thống gặp lỗi: " + e.getMessage());
+            request.setAttribute("errorMessage", "Hệ thống trục trặc: " + e.getMessage());
             request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
         }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // STEP 2 — User confirms / edits document info → update DB
-    //          NOW WITH DUPLICATE CHECK!
+    // BƯỚC 2 — Người dùng xác nhận / chỉnh sửa thông tin tài liệu
     // ─────────────────────────────────────────────────────────────────────────
     private void handleConfirm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
         HttpSession session = request.getSession(false);
-
-        // Get documentId from session (set in step 1)
         Integer documentId = (Integer) session.getAttribute("pendingDocumentId");
         if (documentId == null) {
             response.sendRedirect(request.getContextPath() + "/document_upload.jsp?error=session_expired");
@@ -189,36 +188,27 @@ public class UploadController extends HttpServlet {
         }
 
         int userId = (int) session.getAttribute("userId");
-
-        // Read user-submitted data
         String newTitle = request.getParameter("title");
         if (newTitle == null || newTitle.trim().isEmpty()) {
             newTitle = (String) session.getAttribute("pendingDocumentTitle");
         }
 
         String sharingPermission = request.getParameter("sharingPermission");
-        if (sharingPermission == null || sharingPermission.trim().isEmpty()) {
-            sharingPermission = "PRIVATE";
-        } else {
-            sharingPermission = sharingPermission.trim().toUpperCase(); // Enforce uppercase for DB constraints
-        }
+        sharingPermission = (sharingPermission == null || sharingPermission.trim().isEmpty()) 
+                ? "PRIVATE" : sharingPermission.trim().toUpperCase();
 
         Integer newFolderId = null;
         String folderIdParam = request.getParameter("folderId");
-        if (folderIdParam != null && !folderIdParam.trim().isEmpty()) {
+        if (folderIdParam != null && !folderIdParam.trim().isEmpty() && !folderIdParam.equals("null")) {
             try {
                 newFolderId = Integer.parseInt(folderIdParam);
-            } catch (NumberFormatException ignored) {
-            }
+            } catch (NumberFormatException ignored) {}
         }
 
-        // ── DUPLICATE CHECK ──────────────────────────────────────────────────
         DocumentDAO dao = new DocumentDAO();
         Document duplicate = dao.findDuplicateByTitle(userId, newTitle, newFolderId);
 
-        // Make sure we're not detecting the document itself as a duplicate
         if (duplicate != null && duplicate.getDocumentId() != documentId) {
-            // Duplicate found! Save conflict info to session and redirect to conflict page
             session.setAttribute("conflictTitle", newTitle);
             session.setAttribute("conflictFolderId", newFolderId);
             session.setAttribute("conflictSharingPermission", sharingPermission);
@@ -227,29 +217,25 @@ public class UploadController extends HttpServlet {
             response.sendRedirect(request.getContextPath() + "/document_upload.jsp?step=duplicate");
             return;
         }
-        // ─────────────────────────────────────────────────────────────────────
 
-        // No duplicate → proceed normally
         boolean updated = dao.updateDocumentInfo(documentId, newTitle, newFolderId, sharingPermission);
-
-        // Clean up session
         clearPendingSession(session);
 
         if (updated) {
-            // 🚀 UX FIX: Redirect back to the specific folder if they uploaded it inside one
+            // Định tuyến phản hồi mượt mà về đúng địa chỉ thư mục chứa file đó
+            String redirectTarget = "/FolderController?action=viewFolder";
             if (newFolderId != null) {
-                response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?folderId=" + newFolderId + "&uploadSuccess=1");
-            } else {
-                response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?uploadSuccess=1");
+                redirectTarget += "&folderId=" + newFolderId;
             }
+            response.sendRedirect(request.getContextPath() + redirectTarget + "&uploadSuccess=1");
         } else {
-            request.setAttribute("errorMessage", "Failed to update document info. Please try again.");
+            request.setAttribute("errorMessage", "Không thể cập nhật thông tin tài liệu.");
             request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
         }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // DUPLICATE OPTION 1 — Replace: Delete old file, keep new file with same name
+    // XỬ LÝ TRÙNG LẶP FILE (GHI ĐÈ / GIỮ CẢ HAI) & HỦY TÁC VỤ
     // ─────────────────────────────────────────────────────────────────────────
     private void handleReplace(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -272,11 +258,10 @@ public class UploadController extends HttpServlet {
         }
 
         DocumentDAO dao = new DocumentDAO();
-
-        // 1. Get the old document to find its physical file
         Document oldDoc = dao.findById(duplicateDocId);
+        
         if (oldDoc != null) {
-            // Delete physical file of the old document
+            // Xóa file vật lý của tài liệu cũ trên Server đĩa cứng
             String cloudUrl = oldDoc.getCloudStorageUrl();
             if (cloudUrl != null && !cloudUrl.trim().isEmpty()) {
                 String relativePath = cloudUrl;
@@ -292,46 +277,29 @@ public class UploadController extends HttpServlet {
                 if (realPath != null) {
                     File physicalFile = new File(realPath + File.separator + relativePath.replace("/", File.separator));
                     if (physicalFile.exists()) {
-                        boolean deleted = physicalFile.delete();
-                        System.out.println("[UploadController] Replaced old physical file: " + physicalFile.getAbsolutePath() + " → " + deleted);
+                        physicalFile.delete();
                     }
                 }
             }
-
-            // Delete old document from DB
+            // Xóa bản ghi cũ trong DB
             dao.deleteDocument(duplicateDocId);
         }
 
-        // 2. Update the new document with the confirmed title and folder
         boolean updated = dao.updateDocumentInfo(pendingDocId, conflictTitle, conflictFolderId, conflictSharingPermission);
-
-        // 3. Clean up session
         clearPendingSession(session);
         clearDuplicateSession(session);
 
-        if (updated) {
-            if (conflictFolderId != null) {
-                response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?folderId=" + conflictFolderId + "&uploadSuccess=replaced");
-            } else {
-                response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?uploadSuccess=replaced");
-            }
-        } else {
-            response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=replace_failed");
+        String redirectTarget = "/FolderController?action=viewFolder";
+        if (conflictFolderId != null) {
+            redirectTarget += "&folderId=" + conflictFolderId;
         }
+        response.sendRedirect(request.getContextPath() + redirectTarget + "&uploadSuccess=1");
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // DUPLICATE OPTION 2 — Keep Both: Rename new file with auto-increment (1), (2)...
-    // ─────────────────────────────────────────────────────────────────────────
     private void handleKeepBoth(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
         HttpSession session = request.getSession(false);
-        if (session == null) {
-            response.sendRedirect(request.getContextPath() + "/document_upload.jsp?error=session_expired");
-            return;
-        }
-
         Integer pendingDocId = (Integer) session.getAttribute("pendingDocumentId");
         String conflictTitle = (String) session.getAttribute("conflictTitle");
         Integer conflictFolderId = (Integer) session.getAttribute("conflictFolderId");
@@ -343,31 +311,20 @@ public class UploadController extends HttpServlet {
             return;
         }
 
-        // Generate a unique title: "file (1)", "file (2)", etc.
         DocumentDAO dao = new DocumentDAO();
         String uniqueTitle = generateUniqueTitle(dao, userId, conflictTitle, conflictFolderId, pendingDocId);
 
-        // Update the new document with the unique title
         boolean updated = dao.updateDocumentInfo(pendingDocId, uniqueTitle, conflictFolderId, conflictSharingPermission);
-
-        // Clean up session
         clearPendingSession(session);
         clearDuplicateSession(session);
 
-        if (updated) {
-            if (conflictFolderId != null) {
-                response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?folderId=" + conflictFolderId + "&uploadSuccess=kept_both");
-            } else {
-                response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?uploadSuccess=kept_both");
-            }
-        } else {
-            response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=keep_both_failed");
+        String redirectTarget = "/FolderController?action=viewFolder";
+        if (conflictFolderId != null) {
+            redirectTarget += "&folderId=" + conflictFolderId;
         }
+        response.sendRedirect(request.getContextPath() + redirectTarget + "&uploadSuccess=1");
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // STEP 3 — User cancels → delete physical file + delete DB record
-    // ─────────────────────────────────────────────────────────────────────────
     private void handleCancel(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
@@ -380,78 +337,42 @@ public class UploadController extends HttpServlet {
         Integer documentId = (Integer) session.getAttribute("pendingDocumentId");
         String savedFilePath = (String) session.getAttribute("pendingDocumentPath");
 
-        // 1. Delete physical file from server
         if (savedFilePath != null) {
             File file = new File(savedFilePath);
             if (file.exists()) {
-                boolean deleted = file.delete();
-                if (!deleted) {
-                    System.err.println("[DocumentController] Could not delete file: " + savedFilePath);
-                }
+                file.delete();
             }
         }
 
-        // 2. Delete record from DB
         if (documentId != null) {
             DocumentDAO dao = new DocumentDAO();
             dao.deleteDocument(documentId);
         }
 
-        // 3. Clean up session
         clearPendingSession(session);
         clearDuplicateSession(session);
 
-        // Quay lại trang upload với thông báo đã huỷ
         response.sendRedirect(request.getContextPath() + "/document_upload.jsp?cancelled=1");
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Helper methods
+    // PHƯƠNG THỨC HỖ TRỢ (HELPERS)
     // ─────────────────────────────────────────────────────────────────────────
-    /**
-     * Extract the filename from the Content-Disposition header of a Part.
-     */
-    private String extractFileName(Part part) {
-        String contentDisposition = part.getHeader("content-disposition");
-        if (contentDisposition == null) {
-            return null;
-        }
-        for (String token : contentDisposition.split(";")) {
-            token = token.trim();
-            if (token.startsWith("filename")) {
-                return token.substring(token.indexOf('=') + 1).trim().replace("\"", "");
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Remove special characters from the filename to prevent path traversal.
-     */
     private String sanitizeFileName(String fileName) {
         return fileName.replaceAll("[^a-zA-Z0-9.\\-_]", "_");
     }
 
-    /**
-     * Remove the file extension from a filename.
-     */
     private String stripExtension(String fileName) {
         int dotIndex = fileName.lastIndexOf('.');
         return (dotIndex > 0) ? fileName.substring(0, dotIndex) : fileName;
     }
 
-    /**
-     * Remove upload-related attributes from the session.
-     */
     private void clearPendingSession(HttpSession session) {
         session.removeAttribute("pendingDocumentId");
         session.removeAttribute("pendingDocumentPath");
         session.removeAttribute("pendingDocumentTitle");
     }
 
-    /**
-     * Remove duplicate-conflict-related attributes from the session.
-     */
     private void clearDuplicateSession(HttpSession session) {
         session.removeAttribute("conflictTitle");
         session.removeAttribute("conflictFolderId");
@@ -459,10 +380,6 @@ public class UploadController extends HttpServlet {
         session.removeAttribute("duplicateDocId");
     }
 
-    /**
-     * Generates a unique title by appending (1), (2), (3)... until no conflict is found.
-     * Example: "Bài giảng" → "Bài giảng (1)" → "Bài giảng (2)"
-     */
     private String generateUniqueTitle(DocumentDAO dao, int userId, String baseTitle, Integer folderId, int excludeDocId) {
         int counter = 1;
         String candidate;
@@ -470,7 +387,6 @@ public class UploadController extends HttpServlet {
             candidate = baseTitle + " (" + counter + ")";
             counter++;
         } while (dao.titleExistsAtLocation(userId, candidate, folderId, excludeDocId));
-
         return candidate;
     }
 }

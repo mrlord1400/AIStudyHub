@@ -64,8 +64,10 @@ public class MainController extends HttpServlet {
                         url = USER_CONTROLLER;
                         break;
                     case "createFolder":
-                    case "renameFolder":
+                    case "editFolder":
                     case "deleteFolder":
+                    case "viewFolder":
+                    case "updateFolder":
                         url = FOLDER_CONTROLLER;
                         break;
                     case "createTransaction":

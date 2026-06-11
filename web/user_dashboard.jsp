@@ -8,6 +8,81 @@
 <%@ page import="java.util.List" %>
 <%@ page import="java.util.ArrayList" %>
 <%@ page import="java.time.format.DateTimeFormatter" %>
+<%!
+    // Hàm tìm ngược tất cả các ID thư mục tổ tiên để biết những nhánh nào cần mở rộng
+    public List<Integer> getActivePathIds(Integer currentFolderId, List<Folder> allFolders) {
+        List<Integer> pathIds = new ArrayList<>();
+        if (currentFolderId == null || allFolders == null) {
+            return pathIds;
+        }
+
+        Integer checkId = currentFolderId;
+        while (checkId != null) {
+            pathIds.add(checkId);
+            Integer nextParentId = null;
+            for (Folder f : allFolders) {
+                if (f.getFolderId() == checkId) {
+                    nextParentId = f.getParentFolderId();
+                    break;
+                }
+            }
+            checkId = nextParentId;
+        }
+        return pathIds;
+    }
+
+    // Hàm đệ quy thông minh: Chỉ hiển thị nội dung bên trong nếu thư mục cha (parentId) đang được mở rộng
+    public void renderTree(JspWriter out, List<Folder> allFolders, List<Document> allDocs, Integer parentId, Integer currentFolderId, List<Integer> activePathIds, String contextPath) throws Exception {
+        if (allFolders == null) {
+            return;
+        }
+
+        // 1. QUÉT VÀ HIỂN THỊ FOLDER
+        for (Folder f : allFolders) {
+            boolean isChild = (parentId == null && f.getParentFolderId() == null)
+                    || (parentId != null && f.getParentFolderId() != null && f.getParentFolderId().equals(parentId));
+
+            if (isChild) {
+                boolean isCurrent = currentFolderId != null && currentFolderId.equals(f.getFolderId());
+                String activeClass = isCurrent
+                        ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400 font-semibold"
+                        : "text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700/60";
+
+                out.print("<div class='space-y-1'>");
+                out.print("  <a href='" + contextPath + "/FolderController?action=viewFolder&folderId=" + f.getFolderId() + "' class='flex items-center space-x-2 px-2.5 py-1.5 rounded-xl text-sm font-medium transition-colors " + activeClass + "'>");
+                out.print("    <svg class='w-4 h-4 text-amber-500 flex-shrink-0' fill='currentColor' viewBox='0 0 20 20'><path d='M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z'></path></svg>");
+                out.print("    <span class='truncate flex-1'>" + f.getFolderName() + "</span>");
+                out.print("  </a>");
+
+                // 🚀 ĐIỂM CẢI TIẾN: Chỉ đào sâu và hiển thị nội dung bên trong nếu Folder này nằm trong lộ trình đang mở rộng
+                if (activePathIds != null && activePathIds.contains(f.getFolderId())) {
+                    out.print("  <div class='pl-4 border-l border-gray-100 dark:border-gray-700 space-y-1'>");
+                    renderTree(out, allFolders, allDocs, f.getFolderId(), currentFolderId, activePathIds, contextPath);
+                    out.print("  </div>");
+                }
+                out.print("</div>");
+            }
+        }
+
+        // 2. QUÉT VÀ HIỂN THỊ DOCUMENT THUỘC THƯ MỤC NÀY
+        if (allDocs != null) {
+            for (Document doc : allDocs) {
+                boolean isFileInFolder = (parentId == null && doc.getFolderId() == null)
+                        || (parentId != null && doc.getFolderId() != null && doc.getFolderId().equals(parentId));
+
+                if (isFileInFolder) {
+                    String safeTitle = doc.getTitle().replace("\\", "\\\\").replace("\"", "\\\"").replace("'", "\\'");
+                    out.print("<div class='space-y-0.5'>");
+                    out.print("  <button onclick=\"openFileModal('" + doc.getDocumentId() + "', '" + safeTitle + "')\" class='w-full flex items-center space-x-2 px-2.5 py-1 text-xs text-gray-500 hover:text-indigo-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-gray-700/40 transition-colors text-left rounded-lg'>");
+                    out.print("    <svg class='w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex-shrink-0' fill='none' stroke='currentColor' stroke-width='2' viewBox='0 0 24 24'><path d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'></path></svg>");
+                    out.print("    <span class='truncate flex-1'>" + doc.getTitle() + "</span>");
+                    out.print("  </button>");
+                    out.print("</div>");
+                }
+            }
+        }
+    }
+%>
 <%
     // 1. Kiểm tra trạng thái đăng nhập của người dùng
     HttpSession userSession = request.getSession(false);
@@ -15,60 +90,55 @@
         response.sendRedirect(request.getContextPath() + "/login.jsp");
         return;
     }
-    
+
     Integer userId = (Integer) userSession.getAttribute("userId");
     String username = (String) userSession.getAttribute("username");
     String role = (String) userSession.getAttribute("role");
     Integer tierId = (Integer) userSession.getAttribute("tierId");
 
-    // ------------------------------------------------------------------
-    // FIX 1: QUẢN LÝ QUYỀN (ROLE)
-    // Ép kiểu Quyền: Bất kỳ ai không phải ADMIN thì đều mặc định là quyền STUDENT
+    // Quản lý quyền (Role)
     if (role == null || !"ADMIN".equalsIgnoreCase(role.trim())) {
-        role = "STUDENT"; 
+        role = "STUDENT";
     } else {
         role = "ADMIN";
     }
 
-    // ------------------------------------------------------------------
-    // FIX 2: QUẢN LÝ GÓI (TIER)
-    // Theo DB hệ thống: tierId = 2 là FREE, tierId = 3 là PREMIUM.
+    // Quản lý gói hội viên (Tier)
     if (tierId == null || tierId < 2) {
-        tierId = 2; // Mặc định gán 2 cho người mới đăng ký (Gói FREE)
+        tierId = 2;
     }
-
-    // Từ tier 3 trở lên mới được hệ thống nhận diện là tài khoản Premium
     boolean isPremiumUser = (tierId >= 3);
-    
-    // Khởi tạo số dư ví Coin
+
     UserDAO dao = new UserDAO();
     int userBalance = 0;
     if (userId != null) {
         User user = dao.getUserById((int) userId);
-        userBalance = user.getBalance();
-    }
-
-    long maxUploadSizeBytes = isPremiumUser ? 100L * 1024 * 1024 : 50L * 1024 * 1024;
-    double maxStorageGb = isPremiumUser ? 50.0 : 5.0; // Gói Free có 5GB, Gói Premium có 50GB
-
-    String folderIdParam = request.getParameter("folderId");
-    Integer currentFolderId = null;
-    if (folderIdParam != null && !folderIdParam.trim().isEmpty() && !folderIdParam.equals("null")) {
-        try {
-            currentFolderId = Integer.parseInt(folderIdParam);
-        } catch (Exception e) {
-            // Xử lý ngoại lệ an toàn
+        if (user != null) {
+            userBalance = user.getBalance();
         }
     }
 
+    long maxUploadSizeBytes = isPremiumUser ? 100L * 1024 * 1024 : 50L * 1024 * 1024;
+    double maxStorageGb = isPremiumUser ? 50.0 : 5.0;
+
+    // Tiếp nhận dữ liệu cấu trúc từ FolderController gửi sang
+    List<Folder> allFolders = (List<Folder>) request.getAttribute("allFolders");
+    List<Folder> childFolders = (List<Folder>) request.getAttribute("childFolders");
+    List<Document> myDocuments = (List<Document>) request.getAttribute("documents");
+    Integer currentFolderId = (Integer) request.getAttribute("currentFolderId");
+    Folder currentFolder = (Folder) request.getAttribute("currentFolder");
+
+    // Cơ chế phòng vệ Failsafe: Nếu truy cập file JSP trực tiếp, tự nạp dữ liệu từ DAO
     FolderDAO folderDao = new FolderDAO();
     DocumentDAO docDao = new DocumentDAO();
-    List<Folder> myFolders = new ArrayList<>();
-
-    if (currentFolderId == null) {
-        myFolders = folderDao.getFoldersByUserId(userId);
+    if (allFolders == null) {
+        allFolders = folderDao.getAllFoldersByUserId(userId);
+        childFolders = folderDao.getChildFolders(userId, currentFolderId);
+        myDocuments = docDao.getDocumentsByFolder(userId, currentFolderId);
+        if (currentFolderId != null) {
+            currentFolder = folderDao.getFolderById(currentFolderId);
+        }
     }
-    List<Document> myDocuments = docDao.getDocumentsByFolder(userId, currentFolderId);
 
     // Tính toán dung lượng lưu trữ động thực tế của tài khoản
     List<Document> allDocs = docDao.getDocumentsByUserId(userId);
@@ -102,68 +172,194 @@
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
         <style type="text/tailwindcss">
-            html.dark .page-body { background-color: #111827; color: #f3f4f6; }
-            html.dark .sidebar { background-color: #1f2937; border-color: #374151; }
-            html.dark .brand-text { color: #ffffff; }
-            html.dark .nav-link { color: #d1d5db; }
-            html.dark .nav-link:hover { background-color: #374151; }
-            html.dark .nav-link-active { background-color: rgba(49, 46, 129, 0.6); color: #818cf8; }
-            html.dark .user-name { color: #ffffff; }
-            html.dark .user-profile-link:hover { background-color: #374151; }
-            html.dark .logout-btn { color: #9ca3af; }
-            html.dark .logout-btn:hover { background-color: rgba(127, 29, 29, 0.3); color: #f87171; }
-            html.dark .btn-secondary { background-color: #1f2937; border-color: #374151; color: #e5e7eb; }
-            html.dark .btn-secondary:hover { background-color: #374151; }
-            html.dark .file-card { background-color: #1f2937; border-color: #374151; }
-            html.dark .file-title { color: #f3f4f6; }
-            html.dark .file-icon-box { background-color: rgba(55, 65, 81, 0.5); }
-            html.dark .empty-state-box { background-color: #1f2937 !important; border-color: #374151 !important; }
-            html.dark .empty-state-icon { background-color: #374151 !important; color: #d1d5db !important; }
-            html.dark .empty-state-text { color: #9ca3af !important; }
-            html.dark #welcomeModal > div { background-color: #1f2937 !important; border-color: #374151 !important; }
-            html.dark #welcomeModal h2 { color: #ffffff !important; }
-            html.dark #welcomeModal p { color: #9ca3af !important; }
-            html.dark #welcomeModal h4 { color: #e5e7eb !important; }
-            html.dark #welcomeModal span { color: #9ca3af !important; }
-            html.dark #welcomeModal .bg-gray-50 { background-color: #2d3748 !important; }
-            html.dark #welcomeModal .text-gray-800 { color: #f3f4f6 !important; }
-            html.dark #welcomeModal .text-gray-500 { color: #cbd5e0 !important; }
-            html.dark #createFolderModal > div { background-color: #1f2937; color: #ffffff; }
-            html.dark #createFolderModal input { background-color: #374151; border-color: #4b5563; color: #ffffff; }
-            html.dark #fileViewerModal > div { background-color: #1f2937; }
-            html.dark #modalFileTitle { color: #ffffff; }
+            html.dark .page-body {
+                background-color: #111827;
+                color: #f3f4f6;
+            }
+            html.dark .sidebar {
+                background-color: #1f2937;
+                border-color: #374151;
+            }
+            html.dark .brand-text {
+                color: #ffffff;
+            }
+            html.dark .nav-link {
+                color: #d1d5db;
+            }
+            html.dark .nav-link:hover {
+                background-color: #374151;
+            }
+            html.dark .nav-link-active {
+                background-color: rgba(49, 46, 129, 0.6);
+                color: #818cf8;
+            }
+            html.dark .user-name {
+                color: #ffffff;
+            }
+            html.dark .user-profile-link:hover {
+                background-color: #374151;
+            }
+            html.dark .logout-btn {
+                color: #9ca3af;
+            }
+            html.dark .logout-btn:hover {
+                background-color: rgba(127, 29, 29, 0.3);
+                color: #f87171;
+            }
+            html.dark .btn-secondary {
+                background-color: #1f2937;
+                border-color: #374151;
+                color: #e5e7eb;
+            }
+            html.dark .btn-secondary:hover {
+                background-color: #374151;
+            }
+            html.dark .file-card {
+                background-color: #1f2937;
+                border-color: #374151;
+            }
+            html.dark .file-title {
+                color: #f3f4f6;
+            }
+            html.dark .empty-state-box {
+                background-color: #1f2937 !important;
+                border-color: #374151 !important;
+            }
+            html.dark .empty-state-icon {
+                background-color: #374151 !important;
+                color: #d1d5db !important;
+            }
+            html.dark .empty-state-text {
+                color: #9ca3af !important;
+            }
+            html.dark #welcomeModal > div {
+                background-color: #1f2937 !important;
+                border-color: #374151 !important;
+            }
+            html.dark #welcomeModal h2 {
+                color: #ffffff !important;
+            }
+            html.dark #welcomeModal p {
+                color: #9ca3af !important;
+            }
+            html.dark #welcomeModal h4 {
+                color: #e5e7eb !important;
+            }
+            html.dark #welcomeModal span {
+                color: #9ca3af !important;
+            }
+            html.dark #welcomeModal .bg-gray-50 {
+                background-color: #2d3748 !important;
+            }
+            html.dark #welcomeModal .text-gray-800 {
+                color: #f3f4f6 !important;
+            }
+            html.dark #welcomeModal .text-gray-500 {
+                color: #cbd5e0 !important;
+            }
+            html.dark #createFolderModal > div {
+                background-color: #1f2937;
+                color: #ffffff;
+            }
+            html.dark #createFolderModal input {
+                background-color: #374151;
+                border-color: #4b5563;
+                color: #ffffff;
+            }
+            html.dark #fileViewerModal > div {
+                background-color: #1f2937;
+            }
+            html.dark #modalFileTitle {
+                color: #ffffff;
+            }
 
             @layer components {
-                .page-body { @apply flex min-h-screen w-full text-gray-800 bg-[#f8f9fa] font-sans transition-colors duration-200; }
-                .sidebar { @apply w-64 bg-white border-r border-gray-100 flex flex-col justify-between p-4 flex-shrink-0 min-h-screen shadow-sm z-10 transition-colors duration-200; }
-                .brand-container { @apply flex items-center space-x-3 px-2 py-1; }
-                .brand-logo { @apply w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-sm shadow-indigo-600/20; }
-                .brand-text { @apply font-bold text-gray-900 text-base tracking-tight; }
-                .nav-link { @apply flex items-center space-x-3 px-4 py-2.5 text-gray-600 hover:bg-gray-50 rounded-xl font-medium text-sm transition-all w-full text-left; }
-                .nav-link-active { @apply flex items-center space-x-3 px-4 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl font-semibold text-sm transition-colors w-full text-left; }
-                .wallet-widget { @apply w-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white p-4 rounded-2xl shadow-md shadow-indigo-600/10 relative overflow-hidden; }
-                .wallet-header { @apply flex justify-between items-center opacity-85; }
-                .wallet-title { @apply text-xs font-medium tracking-wide; }
-                .wallet-balance { @apply text-xl font-bold mt-2 tracking-tight; }
-                .user-area { @apply pt-2 border-t border-gray-100 flex flex-col gap-1; }
-                .user-profile-link { @apply flex items-center space-x-3 px-2 py-2 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer; }
-                .user-avatar { @apply w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 flex-shrink-0 font-bold text-xs uppercase; }
-                .user-info { @apply flex-1 min-w-0; }
-                .user-name { @apply text-sm font-bold text-gray-900 truncate; }
-                .user-role { @apply text-[11px] text-gray-400 font-medium; }
-                .logout-btn { @apply w-full flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors text-left; }
-                .main-content { @apply flex-1 p-8 overflow-y-auto h-screen relative; }
-                .header-container { @apply flex justify-between items-center mb-6; }
-                .page-title { @apply text-2xl font-bold text-gray-900 tracking-tight; }
-                .btn-primary { @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-[#5c3cf5] text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm shadow-sm shadow-indigo-100 cursor-pointer; }
-                .btn-secondary { @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm shadow-sm cursor-pointer; }
-                .file-grid { @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5; }
-                .file-card { @apply bg-white border border-gray-100 rounded-2xl p-5 hover:shadow-md transition-all cursor-pointer; }
-                .file-icon-wrapper { @apply mb-5 flex justify-between items-start; }
-                .file-icon-box { @apply p-4 rounded-[16px] flex items-center justify-center; }
-                .file-title { @apply font-semibold text-gray-800 text-[15px] mb-1 truncate; }
-                .file-size { @apply text-xs text-gray-400 font-medium mb-3; }
-                .file-grid .file-card .file-date { @apply text-[11px] text-gray-400 font-medium; }
+                .page-body {
+                    @apply flex min-h-screen w-full text-gray-800 bg-[#f8f9fa] font-sans transition-colors duration-200;
+                }
+                .sidebar {
+                    @apply w-64 bg-white border-r border-gray-100 flex flex-col justify-between p-4 flex-shrink-0 min-h-screen shadow-sm z-10 transition-colors duration-200;
+                }
+                .brand-container {
+                    @apply flex items-center space-x-3 px-2 py-1;
+                }
+                .brand-logo {
+                    @apply w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-sm shadow-indigo-600/20;
+                }
+                .brand-text {
+                    @apply font-bold text-gray-900 text-base tracking-tight;
+                }
+                .nav-link {
+                    @apply flex items-center space-x-3 px-4 py-2.5 text-gray-600 hover:bg-gray-50 rounded-xl font-medium text-sm transition-all w-full text-left;
+                }
+                .nav-link-active {
+                    @apply flex items-center space-x-3 px-4 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl font-semibold text-sm transition-colors w-full text-left;
+                }
+                .wallet-widget {
+                    @apply w-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white p-4 rounded-2xl shadow-md shadow-indigo-600/10 relative overflow-hidden;
+                }
+                .wallet-header {
+                    @apply flex justify-between items-center opacity-85;
+                }
+                .wallet-title {
+                    @apply text-xs font-medium tracking-wide;
+                }
+                .wallet-balance {
+                    @apply text-xl font-bold mt-2 tracking-tight;
+                }
+                .user-area {
+                    @apply pt-2 border-t border-gray-100 flex flex-col gap-1;
+                }
+                .user-profile-link {
+                    @apply flex items-center space-x-3 px-2 py-2 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer;
+                }
+                .user-avatar {
+                    @apply w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 flex-shrink-0 font-bold text-xs uppercase;
+                }
+                .user-name {
+                    @apply text-sm font-bold text-gray-900 truncate;
+                }
+                .user-role {
+                    @apply text-[11px] text-gray-400 font-medium;
+                }
+                .logout-btn {
+                    @apply w-full flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors text-left;
+                }
+                .main-content {
+                    @apply flex-1 p-8 overflow-y-auto h-screen relative flex flex-col;
+                }
+                .header-container {
+                    @apply flex justify-between items-center mb-6 flex-shrink-0;
+                }
+                .page-title {
+                    @apply text-2xl font-bold text-gray-900 tracking-tight;
+                }
+                .btn-primary {
+                    @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-[#5c3cf5] text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm shadow-sm shadow-indigo-100 cursor-pointer;
+                }
+                .btn-secondary {
+                    @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm shadow-sm cursor-pointer;
+                }
+
+                /* Tối ưu hóa hệ lưới hiển thị Icon to theo kiểu File Explorer */
+                .file-grid {
+                    @apply grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6;
+                }
+                .file-card {
+                    @apply bg-white border border-gray-100 rounded-2xl p-4 hover:shadow-md transition-all cursor-pointer flex flex-col items-center text-center justify-between aspect-square relative select-none;
+                }
+                .file-icon-box {
+                    @apply w-20 h-20 rounded-2xl flex items-center justify-center mb-2 transition-transform duration-200 group-hover:scale-105;
+                }
+                .file-title {
+                    @apply font-semibold text-gray-800 text-sm mb-1 w-full truncate px-1;
+                }
+                .file-size {
+                    @apply text-[11px] text-gray-400 font-medium;
+                }
+                .file-date {
+                    @apply text-[10px] text-gray-400 font-medium mt-1;
+                }
             }
         </style>
     </head>
@@ -171,7 +367,6 @@
 
         <div id="toastContainer" class="fixed top-5 right-5 z-[200] flex flex-col gap-3 pointer-events-none"></div>
 
-        <!-- SIDEBAR COMPONENT -->
         <aside class="sidebar">
             <div class="space-y-6 w-full">
                 <div class="brand-container">
@@ -182,7 +377,7 @@
                 </div>
 
                 <nav class="space-y-1 w-full">
-                    <a href="<%= request.getContextPath()%>/user_dashboard.jsp" class="nav-link-active">
+                    <a href="<%= request.getContextPath()%>/FolderController?action=viewFolder" class="nav-link-active">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
                         <span>Tài liệu của tôi</span>
                     </a>
@@ -216,23 +411,19 @@
                 <div class="user-area">
                     <div class="flex items-center justify-between w-full">
                         <a href="<%= request.getContextPath()%>/MainController?action=profile" class="user-profile-link flex-1 min-w-0">
-                            <!-- FIX 3: Luôn sử dụng username gốc, cắt ký tự đầu in hoa làm Avatar -->
                             <div class="user-avatar">
                                 <%= username != null && !username.trim().isEmpty() ? username.trim().substring(0, 1).toUpperCase() : "U"%>
                             </div>
                             <div class="user-info">
                                 <div class="flex items-center gap-1.5 min-w-0">
                                     <p class="user-name"><%= username != null && !username.trim().isEmpty() ? username : "Học viên"%></p>
-                                    
-                                    <!-- HUY HIỆU GÓI HIỂN THỊ DỰA TRÊN isPremiumUser ĐÃ FIX BÊN TRÊN -->
                                     <% if (isPremiumUser) { %>
                                     <span class="flex-shrink-0 px-1.5 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-[9px] rounded-full shadow-sm scale-90 origin-left">PRO</span>
                                     <% } else { %>
                                     <span class="flex-shrink-0 px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-400 dark:border-emerald-700 font-bold text-[10px] rounded-full shadow-sm scale-90 origin-left tracking-wide">FREE</span>
                                     <% }%>
                                 </div>
-                                <!-- ĐOẠN NÀY LÀ QUYỀN (ROLE): SẼ HIỂN THỊ "STUDENT" THAY VÌ FREE/PREMIUM NHƯ CŨ -->
-                                <p class="user-role">Quyền: <%= role %></p>
+                                <p class="user-role">Quyền: <%= role%></p>
                             </div>
                         </a>
                     </div>
@@ -245,28 +436,25 @@
             </div>
         </aside>
 
-        <!-- MAIN CONTENT COMPONENT -->
         <main class="main-content">
             <div class="header-container">
                 <div class="flex items-center space-x-3">
                     <% if (currentFolderId != null) {%>
-                    <a href="<%= request.getContextPath()%>/user_dashboard.jsp" class="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-600 transition-colors dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
+                    <a href="<%= request.getContextPath()%>/FolderController?action=viewFolder" class="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-600 transition-colors dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
                     </a>
-                    <h1 class="page-title dark:text-white">Thư mục đã chọn</h1>
-                    <% } else { %>
-                    <h1 class="page-title dark:text-white">Tài liệu của tôi</h1>
-                    <% } %>
+                    <h1 class="page-title dark:text-white">Thư mục: <span class="text-indigo-500"><%= currentFolder != null ? currentFolder.getFolderName() : "Đang tải..."%></span></h1>
+                        <% } else { %>
+                    <h1 class="page-title dark:text-white">Tài liệu của tôi (Gốc)</h1>
+                    <% }%>
                 </div>
 
                 <div class="flex items-center gap-4">
                     <div class="flex gap-3">
-                        <% if (currentFolderId == null) { %>
                         <button onclick="document.getElementById('createFolderModal').classList.remove('hidden')" class="btn-secondary">
                             <svg class="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg>
                             <span>Tạo thư mục</span>
                         </button>
-                        <% }%>
 
                         <form id="uploadForm" action="<%= request.getContextPath()%>/UploadController?action=upload" method="post" enctype="multipart/form-data" class="inline-block">
                             <input type="hidden" name="folderId" value="<%= currentFolderId != null ? currentFolderId : ""%>" />
@@ -280,27 +468,46 @@
                 </div>
             </div>
 
-            <!-- Widget Thống kê Dung lượng Động -->
-            <div class="mb-8 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm transition-colors duration-200 dark:bg-gray-800 dark:border-gray-700">
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Dung lượng đã sử dụng (<%= isPremiumUser ? "PREMIUM" : "FREE" %>)</span>
-                    <span class="text-sm font-bold text-black dark:text-white"><%= String.format("%.2f", totalSizeGb) %> GB / <%= (int)maxStorageGb %> GB</span>
+            <div class="mb-6 bg-white border border-gray-100 rounded-2xl p-5 shadow-sm transition-colors duration-200 dark:bg-gray-800 dark:border-gray-700 flex-shrink-0">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Dung lượng đã sử dụng (<%= isPremiumUser ? "PREMIUM" : "FREE"%>)</span>
+                    <span class="text-sm font-bold text-black dark:text-white"><%= String.format("%.2f", totalSizeGb)%> GB / <%= (int) maxStorageGb%> GB</span>
                 </div>
-                <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                    <div class="bg-[#5c3cf5] h-2.5 rounded-full transition-all duration-500 ease-out" style="width: <%= storagePercent %>%"></div>
+                <div class="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
+                    <div class="bg-[#5c3cf5] h-2 rounded-full transition-all duration-500 ease-out" style="width: <%= storagePercent%>%"></div>
                 </div>
-                <p class="text-xs mt-3 font-medium text-gray-500 dark:text-gray-400">
-                    <% if (!isPremiumUser) { %>
-                    Nâng cấp lên Premium để có thêm 50GB dung lượng lưu trữ &amp; mở rộng giới hạn file tải lên đến 100MB.
-                    <% } else { %>
-                    Tài khoản Premium đang hoạt động tối ưu. Chúc bạn có những trải nghiệm học tập tuyệt vời!
-                    <% } %>
-                </p>
             </div>
 
-            <div id="file-grid-list" class="file-grid"></div>
+            <div class="flex-1 flex flex-row gap-6 min-h-0 w-full">
+                <div class="w-64 bg-white border border-gray-100 rounded-2xl p-4 shadow-sm overflow-y-auto flex-shrink-0 dark:bg-gray-800 dark:border-gray-700 transition-colors duration-200">
+                    <p class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Cấu trúc thư mục</p>
+                    <div class="space-y-1.5">
+                        <a href="<%= request.getContextPath()%>/FolderController?action=viewFolder" 
+                           class="flex items-center space-x-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors <%= currentFolderId == null ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400 font-semibold" : "text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700/60"%>">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                            <span>Thư mục gốc</span>
+                        </a>
 
-            <!-- MODAL CORES -->
+                        <div class="pl-2 space-y-1">
+                            <%
+                                if (allFolders != null) {
+                                    // 1. Tính toán danh sách các ID thư mục nằm trên trục đường dẫn đang mở rộng
+                                    List<Integer> activePathIds = getActivePathIds(currentFolderId, allFolders);
+
+                                    // 2. Chuyển giao danh sách trục đường dẫn vào hàm renderTree cải tiến
+                                    renderTree(out, allFolders, allDocs, null, currentFolderId, activePathIds, request.getContextPath());
+                                }
+                            %>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-y-auto pr-2">
+                    <div id="file-grid-list" class="file-grid"></div>
+                </div>
+
+            </div>
+
             <div id="fileViewerModal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm flex justify-center items-center">
                 <div class="bg-white w-11/12 max-w-5xl h-[90vh] rounded-2xl flex flex-col shadow-2xl overflow-hidden dark:bg-gray-800">
                     <div class="flex justify-between items-center px-6 py-4 border-b border-gray-100 bg-gray-50/50 dark:bg-gray-800 dark:border-gray-700">
@@ -324,7 +531,7 @@
             <div id="createFolderModal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm flex justify-center items-center">
                 <div class="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl dark:bg-gray-800">
                     <h2 class="text-xl font-bold text-gray-900 mb-4 dark:text-white">Tạo thư mục mới</h2>
-                    <form action="<%= request.getContextPath()%>/MainController" method="POST">
+                    <form action="<%= request.getContextPath()%>/FolderController" method="POST">
                         <input type="hidden" name="action" value="createFolder" />
                         <input type="hidden" name="currentFolderId" value="<%= currentFolderId != null ? currentFolderId : ""%>" />
                         <input type="text" name="folderName" required class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 mb-6 outline-none transition-all bg-gray-50 focus:bg-white text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="Nhập tên thư mục..." />
@@ -337,7 +544,6 @@
             </div>
         </main>
 
-        <!-- POPUP CHÀO MỪNG THÀNH VIÊN MỚI -->
         <div id="welcomeModal" class="fixed inset-0 z-[100] hidden bg-gray-950/70 backdrop-blur-md flex justify-center items-center p-4">
             <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl p-8 border border-gray-100 text-center transform scale-95 transition-all duration-300">
                 <div class="w-20 h-20 bg-gradient-to-tr from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white mx-auto mb-6 shadow-lg shadow-indigo-500/30">
@@ -366,17 +572,7 @@
                         </div>
                         <div>
                             <h4 class="font-bold text-sm text-gray-800">Tương tác AI chuyên sâu</h4>
-                            <p class="text-xs text-gray-500 mt-0.5 leading-relaxed">Trò chuyện trực tiếp với AI Chatbot để tóm tắt và bóc tách kiến thức dựa trên các tài liệu sẵn có.</p>
-                        </div>
-                    </div>
-
-                    <div class="flex items-start space-x-3.5 p-3.5 bg-gray-50 rounded-2xl">
-                        <div class="p-2 bg-emerald-100 rounded-xl text-emerald-600 flex-shrink-0">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 3"/></svg>
-                        </div>
-                        <div>
-                            <h4 class="font-bold text-sm text-gray-800">Cộng đồng học tập lớn</h4>
-                            <p class="text-xs text-gray-500 mt-0.5 leading-relaxed">Thỏa sức khám phá và chia sẻ nguồn tài liệu học thuật quý giá đóng góp từ cộng đồng sinh viên.</p>
+                            <p class="text-xs text-gray-500 mt-0.5 leading-relaxed">Trò chuyện trực tiếp với AI Chatbot để tóm tách và bóc tách kiến thức dựa trên các tài liệu sẵn có.</p>
                         </div>
                     </div>
                 </div>
@@ -396,17 +592,19 @@
 
         <script>
             const MAX_FILE_SIZE_BYTES = <%= maxUploadSizeBytes%>;
-            const USER_ROLE_STR = "<%= isPremiumUser ? "Premium" : "Free" %>";
-            const CURRENT_USER_ID = "<%= userId%>;";
+            const USER_ROLE_STR = "<%= isPremiumUser ? "Premium" : "Free"%>";
+            const CURRENT_USER_ID = "<%= userId%>";
             const ALLOWED_EXTENSIONS = ['pptx', 'docx', 'xlsx', 'pdf'];
 
+            // Nạp dữ liệu đồng thời thư mục con (Child Folders) và tệp tin (Documents) vào ngăn phải
             const dbItems = [
             <%
                 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
-                if (myFolders != null) {
-                    for (int i = 0; i < myFolders.size(); i++) {
-                        Folder f = myFolders.get(i);
+                // 1. Kết xuất các thư mục con (Nếu có)
+                if (childFolders != null) {
+                    for (int i = 0; i < childFolders.size(); i++) {
+                        Folder f = childFolders.get(i);
                         String safeName = f.getFolderName().replace("\\", "\\\\").replace("\"", "\\\"");
                         String safeDate = f.getCreatedAt() != null ? f.getCreatedAt().format(formatter) : "N/A";
                         int fileCount = docDao.getDocumentsByFolder(userId, f.getFolderId()).size();
@@ -415,15 +613,11 @@
             <%      }
                 }
 
+                // 2. Kết xuất các tài liệu thuộc thư mục hiện hành
                 if (myDocuments != null) {
                     for (int i = 0; i < myDocuments.size(); i++) {
                         Document doc = myDocuments.get(i);
-                        String ext = "file";
-                        String url = doc.getCloudStorageUrl();
-                        if (url != null && url.lastIndexOf('.') > 0) {
-                            ext = url.substring(url.lastIndexOf('.') + 1).toLowerCase();
-                        }
-
+                        String ext = (doc.getFileExtension() != null) ? doc.getFileExtension().toLowerCase().trim() : "file";
                         String rawTitle = doc.getTitle() != null ? doc.getTitle() : "Tài liệu";
                         String safeTitle = rawTitle.replace("\\", "\\\\").replace("\"", "\\\"");
                         String safeDate = doc.getCreatedAt() != null ? doc.getCreatedAt().format(formatter) : "N/A";
@@ -436,7 +630,8 @@
 
             function showToast(message, type = 'success') {
                 const container = document.getElementById('toastContainer');
-                if (!container) return;
+                if (!container)
+                    return;
 
                 const toast = document.createElement('div');
                 toast.className = `flex items-center space-x-3 px-5 py-3.5 bg-white dark:bg-gray-800 text-gray-800 dark:text-white rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 pointer-events-auto transition-all duration-300 translate-x-20 opacity-0 min-w-[280px] max-w-md`;
@@ -445,7 +640,7 @@
                         ? `<div class="p-1.5 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-xl"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></div>`
                         : `<div class="p-1.5 bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rounded-xl"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>`;
 
-                toast.innerHTML = icon + `<span class="text-sm font-semibold tracking-tight">\${message}</span>`;
+                toast.innerHTML = icon + `<span class="text-sm font-semibold tracking-tight">\           ${message}</span>`;
                 container.appendChild(toast);
 
                 setTimeout(() => {
@@ -453,12 +648,13 @@
                 }, 50);
                 setTimeout(() => {
                     toast.classList.add('opacity-0', 'translate-x-10');
-                    setTimeout(() => { toast.remove(); }, 300);
+                    setTimeout(() => {
+                        toast.remove();
+                    }, 300);
                 }, 4000);
             }
 
             function checkWelcomeModal() {
-                sessionStorage.removeItem('hasSeenWelcomeThisSession');
                 if (localStorage.getItem('blockWelcomeModalForever_User_' + CURRENT_USER_ID) === 'true') {
                     return;
                 }
@@ -467,7 +663,8 @@
 
             function handleFileSelect(input) {
                 const file = input.files[0];
-                if (!file) return;
+                if (!file)
+                    return;
 
                 const fileExtension = file.name.split('.').pop().toLowerCase();
                 if (!ALLOWED_EXTENSIONS.includes(fileExtension)) {
@@ -477,8 +674,8 @@
                 }
 
                 if (file.size > MAX_FILE_SIZE_BYTES) {
-                    const limitMb = <%= isPremiumUser ? "100" : "50" %>;
-                    alert(`Tài khoản của bạn (\${USER_ROLE_STR}) bị giới hạn kích thước dung lượng tải lên tối đa là \${limitMb}MB cho mỗi tài liệu.\n\nTập tin hiện tại của bạn nặng: \${(file.size / (1024 * 1024)).toFixed(2)} MB.`);
+                    const limitMb = <%= isPremiumUser ? "100" : "50"%>;
+                    alert(`Tài khoản của bạn (\${USER_ROLE_STR}) bị giới hạn dung lượng tối đa là \${limitMb}MB cho mỗi tài liệu.\n\nTập tin của bạn nặng: \${(file.size / (1024 * 1024)).toFixed(2)} MB.`);
                     input.value = '';
                     return;
                 }
@@ -499,32 +696,59 @@
             function initToastNotifications() {
                 const urlParams = new URLSearchParams(window.location.search);
 
-                if (urlParams.has('uploadSuccess')) showToast("🎉 Đã upload file thành công!", "success");
-                if (urlParams.has('createFolderSuccess')) showToast("📁 Đã tạo folder thành công!", "success");
-                if (urlParams.has('deleteSuccess')) showToast("🗑️ Đã xóa file thành công!", "success");
-                if (urlParams.has('depositSuccess')) showToast("🔑 Nạp Coin thành công! Số dư đã cập nhật.", "success");
-                if (urlParams.has('upgradeSuccess')) showToast("👑 Nâng cấp tài khoản Premium thành công!", "success");
+                if (urlParams.has('uploadSuccess'))
+                    showToast("🎉 Đã tải lên tài liệu thành công!", "success");
+                if (urlParams.has('folderSuccess')) {
+                    const status = urlParams.get('folderSuccess');
+                    if (status === 'created')
+                        showToast("📁 Đã khởi tạo thư mục mới thành công!", "success");
+                    if (status === 'deleted')
+                        showToast("🗑️ Đã xóa sạch thư mục và các tệp đính kèm!", "success");
+                }
+                if (urlParams.has('deleteSuccess'))
+                    showToast("🗑️ Đã loại bỏ tài liệu thành công!", "success");
+                if (urlParams.has('depositSuccess'))
+                    showToast("🔑 Đồng bộ số dư ví Coin thành công!", "success");
+                if (urlParams.has('upgradeSuccess'))
+                    showToast("👑 Kích hoạt tài khoản Premium thành công!", "success");
 
                 if (<%= storagePercent%> >= 85.0) {
                     showToast("⚠️ Cảnh báo: Dung lượng lưu trữ sắp đầy!", "info");
                 }
 
                 if (urlParams.toString() !== "") {
-                    const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                    const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + (urlParams.has('folderId') ? '?folderId=' + urlParams.get('folderId') : '');
                     window.history.replaceState({}, document.title, cleanUrl);
                 }
             }
 
+            // 🚀 CẢI TIẾN: Thiết kế icon lớn, phối màu chuẩn hóa theo từng Extension định dạng file
             function getFileStyle(item) {
-                if (item.isFolder)
-                    return {bg: "bg-[#eff6ff]", icon: `<svg class="w-7 h-7 text-[#3b82f6]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>`};
-                return {bg: "bg-[#f0f9ff]", icon: `<svg class="w-7 h-7 text-[#0284c7]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>`};
+                if (item.isFolder) {
+                    return {
+                        bg: "bg-amber-50 dark:bg-amber-950/20",
+                        icon: `<svg class="w-10 h-10 text-amber-500" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg>`
+                    };
+                }
+
+                switch (item.type) {
+                    case 'pdf':
+                        return {bg: "bg-red-50 dark:bg-red-950/20", icon: `<svg class="w-10 h-10 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M9 9h1.5m1.5 0H14m-5 4h2.5m1.5 0H15m-6 4h4.5m1.5 0H16"></path></svg>`};
+                    case 'docx':
+                        return {bg: "bg-blue-50 dark:bg-blue-950/20", icon: `<svg class="w-10 h-10 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10h.01M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>`};
+                    case 'xlsx':
+                        return {bg: "bg-emerald-50 dark:bg-emerald-950/20", icon: `<svg class="w-10 h-10 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>`};
+                    case 'pptx':
+                        return {bg: "bg-orange-50 dark:bg-orange-950/20", icon: `<svg class="w-10 h-10 text-orange-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 12l3-3 3 3 4-4M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>`};
+                    default:
+                        return {bg: "bg-gray-50 dark:bg-gray-700/50", icon: `<svg class="w-10 h-10 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>`};
+                }
             }
 
             function openFileModal(docId, docName) {
                 document.getElementById('modalFileTitle').innerText = docName;
-                document.getElementById('modalIframe').src = "<%= request.getContextPath()%>/MainController?action=viewDoc&docId=" + docId;
-                document.getElementById('modalDownloadBtn').href = "<%= request.getContextPath()%>/MainController?action=downloadDoc&docId=" + docId;
+                document.getElementById('modalIframe').src = "<%= request.getContextPath()%>/DocumentController?action=viewDoc&docId=" + docId;
+                document.getElementById('modalDownloadBtn').href = "<%= request.getContextPath()%>/DocumentController?action=downloadDoc&docId=" + docId;
                 document.getElementById('fileViewerModal').classList.remove('hidden');
                 document.body.style.overflow = "hidden";
             }
@@ -537,14 +761,15 @@
 
             function renderFileGrid() {
                 const gridContainer = document.getElementById('file-grid-list');
-                if (!gridContainer) return;
-                
+                if (!gridContainer)
+                    return;
+
                 if (dbItems.length === 0) {
                     gridContainer.innerHTML = `<div class="empty-state-box col-span-full flex flex-col items-center justify-center py-16 bg-white border border-gray-100 rounded-2xl shadow-sm transition-colors duration-200">
                     <div class="empty-state-icon w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 mb-4 transition-colors duration-200">
                         <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                     </div>
-                    <p class="empty-state-text text-gray-500 font-medium text-sm transition-colors duration-200">Chưa có dữ liệu. Hãy tải lên tài liệu mới!</p>
+                    <p class="empty-state-text text-gray-500 font-medium text-sm transition-colors duration-200">Thư mục trống. Hãy tải tài liệu hoặc tạo thư mục con tại đây!</p>
                 </div>`;
                     return;
                 }
@@ -554,37 +779,45 @@
 
                     if (item.isFolder) {
                         return `
-                    <div onclick="window.location.href='<%= request.getContextPath()%>/user_dashboard.jsp?folderId=\${item.id}'" class="file-card group relative">
-                        <div class="file-icon-wrapper">
-                            <div class="file-icon-box \${style.bg} transition-transform group-hover:scale-105">\${style.icon}</div>
-                            <div class="opacity-0 group-hover:opacity-100 transition-opacity">
-                                <a href="<%= request.getContextPath()%>/MainController?action=deleteFolder&folderId=\${item.id}" onclick="event.stopPropagation(); return confirm('CẢNH BÁO: Xóa thư mục sẽ làm mất liên kết các tài liệu bên trong. Bạn có chắc chắn tiếp tục?');" class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg block">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                </a>
-                            </div>
-                        </div>
-                        <h3 class="file-title" title="\${item.name}">\${item.name}</h3>
-                        <p class="text-xs font-semibold text-indigo-500 mb-2">\${item.fileCount} tài liệu</p>
+                    <div onclick="window.location.href='<%= request.getContextPath()%>/FolderController?action=viewFolder&folderId=\${item.id}'" class="file-card group">
+                        <div class="file-icon-box \${style.bg}">\${style.icon}</div>
+                        <h3 class="file-title dark:text-gray-200" title="\${item.name}">\${item.name}</h3>
+                        <p class="text-[11px] font-bold text-indigo-500 dark:text-indigo-400">\${item.fileCount} tài liệu</p>
                         <p class="file-date">\${item.uploadDate}</p>
+                        
+                        <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                            <a href="<%= request.getContextPath()%>/FolderController?action=deleteFolder&folderId=\${item.id}" onclick="event.stopPropagation(); return confirm('CẢNH BÁO: Thao tác này sẽ xóa sạch thư mục con này và toàn bộ file bên trong. Xác nhận xóa?');" class="p-1.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl block shadow-sm">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </a>
+                        </div>
+                                                
+                        <div class="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                            <a href="<%= request.getContextPath()%>/FolderController?action=editFolder&folderId=\${item.id}" onclick="event.stopPropagation();" class="p-1.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-400 hover:text-indigo-600 rounded-xl shadow-sm" title="Sửa thư mục">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                            </a>
+    
+                            <a href="<%= request.getContextPath()%>/FolderController?action=deleteFolder&folderId=\${item.id}" onclick="event.stopPropagation(); return confirm('CẢNH BÁO: Thao tác này sẽ xóa sạch thư mục con này và toàn bộ file bên trong. Xác nhận xóa?');" class="p-1.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl block shadow-sm">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </a>
+                        </div>
                     </div>`;
                     }
 
                     return `
-                <div onclick="openFileModal('\${item.id}', '\${item.name}')" class="file-card group relative">
-                    <div class="file-icon-wrapper">
-                        <div class="file-icon-box \${style.bg} transition-transform group-hover:scale-105">\${style.icon}</div>
-                        <div class="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                            <a href="<%= request.getContextPath()%>/MainController?action=editDoc&docId=\${item.id}" onclick="event.stopPropagation();" class="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Chỉnh sửa">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                            </a>
-                            <a href="<%= request.getContextPath()%>/MainController?action=deleteDoc&docId=\${item.id}" onclick="event.stopPropagation(); return confirm('Bạn có chắc chắn muốn xóa tài liệu này?');" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Xóa">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                            </a>
-                        </div>
-                    </div>
-                    <h3 class="file-title" title="\${item.name}">\${item.name}</h3>
+                <div onclick="openFileModal('\${item.id}', '\${item.name}')" class="file-card group">
+                    <div class="file-icon-box \${style.bg}">\${style.icon}</div>
+                    <h3 class="file-title dark:text-gray-200" title="\${item.name}">\${item.name}</h3>
                     <p class="file-size">\${item.size}</p>
                     <p class="file-date">\${item.uploadDate}</p>
+                    
+                    <div class="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                        <a href="<%= request.getContextPath()%>/DocumentController?action=editDoc&docId=\${item.id}" onclick="event.stopPropagation();" class="p-1.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-400 hover:text-indigo-600 rounded-xl shadow-sm" title="Sửa tên">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        </a>
+                        <a href="<%= request.getContextPath()%>/DocumentController?action=deleteDoc&docId=\${item.id}" onclick="event.stopPropagation(); return confirm('Xác nhận xóa tài liệu này khỏi hệ thống?');" class="p-1.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-400 hover:text-red-600 rounded-xl shadow-sm" title="Xóa file">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </a>
+                    </div>
                 </div>`;
                 }).join('');
             }
