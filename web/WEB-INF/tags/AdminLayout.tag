@@ -51,7 +51,7 @@
             <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 lg:static flex flex-col h-full">
 
                 <div class="flex items-center justify-between p-4 border-b border-gray-800">
-                    <a href="${pageContext.request.contextPath}/admin/users" class="flex items-center space-x-2">
+                    <a href="${pageContext.request.contextPath}/MainController?action=listDashboard" class="flex items-center space-x-2">
                         <div class="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center">
                             <svg class="w-6 h-6 text-white" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2-1 4-3 5.99-5.11a2 2 0 0 1 2.02 0C14.97 2 17 4 19 5a1 1 0 0 1 1 1z"></path></svg>
                         </div>
@@ -79,13 +79,13 @@
                         <span>Quản lý User</span>
                     </a>
 
-                    <a href="${pageContext.request.contextPath}/admin/documents" 
+                    <a href="${pageContext.request.contextPath}/MainController?action=adminListDocuments" 
                        class="flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeMenu == 'documents' ? 'bg-red-600 text-white' : 'text-gray-300 hover:bg-gray-800'}">
                         <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg>
                         <span>Quản lý Tài liệu</span>
                     </a>
 
-                    <a href="${pageContext.request.contextPath}/admin/transactions" 
+                    <a href="${pageContext.request.contextPath}/MainController?action=adminListTransactions" 
                        class="flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeMenu == 'transactions' ? 'bg-red-600 text-white' : 'text-gray-300 hover:bg-gray-800'}">
                         <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
                         <span>Quản lý Giao dịch</span>

@@ -54,8 +54,8 @@ public class MainController extends HttpServlet {
                     case "editDoc":
                     case "deleteDoc":
                     case "updateDoc":
-                    case "viewDoc":      // <--- ADD THIS
-                    case "downloadDoc":  // <--- ADD THIS
+                    case "viewDoc":      
+                    case "downloadDoc":
                         url = DOCUMENT_CONTROLLER;
                         break;
                     case "profile":
