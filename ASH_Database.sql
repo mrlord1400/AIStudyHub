@@ -29,9 +29,9 @@ GO
 
 INSERT INTO subscriptions (tier_name, max_storage_mb, ai_prompt_limit_per_day, price) 
 VALUES 
-('Guest', 50, 3, 0.00),     -- Very restricted: 50MB storage, 3 AI prompts
-('Free', 500, 10, 0.00),
-('Premium', 5000, 100, 9.99);
+('Guest', 0, 3, 0.00),     -- Very restricted: 50MB storage, 3 AI prompts
+('Free', 50, 10, 0.00),
+('Premium', 100, 100, 99000);
 GO
 
 -- -----------------------------------------------------
