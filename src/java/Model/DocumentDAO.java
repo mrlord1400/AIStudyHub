@@ -91,9 +91,9 @@ public class DocumentDAO {
      * @return true if the update was successful.
      */
     public boolean updateDocumentInfo(int documentId, String newTitle,
-            Integer newFolderId, String newSharingPermission) {
+            Integer newFolderId, String newSharingPermission, String newCloudStorageUrl) {
         String sql = "UPDATE documents "
-                + "SET title = ?, folder_id = ?, sharing_permission = ? "
+                + "SET title = ?, folder_id = ?, sharing_permission = ?, cloud_storage_url = ? "
                 + "WHERE document_id = ?";
 
         try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -107,12 +107,61 @@ public class DocumentDAO {
             }
 
             ps.setString(3, newSharingPermission);
-            ps.setInt(4, documentId);
+            ps.setString(4, newCloudStorageUrl);
+            ps.setInt(5, documentId);
 
             return ps.executeUpdate() > 0;
 
         } catch (SQLException e) {
             System.err.println("[DocumentDAO] updateDocumentInfo failed: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    // ─── REPLACE DOCUMENT FILE ──────────────────────────────────────────────
+    /**
+     * Cập nhật metadata file của bản ghi cũ khi người dùng chọn "Thay thế".
+     * Giữ nguyên document_id, created_at, share_link_token, is_flagged.
+     * Trigger trg_documents_updated_at tự động cập nhật updated_at.
+     *
+     * @param docId ID bản ghi cũ cần cập nhật
+     * @param newCloudUrl URL file mới
+     * @param newFileSizeMb Kích thước file mới
+     * @param newFileExtension Đuôi file mới
+     * @param newTitle Tiêu đề mới
+     * @param newFolderId Thư mục mới
+     * @param newSharingPermission Quyền chia sẻ mới
+     * @return true nếu cập nhật thành công
+     */
+    public boolean replaceDocumentFile(int docId, String newCloudUrl,
+            double newFileSizeMb, String newFileExtension,
+            String newTitle, Integer newFolderId, String newSharingPermission) {
+        String sql = "UPDATE documents "
+                + "SET cloud_storage_url = ?, file_size_mb = ?, file_extension = ?, "
+                + "    title = ?, folder_id = ?, sharing_permission = ? "
+                + "WHERE document_id = ?";
+
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, newCloudUrl);
+            ps.setDouble(2, newFileSizeMb);
+            ps.setString(3, newFileExtension);
+            ps.setString(4, newTitle);
+
+            if (newFolderId != null) {
+                ps.setInt(5, newFolderId);
+            } else {
+                ps.setNull(5, Types.INTEGER);
+            }
+
+            ps.setString(6, newSharingPermission);
+            ps.setInt(7, docId);
+
+            return ps.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+            System.err.println("[DocumentDAO] replaceDocumentFile failed: " + e.getMessage());
             e.printStackTrace();
         }
         return false;
@@ -181,6 +230,7 @@ public class DocumentDAO {
         doc.setFolderId(rs.wasNull() ? null : folderId);
 
         doc.setTitle(rs.getString("title"));
+        doc.setFileExtension(rs.getString("file_extension"));
         doc.setCloudStorageUrl(rs.getString("cloud_storage_url"));
         doc.setFileSizeMb(rs.getDouble("file_size_mb"));
         doc.setAiParsingStatus(rs.getString("ai_parsing_status"));
@@ -191,6 +241,11 @@ public class DocumentDAO {
         Timestamp ts = rs.getTimestamp("created_at");
         if (ts != null) {
             doc.setCreatedAt(ts.toLocalDateTime());
+        }
+
+        Timestamp tsUpdate = rs.getTimestamp("updated_at");
+        if (tsUpdate != null) {
+            doc.setUpdatedAt(tsUpdate.toLocalDateTime());
         }
 
         return doc;
