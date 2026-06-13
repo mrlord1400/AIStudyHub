@@ -73,6 +73,17 @@
     Integer conflictFolderId = (Integer) userSession.getAttribute("conflictFolderId");
     Integer duplicateDocId = (Integer) userSession.getAttribute("duplicateDocId");
 
+    // Tính toán tên preview cho "Giữ cả hai": chèn (1) TRƯỚC đuôi file
+    String keepBothPreview = "";
+    if (conflictTitle != null) {
+        int lastDot = conflictTitle.lastIndexOf('.');
+        if (lastDot > 0) {
+            keepBothPreview = conflictTitle.substring(0, lastDot) + " (1)" + conflictTitle.substring(lastDot);
+        } else {
+            keepBothPreview = conflictTitle + " (1)";
+        }
+    }
+
     // 4. Fetch User's ALL Folders for the dropdown (SỬ DỤNG HÀM MỚI TẠO)
     FolderDAO folderDao = new FolderDAO();
     List<Folder> myFolders = folderDao.getAllFoldersByUserId(userId);
@@ -367,7 +378,7 @@
                     <div>
                         <h2 class="text-lg font-bold text-white">Phát hiện tài liệu trùng tên</h2>
                         <p class="text-sm text-gray-400 mt-1">
-                            Đã có <strong class="text-amber-400">"<%= conflictTitle.replace("<", "&lt;").replace(">", "&gt;")%>"</strong> ở vị trí hiện tại. Vui lòng chọn một trong hai cách xử lý bên dưới.
+                            <strong class="text-amber-400">"<%= conflictTitle.replace("<", "&lt;").replace(">", "&gt;")%>"</strong> đã tồn tại ở vị trí hiện tại. Vui lòng chọn một trong hai cách xử lý bên dưới.
                         </p>
                     </div>
                 </div>
@@ -381,7 +392,7 @@
                             </div>
                             <div class="text-left">
                                 <p class="font-semibold text-white text-sm">Thay thế file cũ</p>
-                                <p class="text-xs text-gray-400 mt-0.5">Xóa tài liệu cũ và giữ lại tài liệu mới vừa tải lên</p>
+                                <p class="text-xs text-gray-400 mt-0.5">Cập nhật nội dung tài liệu cũ bằng file mới vừa tải lên (giữ nguyên thông tin gốc)</p>
                             </div>
                         </button>
                     </form>
@@ -394,7 +405,7 @@
                             </div>
                             <div class="text-left">
                                 <p class="font-semibold text-white text-sm">Giữ lại cả hai</p>
-                                <p class="text-xs text-gray-400 mt-0.5">Tài liệu mới sẽ được đổi tên thành "<%= conflictTitle.replace("<", "&lt;").replace(">", "&gt;")%> (1)"</p>
+                                <p class="text-xs text-gray-400 mt-0.5">Tài liệu mới sẽ được đổi tên thành "<%= keepBothPreview.replace("<", "&lt;").replace(">", "&gt;")%>"</p>
                             </div>
                         </button>
                     </form>
