@@ -40,11 +40,24 @@ public class DocumentController extends HttpServlet {
                     response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=not_found");
                 }
 
+            } else if ("viewPage".equals(action)) {
+                // Opens the full "document_view.jsp" page (new tab) showing
+                // content + metadata sidebar + action buttons.
+                int docId = Integer.parseInt(request.getParameter("docId"));
+                Document doc = dao.findById(docId);
+
+                if (doc != null && doc.getUserId() == userId) {
+                    request.setAttribute("document", doc);
+                    request.getRequestDispatcher("/document_view.jsp").forward(request, response);
+                } else {
+                    response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=not_found");
+                }
+
             } else if ("deleteDoc".equals(action)) {
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 // 1. Get document info BEFORE deleting (to find the physical file)
                 Document doc = dao.findById(docId);
-                
+
                 if (doc != null) {
                     // 2. Delete physical file from server
                     String cloudUrl = doc.getCloudStorageUrl();
@@ -57,7 +70,7 @@ public class DocumentController extends HttpServlet {
                         if (relativePath.startsWith("/")) {
                             relativePath = relativePath.substring(1);
                         }
-                        
+
                         String realPath = getServletContext().getRealPath("");
                         if (realPath != null) {
                             java.io.File physicalFile = new java.io.File(realPath + java.io.File.separator + relativePath.replace("/", java.io.File.separator));
@@ -67,7 +80,7 @@ public class DocumentController extends HttpServlet {
                             }
                         }
                     }
-                    
+
                     // 3. Delete DB record
                     boolean deleted = dao.deleteDocument(docId);
                     if (deleted) {
@@ -105,6 +118,26 @@ public class DocumentController extends HttpServlet {
                     // Send them back to the edit page with an error if it fails
                     request.setAttribute("errorMessage", "Không thể cập nhật. Vui lòng thử lại.");
                     request.getRequestDispatcher("/MainController?action=editDoc&docId=" + docId).forward(request, response);
+                }
+            } else if ("updatePermission".equals(action)) {
+                // Quick-update used by the "Chỉnh permission" modal on
+                // document_view.jsp — only changes sharing_permission.
+                int docId = Integer.parseInt(request.getParameter("docId"));
+                String sharingPerm = request.getParameter("sharingPermission");
+                if (sharingPerm == null || sharingPerm.trim().isEmpty()) {
+                    sharingPerm = "PRIVATE";
+                }
+
+                Document doc = dao.findById(docId);
+                if (doc != null && doc.getUserId() == userId) {
+                    boolean updated = dao.updateSharingPermission(docId, sharingPerm.toUpperCase());
+                    if (updated) {
+                        response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?updateSuccess=1");
+                    } else {
+                        response.sendRedirect(request.getContextPath() + "/DocumentController?action=viewPage&docId=" + docId + "&error=permission_failed");
+                    }
+                } else {
+                    response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=not_found");
                 }
             } else if ("viewDoc".equals(action)) {
                 int docId = Integer.parseInt(request.getParameter("docId"));
