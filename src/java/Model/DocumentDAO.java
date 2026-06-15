@@ -9,9 +9,10 @@ import java.time.LocalDateTime;
  *
  * Provides the following operations: - insertDocument() : Insert a new document
  * into the DB (Step 1 — save file) - updateDocumentInfo() : Update document
- * info after user edits (Step 2) - deleteDocument() : Delete the record when
- * user cancels (Step 3) - findById() : Retrieve a document by ID (used to
- * pre-fill the edit form)
+ * info after user edits (Step 2) - updateSharingPermission() : Quick-update
+ * only the sharing permission (used by the "Chỉnh permission" modal) -
+ * deleteDocument() : Delete the record when user cancels (Step 3) - findById()
+ * : Retrieve a document by ID (used to pre-fill the edit form)
  */
 public class DocumentDAO {
 
@@ -119,6 +120,23 @@ public class DocumentDAO {
         return false;
     }
 
+    // ─── UPDATE SHARING PERMISSION ONLY ─────────────────────────────────────
+    /**
+     * Quick-update for ONLY the sharing_permission column. Used by the "Chỉnh
+     * permission" modal on document_view.jsp, which intentionally does not
+     * carry title/folder data.
+     *
+     * @param documentId the document to update
+     * @param newSharingPermission new value (PRIVATE / FRIENDS_ONLY / PUBLIC)
+     * @return true if the update was successful.
+     */
+    public boolean updateSharingPermission(int documentId, String newSharingPermission) {
+        String sql = "UPDATE documents SET sharing_permission = ? WHERE document_id = ?";
+
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, newSharingPermission);
+            ps.setInt(2, documentId);
     // ─── REPLACE DOCUMENT FILE ──────────────────────────────────────────────
     /**
      * Cập nhật metadata file của bản ghi cũ khi người dùng chọn "Thay thế".
@@ -161,6 +179,7 @@ public class DocumentDAO {
             return ps.executeUpdate() > 0;
 
         } catch (SQLException e) {
+            System.err.println("[DocumentDAO] updateSharingPermission failed: " + e.getMessage());
             System.err.println("[DocumentDAO] replaceDocumentFile failed: " + e.getMessage());
             e.printStackTrace();
         }
@@ -274,8 +293,8 @@ public class DocumentDAO {
     }
 
     /**
-     * * Retrieves documents for a user inside a specific folder. If folderId is
-     * null, it retrieves documents in the root directory.
+     * * Retrieves documents for a user inside a specific folder. If folderId
+     * is null, it retrieves documents in the root directory.
      */
     public java.util.List<Document> getDocumentsByFolder(int userId, Integer folderId) {
         java.util.List<Document> list = new java.util.ArrayList<>();
