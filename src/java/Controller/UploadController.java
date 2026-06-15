@@ -102,25 +102,27 @@ public class UploadController extends HttpServlet {
                 fileExtension = "unknown"; // Trường hợp file không có đuôi mở rộng
             }
 
-            // Thiết lập đường dẫn thư mục lưu trữ vật lý trên Server
+            // Thiết lập đường dẫn thư mục lưu trữ per-user trên Server
             String realPath = getServletContext().getRealPath("");
             if (realPath == null) {
                 realPath = System.getProperty("java.io.tmpdir");
             }
-            String uploadPath = realPath + File.separator + UPLOAD_DIR;
+            // Tạo thư mục riêng cho mỗi user: uploads/{userId}/
+            String uploadPath = realPath + File.separator + UPLOAD_DIR + File.separator + userId;
 
             File uploadDir = new File(uploadPath);
             if (!uploadDir.exists() && !uploadDir.mkdirs()) {
                 throw new IOException("Không thể khởi tạo thư mục lưu trữ tại: " + uploadPath);
             }
 
-            // Tạo tên file ngẫu nhiên chống trùng lặp trên ổ đĩa
-            String savedFileName = System.currentTimeMillis() + "_" + sanitizeFileName(originalFileName);
+            // Tạo tên file tạm dùng UUID ngắn (sẽ được rename sau khi xác nhận)
+            String uuidPrefix = java.util.UUID.randomUUID().toString().substring(0, 8);
+            String savedFileName = "temp_" + uuidPrefix + "_" + sanitizeFileName(originalFileName);
             String savedFilePath = uploadPath + File.separator + savedFileName;
             filePart.write(savedFilePath);
 
             double fileSizeMb = filePart.getSize() / (1024.0 * 1024.0);
-            String cloudStorageUrl = request.getContextPath() + "/" + UPLOAD_DIR + "/" + savedFileName;
+            String cloudStorageUrl = request.getContextPath() + "/" + UPLOAD_DIR + "/" + userId + "/" + savedFileName;
 
             // Xử lý thông tin Folder ID đích chuyển lên từ Form hiển thị
             Integer folderId = null;
@@ -162,6 +164,7 @@ public class UploadController extends HttpServlet {
             session.setAttribute("pendingDocumentId", newDocumentId);
             session.setAttribute("pendingDocumentPath", savedFilePath);
             session.setAttribute("pendingDocumentTitle", doc.getTitle());
+            session.setAttribute("pendingFileExtension", fileExtension); // Lưu extension để dùng khi rename
 
             // Điều hướng sang Bước 2 (Form Edit/Confirm)
             response.sendRedirect(request.getContextPath() + "/document_upload.jsp?step=edit&docId=" + newDocumentId);
@@ -218,7 +221,11 @@ public class UploadController extends HttpServlet {
             return;
         }
 
-        boolean updated = dao.updateDocumentInfo(documentId, newTitle, newFolderId, sharingPermission);
+        // Không trùng lặp → Rename file vật lý cho khớp tên hiển thị + cập nhật DB
+        String pendingFilePath = (String) session.getAttribute("pendingDocumentPath");
+        String newCloudUrl = renameToFinalName(pendingFilePath, userId, newTitle, request);
+
+        boolean updated = dao.updateDocumentInfo(documentId, newTitle, newFolderId, sharingPermission, newCloudUrl);
         clearPendingSession(session);
 
         if (updated) {
@@ -235,7 +242,7 @@ public class UploadController extends HttpServlet {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // XỬ LÝ TRÙNG LẶP FILE (GHI ĐÈ / GIỮ CẢ HAI) & HỦY TÁC VỤ
+    // XỬ LÝ TRÙNG LẶP FILE — THAY THẾ (Cập nhật bản ghi cũ, giữ metadata gốc)
     // ─────────────────────────────────────────────────────────────────────────
     private void handleReplace(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -247,6 +254,7 @@ public class UploadController extends HttpServlet {
         }
 
         Integer pendingDocId = (Integer) session.getAttribute("pendingDocumentId");
+        String pendingFilePath = (String) session.getAttribute("pendingDocumentPath");
         Integer duplicateDocId = (Integer) session.getAttribute("duplicateDocId");
         String conflictTitle = (String) session.getAttribute("conflictTitle");
         Integer conflictFolderId = (Integer) session.getAttribute("conflictFolderId");
@@ -259,33 +267,26 @@ public class UploadController extends HttpServlet {
 
         DocumentDAO dao = new DocumentDAO();
         Document oldDoc = dao.findById(duplicateDocId);
-        
-        if (oldDoc != null) {
-            // Xóa file vật lý của tài liệu cũ trên Server đĩa cứng
-            String cloudUrl = oldDoc.getCloudStorageUrl();
-            if (cloudUrl != null && !cloudUrl.trim().isEmpty()) {
-                String relativePath = cloudUrl;
-                String contextPath = request.getContextPath();
-                if (relativePath.startsWith(contextPath)) {
-                    relativePath = relativePath.substring(contextPath.length());
-                }
-                if (relativePath.startsWith("/")) {
-                    relativePath = relativePath.substring(1);
-                }
+        Document pendingDoc = dao.findById(pendingDocId);
 
-                String realPath = getServletContext().getRealPath("");
-                if (realPath != null) {
-                    File physicalFile = new File(realPath + File.separator + relativePath.replace("/", File.separator));
-                    if (physicalFile.exists()) {
-                        physicalFile.delete();
-                    }
-                }
-            }
-            // Xóa bản ghi cũ trong DB
-            dao.deleteDocument(duplicateDocId);
+        if (oldDoc != null && pendingDoc != null) {
+            // 1. Xóa file vật lý CŨ trên đĩa cứng
+            deletePhysicalFile(oldDoc.getCloudStorageUrl(), request);
+
+            // 2. Rename file vật lý MỚI → khớp tên hiển thị
+            int userId = (int) session.getAttribute("userId");
+            String newCloudUrl = renameToFinalName(pendingFilePath, userId, conflictTitle, request);
+
+            // 3. Cập nhật bản ghi CŨ với thông tin file mới
+            //    Giữ nguyên: document_id, created_at, share_link_token, is_flagged
+            //    Trigger trg_documents_updated_at tự cập nhật updated_at
+            dao.replaceDocumentFile(duplicateDocId, newCloudUrl, pendingDoc.getFileSizeMb(),
+                    pendingDoc.getFileExtension(), conflictTitle, conflictFolderId, conflictSharingPermission);
+
+            // 4. Xóa bản ghi TẠM (pending) trong DB — file vật lý đã rename rồi
+            dao.deleteDocument(pendingDocId);
         }
 
-        boolean updated = dao.updateDocumentInfo(pendingDocId, conflictTitle, conflictFolderId, conflictSharingPermission);
         clearPendingSession(session);
         clearDuplicateSession(session);
 
@@ -296,11 +297,15 @@ public class UploadController extends HttpServlet {
         response.sendRedirect(request.getContextPath() + redirectTarget + "&uploadSuccess=1");
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // XỬ LÝ TRÙNG LẶP FILE — GIỮ CẢ HAI (Đổi tên file mới + server khớp web)
+    // ─────────────────────────────────────────────────────────────────────────
     private void handleKeepBoth(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
         HttpSession session = request.getSession(false);
         Integer pendingDocId = (Integer) session.getAttribute("pendingDocumentId");
+        String pendingFilePath = (String) session.getAttribute("pendingDocumentPath");
         String conflictTitle = (String) session.getAttribute("conflictTitle");
         Integer conflictFolderId = (Integer) session.getAttribute("conflictFolderId");
         String conflictSharingPermission = (String) session.getAttribute("conflictSharingPermission");
@@ -312,9 +317,14 @@ public class UploadController extends HttpServlet {
         }
 
         DocumentDAO dao = new DocumentDAO();
+
+        // Tạo tên duy nhất: "report (1).pdf", "report (2).pdf",...
         String uniqueTitle = generateUniqueTitle(dao, userId, conflictTitle, conflictFolderId, pendingDocId);
 
-        boolean updated = dao.updateDocumentInfo(pendingDocId, uniqueTitle, conflictFolderId, conflictSharingPermission);
+        // Rename file vật lý → khớp tên hiển thị mới (VD: report_(1).pdf)
+        String newCloudUrl = renameToFinalName(pendingFilePath, userId, uniqueTitle, request);
+
+        boolean updated = dao.updateDocumentInfo(pendingDocId, uniqueTitle, conflictFolderId, conflictSharingPermission, newCloudUrl);
         clearPendingSession(session);
         clearDuplicateSession(session);
 
@@ -325,6 +335,9 @@ public class UploadController extends HttpServlet {
         response.sendRedirect(request.getContextPath() + redirectTarget + "&uploadSuccess=1");
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // HỦY TÁC VỤ — Xóa file vật lý + DB
+    // ─────────────────────────────────────────────────────────────────────────
     private void handleCancel(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
@@ -367,10 +380,96 @@ public class UploadController extends HttpServlet {
         return (dotIndex > 0) ? fileName.substring(0, dotIndex) : fileName;
     }
 
+    /**
+     * Rename file vật lý từ tên tạm → tên hiển thị cuối cùng.
+     * File được lưu trong thư mục per-user: uploads/{userId}/
+     *
+     * @param tempFilePath Đường dẫn file tạm hiện tại trên đĩa
+     * @param userId ID người dùng
+     * @param finalTitle Tên hiển thị cuối cùng (bao gồm extension, VD: "report.pdf")
+     * @param request HttpServletRequest để lấy contextPath
+     * @return Cloud storage URL mới (contextPath-relative)
+     */
+    private String renameToFinalName(String tempFilePath, int userId, String finalTitle,
+                                      HttpServletRequest request) {
+        String realPath = getServletContext().getRealPath("");
+        if (realPath == null) {
+            realPath = System.getProperty("java.io.tmpdir");
+        }
+
+        String userUploadPath = realPath + File.separator + UPLOAD_DIR + File.separator + userId;
+        File userDir = new File(userUploadPath);
+        if (!userDir.exists()) {
+            userDir.mkdirs();
+        }
+
+        // Sanitize tên file cho an toàn trên hệ thống file
+        String sanitizedName = sanitizeFileName(finalTitle);
+        File targetFile = new File(userUploadPath + File.separator + sanitizedName);
+
+        // Nếu file vật lý trùng tên đã tồn tại (edge case: cùng tên ở thư mục logic khác),
+        // thêm suffix _dup{n} để tránh ghi đè file vật lý
+        int dupCounter = 0;
+        String nameNoExt = stripExtension(sanitizedName);
+        String ext = "";
+        int dotIdx = sanitizedName.lastIndexOf('.');
+        if (dotIdx > 0) {
+            ext = sanitizedName.substring(dotIdx); // bao gồm dấu chấm ".pdf"
+        }
+
+        while (targetFile.exists()) {
+            dupCounter++;
+            targetFile = new File(userUploadPath + File.separator + nameNoExt + "_dup" + dupCounter + ext);
+        }
+
+        String finalFileName = (dupCounter == 0)
+                ? sanitizedName
+                : nameNoExt + "_dup" + dupCounter + ext;
+
+        // Thực hiện rename/move file
+        File tempFile = new File(tempFilePath);
+        if (tempFile.exists()) {
+            tempFile.renameTo(targetFile);
+        }
+
+        // Trả về URL mới
+        return request.getContextPath() + "/" + UPLOAD_DIR + "/" + userId + "/" + finalFileName;
+    }
+
+    /**
+     * Xóa file vật lý trên đĩa dựa vào cloudStorageUrl từ DB.
+     *
+     * @param cloudStorageUrl URL lưu trong DB (VD: /AIStudyHub/uploads/1/report.pdf)
+     * @param request HttpServletRequest để lấy contextPath và realPath
+     */
+    private void deletePhysicalFile(String cloudStorageUrl, HttpServletRequest request) {
+        if (cloudStorageUrl == null || cloudStorageUrl.trim().isEmpty()) {
+            return;
+        }
+
+        String relativePath = cloudStorageUrl;
+        String contextPath = request.getContextPath();
+        if (relativePath.startsWith(contextPath)) {
+            relativePath = relativePath.substring(contextPath.length());
+        }
+        if (relativePath.startsWith("/")) {
+            relativePath = relativePath.substring(1);
+        }
+
+        String realPath = getServletContext().getRealPath("");
+        if (realPath != null) {
+            File physicalFile = new File(realPath + File.separator + relativePath.replace("/", File.separator));
+            if (physicalFile.exists()) {
+                physicalFile.delete();
+            }
+        }
+    }
+
     private void clearPendingSession(HttpSession session) {
         session.removeAttribute("pendingDocumentId");
         session.removeAttribute("pendingDocumentPath");
         session.removeAttribute("pendingDocumentTitle");
+        session.removeAttribute("pendingFileExtension");
     }
 
     private void clearDuplicateSession(HttpSession session) {
@@ -380,11 +479,23 @@ public class UploadController extends HttpServlet {
         session.removeAttribute("duplicateDocId");
     }
 
+    /**
+     * Tạo tên duy nhất bằng cách thêm (1), (2),... TRƯỚC đuôi file.
+     * VD: "report.pdf" → "report (1).pdf" → "report (2).pdf"
+     */
     private String generateUniqueTitle(DocumentDAO dao, int userId, String baseTitle, Integer folderId, int excludeDocId) {
+        // Tách tên và extension: "report.pdf" → "report" + ".pdf"
+        String nameWithoutExt = stripExtension(baseTitle);
+        String ext = "";
+        int dotIndex = baseTitle.lastIndexOf('.');
+        if (dotIndex > 0) {
+            ext = baseTitle.substring(dotIndex); // ".pdf"
+        }
+
         int counter = 1;
         String candidate;
         do {
-            candidate = baseTitle + " (" + counter + ")";
+            candidate = nameWithoutExt + " (" + counter + ")" + ext;
             counter++;
         } while (dao.titleExistsAtLocation(userId, candidate, folderId, excludeDocId));
         return candidate;

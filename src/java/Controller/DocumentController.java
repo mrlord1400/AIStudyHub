@@ -109,8 +109,12 @@ public class DocumentController extends HttpServlet {
                     }
                 }
 
+                // Lấy cloud_storage_url hiện tại (không đổi khi chỉ edit metadata)
+                Document existingDoc = dao.findById(docId);
+                String existingCloudUrl = (existingDoc != null) ? existingDoc.getCloudStorageUrl() : "";
+
                 // Execute Update
-                boolean updated = dao.updateDocumentInfo(docId, newTitle, folderId, sharingPerm.toUpperCase());
+                boolean updated = dao.updateDocumentInfo(docId, newTitle, folderId, sharingPerm.toUpperCase(), existingCloudUrl);
 
                 if (updated) {
                     response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?updateSuccess=1");
@@ -146,16 +150,23 @@ public class DocumentController extends HttpServlet {
                 // Security: Ensure the file exists and the user owns it
                 if (doc != null && doc.getUserId() == userId) {
 
-                    // 1. Extract the saved filename
+                    // 1. Trích xuất đường dẫn tương đối từ cloudStorageUrl
                     String url = doc.getCloudStorageUrl();
-                    String savedFileName = url.substring(url.lastIndexOf("/") + 1);
+                    String relativePath = url;
+                    String ctxPath = request.getContextPath();
+                    if (relativePath.startsWith(ctxPath)) {
+                        relativePath = relativePath.substring(ctxPath.length());
+                    }
+                    if (relativePath.startsWith("/")) {
+                        relativePath = relativePath.substring(1);
+                    }
 
                     // 2. Rebuild the physical server path
                     String realPath = getServletContext().getRealPath("");
                     if (realPath == null) {
                         realPath = System.getProperty("java.io.tmpdir");
                     }
-                    String filePath = realPath + java.io.File.separator + "uploads" + java.io.File.separator + savedFileName;
+                    String filePath = realPath + java.io.File.separator + relativePath.replace("/", java.io.File.separator);
 
                     java.io.File file = new java.io.File(filePath);
 
@@ -189,8 +200,16 @@ public class DocumentController extends HttpServlet {
                 Document doc = dao.findById(docId);
 
                 if (doc != null && doc.getUserId() == userId) {
-                    // Extract the saved filename from the URL
+                    // Trích xuất đường dẫn tương đối từ cloudStorageUrl
                     String url = doc.getCloudStorageUrl();
+                    String relativePath = url;
+                    String ctxPath = request.getContextPath();
+                    if (relativePath.startsWith(ctxPath)) {
+                        relativePath = relativePath.substring(ctxPath.length());
+                    }
+                    if (relativePath.startsWith("/")) {
+                        relativePath = relativePath.substring(1);
+                    }
                     String savedFileName = url.substring(url.lastIndexOf("/") + 1);
 
                     // Rebuild the absolute path to the server's uploads folder
@@ -198,7 +217,7 @@ public class DocumentController extends HttpServlet {
                     if (realPath == null) {
                         realPath = System.getProperty("java.io.tmpdir");
                     }
-                    String filePath = realPath + java.io.File.separator + "uploads" + java.io.File.separator + savedFileName;
+                    String filePath = realPath + java.io.File.separator + relativePath.replace("/", java.io.File.separator);
 
                     java.io.File downloadFile = new java.io.File(filePath);
                     if (downloadFile.exists()) {
