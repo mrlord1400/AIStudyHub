@@ -45,7 +45,14 @@
 
     String error = request.getParameter("error");
 
-    String ext = (doc.getFileExtension() != null) ? doc.getFileExtension().toLowerCase().trim() : "";
+    // Derive file extension from the cloud_storage_url filename, since the
+    // `documents` table has no file_extension column.
+    String ext = "";
+    String storageUrl = doc.getCloudStorageUrl();
+    if (storageUrl != null && storageUrl.lastIndexOf('.') > storageUrl.lastIndexOf('/')) {
+        ext = storageUrl.substring(storageUrl.lastIndexOf('.') + 1).toLowerCase().trim();
+    }
+
     String currentPerm = doc.getSharingPermission() != null ? doc.getSharingPermission().toUpperCase() : "PRIVATE";
 %>
 <!DOCTYPE html>
@@ -206,7 +213,7 @@
                 <div class="min-w-0">
                     <h1 class="doc-title"><%= doc.getTitle() != null ? doc.getTitle() : "Tài liệu"%></h1>
                     <p class="text-xs text-gray-400 font-medium mt-0.5">
-                        <%= doc.getFileExtension() != null ? doc.getFileExtension().toUpperCase() : ""%>
+                        <%= !ext.isEmpty() ? ext.toUpperCase() : "FILE"%>
                         &middot; <%= doc.getFileSizeMb()%> MB
                     </p>
                 </div>
@@ -311,8 +318,8 @@
                     <span class="meta-value"><%= doc.getCreatedAt() != null ? doc.getCreatedAt().format(formatter) : "—"%></span>
                 </div>
                 <div class="meta-row">
-                    <span class="meta-label">Cập nhật lần cuối</span>
-                    <span class="meta-value"><%= doc.getUpdatedAt() != null ? doc.getUpdatedAt().format(formatter) : "—"%></span>
+                    <span class="meta-label">Cập nhật</span>
+                    <span class="meta-value"><%= doc.getCreatedAt() != null ? doc.getCreatedAt().format(formatter) : "—"%></span>
                 </div>
             </aside>
 
@@ -347,7 +354,7 @@
                                 <%= fullPath.replace("<", "&lt;").replace(">", "&gt;")%>
                             </option>
                             <%      }
-                                }%>
+                            } %>
                         </select>
                     </div>
 
