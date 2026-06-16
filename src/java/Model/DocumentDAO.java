@@ -137,11 +137,21 @@ public class DocumentDAO {
 
             ps.setString(1, newSharingPermission);
             ps.setInt(2, documentId);
+
+            return ps.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+            System.err.println("[DocumentDAO] updateSharingPermission failed: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return false;
+    }
+
     // ─── REPLACE DOCUMENT FILE ──────────────────────────────────────────────
     /**
-     * Cập nhật metadata file của bản ghi cũ khi người dùng chọn "Thay thế".
-     * Giữ nguyên document_id, created_at, share_link_token, is_flagged.
-     * Trigger trg_documents_updated_at tự động cập nhật updated_at.
+     * Cập nhật metadata file của bản ghi cũ khi người dùng chọn "Thay thế". Giữ
+     * nguyên document_id, created_at, share_link_token, is_flagged. Trigger
+     * trg_documents_updated_at tự động cập nhật updated_at.
      *
      * @param docId ID bản ghi cũ cần cập nhật
      * @param newCloudUrl URL file mới
@@ -179,7 +189,6 @@ public class DocumentDAO {
             return ps.executeUpdate() > 0;
 
         } catch (SQLException e) {
-            System.err.println("[DocumentDAO] updateSharingPermission failed: " + e.getMessage());
             System.err.println("[DocumentDAO] replaceDocumentFile failed: " + e.getMessage());
             e.printStackTrace();
         }
