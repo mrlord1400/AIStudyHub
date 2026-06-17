@@ -140,11 +140,11 @@ GO
 -- -----------------------------------------------------
 CREATE TABLE chat_sessions (
     session_id INT IDENTITY(1,1) PRIMARY KEY,
+	session_name NVARCHAR(255) NOT NULL,
     user_id INT NOT NULL,
-    document_id INT NOT NULL,
     created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
+    is_pinned BIT DEFAULT 0,   
     FOREIGN KEY (user_id) REFERENCES users(user_id), -- Cascade removed to prevent multiple path errors
-    FOREIGN KEY (document_id) REFERENCES documents(document_id) ON DELETE CASCADE
 );
 GO
 
