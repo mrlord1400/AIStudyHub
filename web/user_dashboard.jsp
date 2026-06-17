@@ -73,7 +73,7 @@
                 if (isFileInFolder) {
                     String safeTitle = doc.getTitle().replace("\\", "\\\\").replace("\"", "\\\"").replace("'", "\\'");
                     out.print("<div class='space-y-0.5'>");
-                    out.print("  <button onclick=\"openFileModal('" + doc.getDocumentId() + "', '" + safeTitle + "')\" class='w-full flex items-center space-x-2 px-2.5 py-1 text-xs text-gray-500 hover:text-indigo-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-gray-700/40 transition-colors text-left rounded-lg'>");
+                    out.print("  <button onclick=\"window.open('" + contextPath + "/DocumentController?action=viewPage&docId=" + doc.getDocumentId() + "', '_blank')\" class='w-full flex items-center space-x-2 px-2.5 py-1 text-xs text-gray-500 hover:text-indigo-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-gray-700/40 transition-colors text-left rounded-lg'>");
                     out.print("    <svg class='w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex-shrink-0' fill='none' stroke='currentColor' stroke-width='2' viewBox='0 0 24 24'><path d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'></path></svg>");
                     out.print("    <span class='truncate flex-1'>" + doc.getTitle() + "</span>");
                     out.print("  </button>");
@@ -458,7 +458,7 @@
 
                         <form id="uploadForm" action="<%= request.getContextPath()%>/UploadController?action=upload" method="post" enctype="multipart/form-data" class="inline-block">
                             <input type="hidden" name="folderId" value="<%= currentFolderId != null ? currentFolderId : ""%>" />
-                            <input type="file" name="file" id="fileUpload" accept=".pptx,.docx,.xlsx,.pdf" class="hidden" onchange="handleFileSelect(this)" />
+                            <input type="file" name="file" id="fileUpload" accept=".pptx,.docx,.xlsx,.pdf,.txt" class="hidden" onchange="handleFileSelect(this)" />
                             <button type="button" onclick="document.getElementById('fileUpload').click()" class="btn-primary">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                                 <span>Tải lên tài liệu</span>
@@ -594,7 +594,7 @@
             const MAX_FILE_SIZE_BYTES = <%= maxUploadSizeBytes%>;
             const USER_ROLE_STR = "<%= isPremiumUser ? "Premium" : "Free"%>";
             const CURRENT_USER_ID = "<%= userId%>";
-            const ALLOWED_EXTENSIONS = ['pptx', 'docx', 'xlsx', 'pdf'];
+            const ALLOWED_EXTENSIONS = ['pptx', 'docx', 'xlsx', 'pdf', 'txt'];
 
             // Nạp dữ liệu đồng thời thư mục con (Child Folders) và tệp tin (Documents) vào ngăn phải
             const dbItems = [
@@ -668,7 +668,7 @@
 
                 const fileExtension = file.name.split('.').pop().toLowerCase();
                 if (!ALLOWED_EXTENSIONS.includes(fileExtension)) {
-                    alert("Hệ thống không hỗ trợ định dạng này! Chỉ chấp nhận file: .pptx, .docx, .xlsx, .pdf");
+                    alert("Hệ thống không hỗ trợ định dạng này! Chỉ chấp nhận file: .pptx, .docx, .xlsx, .pdf, .txt");
                     input.value = '';
                     return;
                 }
@@ -740,23 +740,11 @@
                         return {bg: "bg-emerald-50 dark:bg-emerald-950/20", icon: `<svg class="w-10 h-10 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>`};
                     case 'pptx':
                         return {bg: "bg-orange-50 dark:bg-orange-950/20", icon: `<svg class="w-10 h-10 text-orange-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 12l3-3 3 3 4-4M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>`};
+                    case 'txt':
+                        return {bg: "bg-slate-100 dark:bg-slate-800/40", icon: `<svg class="w-10 h-10 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M9 8h4"></path></svg>`};
                     default:
                         return {bg: "bg-gray-50 dark:bg-gray-700/50", icon: `<svg class="w-10 h-10 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>`};
                 }
-            }
-
-            function openFileModal(docId, docName) {
-                document.getElementById('modalFileTitle').innerText = docName;
-                document.getElementById('modalIframe').src = "<%= request.getContextPath()%>/DocumentController?action=viewDoc&docId=" + docId;
-                document.getElementById('modalDownloadBtn').href = "<%= request.getContextPath()%>/DocumentController?action=downloadDoc&docId=" + docId;
-                document.getElementById('fileViewerModal').classList.remove('hidden');
-                document.body.style.overflow = "hidden";
-            }
-
-            function closeFileModal() {
-                document.getElementById('fileViewerModal').classList.add('hidden');
-                document.getElementById('modalIframe').src = "";
-                document.body.style.overflow = "";
             }
 
             function renderFileGrid() {
@@ -804,16 +792,13 @@
                     }
 
                     return `
-                <div onclick="openFileModal('\${item.id}', '\${item.name}')" class="file-card group">
+                <div onclick="window.open('<%= request.getContextPath()%>/DocumentController?action=viewPage&docId=\${item.id}', '_blank')" class="file-card group">
                     <div class="file-icon-box \${style.bg}">\${style.icon}</div>
                     <h3 class="file-title dark:text-gray-200" title="\${item.name}">\${item.name}</h3>
                     <p class="file-size">\${item.size}</p>
                     <p class="file-date">\${item.uploadDate}</p>
                     
                     <div class="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                        <a href="<%= request.getContextPath()%>/DocumentController?action=viewPage&docId=\${item.id}" target="_blank" onclick="event.stopPropagation();" class="p-1.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-400 hover:text-emerald-600 rounded-xl shadow-sm" title="Mở trang riêng (tab mới)">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-                        </a>
                         <a href="<%= request.getContextPath()%>/DocumentController?action=editDoc&docId=\${item.id}" onclick="event.stopPropagation();" class="p-1.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-400 hover:text-indigo-600 rounded-xl shadow-sm" title="Sửa tên">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                         </a>
@@ -821,7 +806,7 @@
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                         </a>
                     </div>
-                </div>`;
+                </div>`;;
                 }).join('');
             }
 

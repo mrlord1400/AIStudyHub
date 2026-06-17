@@ -16,16 +16,18 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 
 /**
- * UploadController — Servlet xử lý luồng tải lên tài liệu 3 bước:
- * * POST /UploadController?action=upload  → Bước 1: Tiếp nhận file, lưu tạm, trích xuất Extension, thêm DB, chuyển sang form chỉnh sửa
- * POST /UploadController?action=confirm → Bước 2: Xác nhận thông tin tài liệu từ phía user → Cập nhật DB
- * POST /UploadController?action=cancel  → Bước 3: Người dùng hủy tác vụ → Xóa file vật lý + Xóa bản ghi tạm trong DB
+ * UploadController — Servlet xử lý luồng tải lên tài liệu 3 bước: * POST
+ * /UploadController?action=upload → Bước 1: Tiếp nhận file, lưu tạm, trích xuất
+ * Extension, thêm DB, chuyển sang form chỉnh sửa POST
+ * /UploadController?action=confirm → Bước 2: Xác nhận thông tin tài liệu từ
+ * phía user → Cập nhật DB POST /UploadController?action=cancel → Bước 3: Người
+ * dùng hủy tác vụ → Xóa file vật lý + Xóa bản ghi tạm trong DB
  */
 @WebServlet(name = "UploadController", urlPatterns = {"/UploadController"})
 @MultipartConfig(
-        fileSizeThreshold = 1024 * 1024,      // 1 MB — ghi thẳng vào đĩa nếu vượt ngưỡng
-        maxFileSize = 50 * 1024 * 1024,       // 50 MB — giới hạn tối đa mỗi file
-        maxRequestSize = 55 * 1024 * 1024     // 55 MB — giới hạn toàn bộ request payload
+        fileSizeThreshold = 1024 * 1024, // 1 MB — ghi thẳng vào đĩa nếu vượt ngưỡng
+        maxFileSize = 50 * 1024 * 1024, // 50 MB — giới hạn tối đa mỗi file
+        maxRequestSize = 55 * 1024 * 1024 // 55 MB — giới hạn toàn bộ request payload
 )
 public class UploadController extends HttpServlet {
 
@@ -130,7 +132,8 @@ public class UploadController extends HttpServlet {
             if (folderIdParam != null && !folderIdParam.trim().isEmpty() && !folderIdParam.equals("null")) {
                 try {
                     folderId = Integer.parseInt(folderIdParam);
-                } catch (NumberFormatException ignored) {}
+                } catch (NumberFormatException ignored) {
+                }
             }
 
             // Đóng gói đối tượng mô hình dữ liệu Document
@@ -197,7 +200,7 @@ public class UploadController extends HttpServlet {
         }
 
         String sharingPermission = request.getParameter("sharingPermission");
-        sharingPermission = (sharingPermission == null || sharingPermission.trim().isEmpty()) 
+        sharingPermission = (sharingPermission == null || sharingPermission.trim().isEmpty())
                 ? "PRIVATE" : sharingPermission.trim().toUpperCase();
 
         Integer newFolderId = null;
@@ -205,7 +208,8 @@ public class UploadController extends HttpServlet {
         if (folderIdParam != null && !folderIdParam.trim().isEmpty() && !folderIdParam.equals("null")) {
             try {
                 newFolderId = Integer.parseInt(folderIdParam);
-            } catch (NumberFormatException ignored) {}
+            } catch (NumberFormatException ignored) {
+            }
         }
 
         DocumentDAO dao = new DocumentDAO();
@@ -221,9 +225,12 @@ public class UploadController extends HttpServlet {
             return;
         }
 
-        // Không trùng lặp → Rename file vật lý cho khớp tên hiển thị + cập nhật DB
+        // Thêm đoạn này để lấy extension từ Session
+        String fileExt = (String) session.getAttribute("pendingFileExtension");
+        
+        // Cập nhật lời gọi hàm
         String pendingFilePath = (String) session.getAttribute("pendingDocumentPath");
-        String newCloudUrl = renameToFinalName(pendingFilePath, userId, newTitle, request);
+        String newCloudUrl = renameToFinalName(pendingFilePath, userId, newTitle, fileExt, request);
 
         boolean updated = dao.updateDocumentInfo(documentId, newTitle, newFolderId, sharingPermission, newCloudUrl);
         clearPendingSession(session);
@@ -275,7 +282,7 @@ public class UploadController extends HttpServlet {
 
             // 2. Rename file vật lý MỚI → khớp tên hiển thị
             int userId = (int) session.getAttribute("userId");
-            String newCloudUrl = renameToFinalName(pendingFilePath, userId, conflictTitle, request);
+            String newCloudUrl = renameToFinalName(pendingFilePath, userId, conflictTitle, pendingDoc.getFileExtension(), request);
 
             // 3. Cập nhật bản ghi CŨ với thông tin file mới
             //    Giữ nguyên: document_id, created_at, share_link_token, is_flagged
@@ -317,12 +324,15 @@ public class UploadController extends HttpServlet {
         }
 
         DocumentDAO dao = new DocumentDAO();
+        
+        // Lấy extension từ Session
+        String fileExt = (String) session.getAttribute("pendingFileExtension");
 
-        // Tạo tên duy nhất: "report (1).pdf", "report (2).pdf",...
+        // Tạo tên duy nhất (Lúc này hàm này chỉ trả về tên thuần như "BaoCao (1)")
         String uniqueTitle = generateUniqueTitle(dao, userId, conflictTitle, conflictFolderId, pendingDocId);
 
-        // Rename file vật lý → khớp tên hiển thị mới (VD: report_(1).pdf)
-        String newCloudUrl = renameToFinalName(pendingFilePath, userId, uniqueTitle, request);
+        // Rename file vật lý (Hàm rename sẽ tự động gắn đuôi fileExt vào)
+        String newCloudUrl = renameToFinalName(pendingFilePath, userId, uniqueTitle, fileExt, request);
 
         boolean updated = dao.updateDocumentInfo(pendingDocId, uniqueTitle, conflictFolderId, conflictSharingPermission, newCloudUrl);
         clearPendingSession(session);
@@ -381,17 +391,22 @@ public class UploadController extends HttpServlet {
     }
 
     /**
-     * Rename file vật lý từ tên tạm → tên hiển thị cuối cùng.
-     * File được lưu trong thư mục per-user: uploads/{userId}/
+     * Rename file vật lý từ tên tạm → tên hiển thị cuối cùng. File được lưu
+     * trong thư mục per-user: uploads/{userId}/
      *
      * @param tempFilePath Đường dẫn file tạm hiện tại trên đĩa
      * @param userId ID người dùng
-     * @param finalTitle Tên hiển thị cuối cùng (bao gồm extension, VD: "report.pdf")
+     * @param finalTitle Tên hiển thị cuối cùng (bao gồm extension, VD:
+     * "report.pdf")
      * @param request HttpServletRequest để lấy contextPath
      * @return Cloud storage URL mới (contextPath-relative)
      */
+    /**
+     * Tên hiển thị (finalTitle) lúc này KHÔNG có extension. Cần nối
+     * fileExtension vào để lưu đúng định dạng vật lý.
+     */
     private String renameToFinalName(String tempFilePath, int userId, String finalTitle,
-                                      HttpServletRequest request) {
+            String fileExtension, HttpServletRequest request) {
         String realPath = getServletContext().getRealPath("");
         if (realPath == null) {
             realPath = System.getProperty("java.io.tmpdir");
@@ -403,28 +418,27 @@ public class UploadController extends HttpServlet {
             userDir.mkdirs();
         }
 
-        // Sanitize tên file cho an toàn trên hệ thống file
+        // Sanitize tên file hiển thị
         String sanitizedName = sanitizeFileName(finalTitle);
-        File targetFile = new File(userUploadPath + File.separator + sanitizedName);
 
-        // Nếu file vật lý trùng tên đã tồn tại (edge case: cùng tên ở thư mục logic khác),
-        // thêm suffix _dup{n} để tránh ghi đè file vật lý
-        int dupCounter = 0;
-        String nameNoExt = stripExtension(sanitizedName);
+        // Chuẩn bị đuôi file (đảm bảo có dấu chấm)
         String ext = "";
-        int dotIdx = sanitizedName.lastIndexOf('.');
-        if (dotIdx > 0) {
-            ext = sanitizedName.substring(dotIdx); // bao gồm dấu chấm ".pdf"
+        if (fileExtension != null && !fileExtension.trim().isEmpty() && !fileExtension.equals("unknown")) {
+            ext = fileExtension.startsWith(".") ? fileExtension : "." + fileExtension;
         }
 
+        // Ghép tên và đuôi file lại
+        File targetFile = new File(userUploadPath + File.separator + sanitizedName + ext);
+
+        int dupCounter = 0;
         while (targetFile.exists()) {
             dupCounter++;
-            targetFile = new File(userUploadPath + File.separator + nameNoExt + "_dup" + dupCounter + ext);
+            targetFile = new File(userUploadPath + File.separator + sanitizedName + "_dup" + dupCounter + ext);
         }
 
         String finalFileName = (dupCounter == 0)
-                ? sanitizedName
-                : nameNoExt + "_dup" + dupCounter + ext;
+                ? sanitizedName + ext
+                : sanitizedName + "_dup" + dupCounter + ext;
 
         // Thực hiện rename/move file
         File tempFile = new File(tempFilePath);
@@ -432,14 +446,14 @@ public class UploadController extends HttpServlet {
             tempFile.renameTo(targetFile);
         }
 
-        // Trả về URL mới
         return request.getContextPath() + "/" + UPLOAD_DIR + "/" + userId + "/" + finalFileName;
     }
 
     /**
      * Xóa file vật lý trên đĩa dựa vào cloudStorageUrl từ DB.
      *
-     * @param cloudStorageUrl URL lưu trong DB (VD: /AIStudyHub/uploads/1/report.pdf)
+     * @param cloudStorageUrl URL lưu trong DB (VD:
+     * /AIStudyHub/uploads/1/report.pdf)
      * @param request HttpServletRequest để lấy contextPath và realPath
      */
     private void deletePhysicalFile(String cloudStorageUrl, HttpServletRequest request) {
@@ -480,22 +494,15 @@ public class UploadController extends HttpServlet {
     }
 
     /**
-     * Tạo tên duy nhất bằng cách thêm (1), (2),... TRƯỚC đuôi file.
-     * VD: "report.pdf" → "report (1).pdf" → "report (2).pdf"
+     * Tạo tên duy nhất bằng cách thêm (1), (2),... TRƯỚC đuôi file. VD:
+     * "report.pdf" → "report (1).pdf" → "report (2).pdf"
      */
     private String generateUniqueTitle(DocumentDAO dao, int userId, String baseTitle, Integer folderId, int excludeDocId) {
-        // Tách tên và extension: "report.pdf" → "report" + ".pdf"
-        String nameWithoutExt = stripExtension(baseTitle);
-        String ext = "";
-        int dotIndex = baseTitle.lastIndexOf('.');
-        if (dotIndex > 0) {
-            ext = baseTitle.substring(dotIndex); // ".pdf"
-        }
-
+        // baseTitle hiện tại chỉ là tên thuần (VD: "BaoCao")
         int counter = 1;
         String candidate;
         do {
-            candidate = nameWithoutExt + " (" + counter + ")" + ext;
+            candidate = baseTitle + " (" + counter + ")";
             counter++;
         } while (dao.titleExistsAtLocation(userId, candidate, folderId, excludeDocId));
         return candidate;

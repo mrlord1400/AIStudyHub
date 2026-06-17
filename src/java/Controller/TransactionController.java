@@ -206,7 +206,7 @@ public class TransactionController extends HttpServlet {
             // Cập nhật balance cho user
             if ("DEPOSIT".equals(t.getType())) {
                 userDAO.updateBalance(t.getUserId(), (int) t.getAmount());
-            } else if ("WITHDRAW".equals(t.getType()) || "PREMIUM_PURCHASE".equals(t.getType())) {
+            } else if ("WITHDRAW".equals(t.getType())) {
                 userDAO.updateBalance(t.getUserId(), (int) -t.getAmount());
             }
         }
