@@ -1,6 +1,6 @@
 package Listener;
 
-import Model.UserDAO;
+import Model.DAO.UserDAO;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
 import javax.servlet.annotation.WebListener;

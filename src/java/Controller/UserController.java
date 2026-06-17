@@ -1,7 +1,7 @@
 package Controller;
 
-import Model.User;
-import Model.UserDAO;
+import Model.DTO.User;
+import Model.DAO.UserDAO;
 import Utils.PasswordUtil;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
