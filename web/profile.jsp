@@ -1,6 +1,6 @@
-<%@page import="Model.UserDAO"%>
+<%@page import="Model.DAO.UserDAO"%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-<%@ page import="Model.User" %>
+<%@ page import="Model.DTO.User" %>
 <%
     HttpSession userSession = request.getSession(false);
     if (userSession == null || userSession.getAttribute("userId") == null) {

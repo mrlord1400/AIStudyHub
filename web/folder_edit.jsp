@@ -1,8 +1,8 @@
-<%@page import="Model.User"%>
-<%@page import="Model.UserDAO"%>
+<%@page import="Model.DTO.User"%>
+<%@page import="Model.DAO.UserDAO"%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="Model.Folder" %>
-<%@ page import="Model.FolderDAO" %>
+<%@ page import="Model.DAO.FolderDAO" %>
 <%@ page import="java.util.List" %>
 <%!
     // Hàm đệ quy tự động build đường dẫn: "Thư mục cha / Thư mục con"

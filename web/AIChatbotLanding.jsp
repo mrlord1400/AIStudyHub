@@ -1,5 +1,5 @@
-<%@page import="Model.User"%>
-<%@page import="Model.UserDAO"%>
+<%@page import="Model.DTO.User"%>
+<%@page import="Model.DAO.UserDAO"%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%
     // 1. Kiểm tra trạng thái đăng nhập

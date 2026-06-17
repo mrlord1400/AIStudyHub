@@ -1,5 +1,5 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-<%@ page import="Model.User" %>
+<%@ page import="Model.DTO.User" %>
 <%
     // 1. Kiểm tra quyền Admin bảo mật hệ thống
     HttpSession userSession = request.getSession(false);

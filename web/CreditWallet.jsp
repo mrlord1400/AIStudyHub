@@ -1,9 +1,9 @@
-<%@page import="Model.User"%>
-<%@page import="Model.UserDAO"%>
+<%@page import="Model.DTO.User"%>
+<%@page import="Model.DAO.UserDAO"%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="java.util.List" %>
 <%@ page import="java.util.ArrayList" %>
-<%@ page import="Model.Transaction" %>
+<%@ page import="Model.DTO.Transaction" %>
 <%
     // 1. Kiểm tra trạng thái đăng nhập
     HttpSession userSession = request.getSession(false);
