@@ -216,20 +216,21 @@
                 <!-- 1. Xem metadata -->
                 <button id="btnViewMeta" onclick="showMetaPanel('view')" class="btn-secondary">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <span>Xem metadata</span>
+                    <span>Xem thông tin</span>
                 </button>
 
                 <!-- 2. Edit metadata -->
                 <button id="btnEditMeta" onclick="showMetaPanel('edit')" class="btn-secondary">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                    <span>Edit metadata</span>
+                    <span>Chỉnh thông tin</span>
                 </button>
 
-                <!-- 3. Chỉnh permission -->
-                <button onclick="openPermissionModal()" class="btn-secondary">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 10-8 0v4h8z"></path></svg>
-                    <span>Chỉnh permission</span>
-                </button>
+                <!-- 3. Download Document -->
+                <a href="<%= request.getContextPath()%>/DocumentController?action=downloadDoc&docId=<%= doc.getDocumentId()%>" 
+                   class="btn-action bg-indigo-100 text-indigo-700 border-transparent hover:bg-indigo-200 dark:bg-indigo-500 dark:text-white dark:hover:bg-indigo-400 shadow-sm shadow-indigo-500/20">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    <span>Tải xuống</span>
+                </a>
 
                 <!-- 4. Delete -->
                 <button onclick="openDeleteModal()" class="btn-danger">
@@ -368,31 +369,6 @@
                     </div>
                 </form>
             </aside>
-        </div>
-
-        <!-- ═══════════════ MODAL: CHỈNH PERMISSION ═══════════════ -->
-        <div id="permissionModal" class="modal-overlay">
-            <div class="modal-card">
-                <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-1">Chỉnh quyền chia sẻ</h2>
-                <p class="text-sm text-gray-400 mb-5">Thay đổi nhanh quyền truy cập của tài liệu này.</p>
-
-                <form action="<%= request.getContextPath()%>/DocumentController" method="POST">
-                    <input type="hidden" name="action" value="updatePermission" />
-                    <input type="hidden" name="docId" value="<%= doc.getDocumentId()%>" />
-
-                    <label class="form-label">Quyền chia sẻ</label>
-                    <select name="sharingPermission" class="form-input mb-6">
-                        <option value="PRIVATE" <%= "PRIVATE".equals(currentPerm) ? "selected" : ""%>>Riêng tư (Chỉ mình tôi)</option>
-                        <option value="FRIENDS_ONLY" <%= "FRIENDS_ONLY".equals(currentPerm) ? "selected" : ""%>>Chỉ bạn bè</option>
-                        <option value="PUBLIC" <%= "PUBLIC".equals(currentPerm) ? "selected" : ""%>>Công khai (Mọi người có thể xem)</option>
-                    </select>
-
-                    <div class="flex items-center justify-end gap-3">
-                        <button type="button" onclick="closePermissionModal()" class="btn-secondary">Hủy</button>
-                        <button type="submit" class="btn-primary">Lưu</button>
-                    </div>
-                </form>
-            </div>
         </div>
 
         <!-- ═══════════════ MODAL: DELETE CONFIRM ═══════════════ -->
