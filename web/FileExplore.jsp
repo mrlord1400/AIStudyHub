@@ -1,7 +1,7 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="java.util.List" %>
 <%@ page import="java.util.ArrayList" %>
-<%@ page import="Model.Document" %>
+<%@ page import="Model.DTO.Document" %>
 <%
     // 1. Kiểm tra trạng thái đăng nhập của người dùng
     HttpSession userSession = request.getSession(false);
