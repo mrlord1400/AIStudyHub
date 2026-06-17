@@ -1,5 +1,6 @@
-package Model;
+package Model.DAO;
 
+import Model.DTO.Subscription;
 import Utils.DBUtils;
 import java.sql.Connection;
 import java.sql.PreparedStatement;

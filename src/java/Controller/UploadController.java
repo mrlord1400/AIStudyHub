@@ -1,7 +1,7 @@
 package Controller;
 
-import Model.Document;
-import Model.DocumentDAO;
+import Model.DTO.Document;
+import Model.DAO.DocumentDAO;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.MultipartConfig;
 import javax.servlet.annotation.WebServlet;

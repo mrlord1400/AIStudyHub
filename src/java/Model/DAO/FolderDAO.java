@@ -1,5 +1,7 @@
-package Model;
+package Model.DAO;
 
+import Model.DTO.Document;
+import Model.Folder;
 import Utils.DBUtils;
 import java.sql.Connection;
 import java.sql.PreparedStatement;

@@ -1,5 +1,6 @@
-package Model;
+package Model.DAO;
 
+import Model.DTO.User;
 import Utils.DBUtils;
 import java.sql.*;
 import java.util.ArrayList;

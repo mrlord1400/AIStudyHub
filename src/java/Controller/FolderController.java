@@ -1,9 +1,9 @@
 package Controller;
 
-import Model.Document;
-import Model.DocumentDAO;
+import Model.DTO.Document;
+import Model.DAO.DocumentDAO;
 import Model.Folder;
-import Model.FolderDAO;
+import Model.DAO.FolderDAO;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;

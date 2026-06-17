@@ -1,10 +1,10 @@
 package Controller;
 
-import Model.AdminDAO;
-import Model.Transaction;
-import Model.TransactionDAO;
-import Model.User;
-import Model.UserDAO;
+import Model.DAO.AdminDAO;
+import Model.DTO.Transaction;
+import Model.DAO.TransactionDAO;
+import Model.DTO.User;
+import Model.DAO.UserDAO;
 import Utils.PasswordUtil;
 
 import javax.servlet.ServletException;

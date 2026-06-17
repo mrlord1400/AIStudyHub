@@ -1,5 +1,6 @@
-package Model;
+package Model.DAO;
 
+import Model.DTO.Document;
 import Utils.DBUtils;
 import java.sql.*;
 import java.time.LocalDateTime;

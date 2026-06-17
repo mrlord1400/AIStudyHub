@@ -1,7 +1,7 @@
 package Controller;
 
-import Model.Subscription;
-import Model.SubscriptionDAO;
+import Model.DTO.Subscription;
+import Model.DAO.SubscriptionDAO;
 import java.io.IOException;
 import java.util.List;
 import javax.servlet.ServletException;
