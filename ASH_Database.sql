@@ -144,7 +144,7 @@ CREATE TABLE chat_sessions (
     user_id INT NOT NULL,
     created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
     is_pinned BIT DEFAULT 0,   
-    FOREIGN KEY (user_id) REFERENCES users(user_id), -- Cascade removed to prevent multiple path errors
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 GO
 
