@@ -5,6 +5,8 @@
 <%@ page import="Model.DAO.DocumentDAO" %>
 <%@ page import="Model.Folder" %>
 <%@ page import="Model.DAO.FolderDAO" %>
+<%@ page import="Model.DTO.Subscription" %>
+<%@ page import="Model.DAO.SubscriptionDAO" %>
 <%@ page import="java.util.List" %>
 <%@ page import="java.util.ArrayList" %>
 <%@ page import="java.time.format.DateTimeFormatter" %>
@@ -54,7 +56,6 @@
                 out.print("    <span class='truncate flex-1'>" + f.getFolderName() + "</span>");
                 out.print("  </a>");
 
-                // 🚀 ĐIỂM CẢI TIẾN: Chỉ đào sâu và hiển thị nội dung bên trong nếu Folder này nằm trong lộ trình đang mở rộng
                 if (activePathIds != null && activePathIds.contains(f.getFolderId())) {
                     out.print("  <div class='pl-4 border-l border-gray-100 dark:border-gray-700 space-y-1'>");
                     renderTree(out, allFolders, allDocs, f.getFolderId(), currentFolderId, activePathIds, contextPath);
@@ -71,7 +72,6 @@
                         || (parentId != null && doc.getFolderId() != null && doc.getFolderId().equals(parentId));
 
                 if (isFileInFolder) {
-                    String safeTitle = doc.getTitle().replace("\\", "\\\\").replace("\"", "\\\"").replace("'", "\\'");
                     out.print("<div class='space-y-0.5'>");
                     out.print("  <button onclick=\"window.open('" + contextPath + "/DocumentController?action=viewPage&docId=" + doc.getDocumentId() + "', '_blank')\" class='w-full flex items-center space-x-2 px-2.5 py-1 text-xs text-gray-500 hover:text-indigo-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-gray-700/40 transition-colors text-left rounded-lg'>");
                     out.print("    <svg class='w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex-shrink-0' fill='none' stroke='currentColor' stroke-width='2' viewBox='0 0 24 24'><path d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'></path></svg>");
@@ -94,43 +94,68 @@
     Integer userId = (Integer) userSession.getAttribute("userId");
     String username = (String) userSession.getAttribute("username");
     String role = (String) userSession.getAttribute("role");
+    
+    // 🔥 SỬA LỖI TẠI ĐÂY: Lấy tierId từ Session như cũ cho an toàn tuyệt đối
     Integer tierId = (Integer) userSession.getAttribute("tierId");
 
-    // Quản lý quyền (Role)
     if (role == null || !"ADMIN".equalsIgnoreCase(role.trim())) {
         role = "STUDENT";
     } else {
         role = "ADMIN";
     }
 
-    // Quản lý gói hội viên (Tier)
-    if (tierId == null || tierId < 2) {
-        tierId = 2;
-    }
-    boolean isPremiumUser = (tierId >= 3);
-
+    // 2. Lấy thông tin User
     UserDAO dao = new UserDAO();
     int userBalance = 0;
     if (userId != null) {
         User user = dao.getUserById((int) userId);
         if (user != null) {
             userBalance = user.getBalance();
+            // Đã xóa phần gọi getTierId() dễ gây sập Web
+        }
+    }
+    
+    if (tierId == null || tierId < 2) {
+        tierId = 2; // Mặc định gói Free
+    }
+    boolean isPremiumUser = (tierId >= 3);
+
+    // 3. Kéo thông số cấu hình gói (Subscriptions) ĐỘNG TỪ DB
+    SubscriptionDAO subDao = new SubscriptionDAO();
+    Subscription currentSub = null;
+
+    List<Subscription> allSubs = subDao.getAllSubscriptions();
+    if (allSubs != null) {
+        for (Subscription s : allSubs) {
+            if (s.getTierId() == tierId) {
+                currentSub = s;
+                break;
+            }
         }
     }
 
-    long maxUploadSizeBytes = isPremiumUser ? 100L * 1024 * 1024 : 50L * 1024 * 1024;
-    double maxStorageGb = isPremiumUser ? 50.0 : 5.0;
+    // 4. Fallback Cứu Hộ: Giá trị mặc định nếu Database sập hoặc rỗng
+    long limitUploadMb = 50; 
+    double maxStorageGb = 5.0; 
+    String tierNameDisplay = "CƠ BẢN";
 
-    // Tiếp nhận dữ liệu cấu trúc từ FolderController gửi sang
+    if (currentSub != null) {
+        limitUploadMb = currentSub.getMaxStorageMb();
+        maxStorageGb = currentSub.getTotalStorageMb() / 1024.0;
+        tierNameDisplay = currentSub.getTierName().toUpperCase();
+    }
+    long maxUploadSizeBytes = limitUploadMb * 1024 * 1024;
+
+    // 5. Tiếp nhận dữ liệu thư mục & tài liệu
+    FolderDAO folderDao = new FolderDAO();
+    DocumentDAO docDao = new DocumentDAO();
+    
     List<Folder> allFolders = (List<Folder>) request.getAttribute("allFolders");
     List<Folder> childFolders = (List<Folder>) request.getAttribute("childFolders");
     List<Document> myDocuments = (List<Document>) request.getAttribute("documents");
     Integer currentFolderId = (Integer) request.getAttribute("currentFolderId");
     Folder currentFolder = (Folder) request.getAttribute("currentFolder");
 
-    // Cơ chế phòng vệ Failsafe: Nếu truy cập file JSP trực tiếp, tự nạp dữ liệu từ DAO
-    FolderDAO folderDao = new FolderDAO();
-    DocumentDAO docDao = new DocumentDAO();
     if (allFolders == null) {
         allFolders = folderDao.getAllFoldersByUserId(userId);
         childFolders = folderDao.getChildFolders(userId, currentFolderId);
@@ -140,7 +165,7 @@
         }
     }
 
-    // Tính toán dung lượng lưu trữ động thực tế của tài khoản
+    // 6. Tính toán dung lượng lưu trữ đang xài
     List<Document> allDocs = docDao.getDocumentsByUserId(userId);
     double totalSizeMb = 0.0;
     if (allDocs != null) {
@@ -149,7 +174,9 @@
         }
     }
     double totalSizeGb = totalSizeMb / 1024.0;
-    double storagePercent = (totalSizeGb / maxStorageGb) * 100.0;
+    
+    // 🔥 SỬA LỖI TẠI ĐÂY: Rào thêm vụ chia cho 0 lỡ Admin vô tình cấu hình maxStorage = 0
+    double storagePercent = maxStorageGb > 0 ? (totalSizeGb / maxStorageGb) * 100.0 : 100.0; 
     if (storagePercent > 100) {
         storagePercent = 100;
     }
@@ -172,194 +199,65 @@
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
         <style type="text/tailwindcss">
-            html.dark .page-body {
-                background-color: #111827;
-                color: #f3f4f6;
-            }
-            html.dark .sidebar {
-                background-color: #1f2937;
-                border-color: #374151;
-            }
-            html.dark .brand-text {
-                color: #ffffff;
-            }
-            html.dark .nav-link {
-                color: #d1d5db;
-            }
-            html.dark .nav-link:hover {
-                background-color: #374151;
-            }
-            html.dark .nav-link-active {
-                background-color: rgba(49, 46, 129, 0.6);
-                color: #818cf8;
-            }
-            html.dark .user-name {
-                color: #ffffff;
-            }
-            html.dark .user-profile-link:hover {
-                background-color: #374151;
-            }
-            html.dark .logout-btn {
-                color: #9ca3af;
-            }
-            html.dark .logout-btn:hover {
-                background-color: rgba(127, 29, 29, 0.3);
-                color: #f87171;
-            }
-            html.dark .btn-secondary {
-                background-color: #1f2937;
-                border-color: #374151;
-                color: #e5e7eb;
-            }
-            html.dark .btn-secondary:hover {
-                background-color: #374151;
-            }
-            html.dark .file-card {
-                background-color: #1f2937;
-                border-color: #374151;
-            }
-            html.dark .file-title {
-                color: #f3f4f6;
-            }
-            html.dark .empty-state-box {
-                background-color: #1f2937 !important;
-                border-color: #374151 !important;
-            }
-            html.dark .empty-state-icon {
-                background-color: #374151 !important;
-                color: #d1d5db !important;
-            }
-            html.dark .empty-state-text {
-                color: #9ca3af !important;
-            }
-            html.dark #welcomeModal > div {
-                background-color: #1f2937 !important;
-                border-color: #374151 !important;
-            }
-            html.dark #welcomeModal h2 {
-                color: #ffffff !important;
-            }
-            html.dark #welcomeModal p {
-                color: #9ca3af !important;
-            }
-            html.dark #welcomeModal h4 {
-                color: #e5e7eb !important;
-            }
-            html.dark #welcomeModal span {
-                color: #9ca3af !important;
-            }
-            html.dark #welcomeModal .bg-gray-50 {
-                background-color: #2d3748 !important;
-            }
-            html.dark #welcomeModal .text-gray-800 {
-                color: #f3f4f6 !important;
-            }
-            html.dark #welcomeModal .text-gray-500 {
-                color: #cbd5e0 !important;
-            }
-            html.dark #createFolderModal > div {
-                background-color: #1f2937;
-                color: #ffffff;
-            }
-            html.dark #createFolderModal input {
-                background-color: #374151;
-                border-color: #4b5563;
-                color: #ffffff;
-            }
-            html.dark #fileViewerModal > div {
-                background-color: #1f2937;
-            }
-            html.dark #modalFileTitle {
-                color: #ffffff;
-            }
+            html.dark .page-body { background-color: #111827; color: #f3f4f6; }
+            html.dark .sidebar { background-color: #1f2937; border-color: #374151; }
+            html.dark .brand-text { color: #ffffff; }
+            html.dark .nav-link { color: #d1d5db; }
+            html.dark .nav-link:hover { background-color: #374151; }
+            html.dark .nav-link-active { background-color: rgba(49, 46, 129, 0.6); color: #818cf8; }
+            html.dark .user-name { color: #ffffff; }
+            html.dark .user-profile-link:hover { background-color: #374151; }
+            html.dark .logout-btn { color: #9ca3af; }
+            html.dark .logout-btn:hover { background-color: rgba(127, 29, 29, 0.3); color: #f87171; }
+            html.dark .btn-secondary { background-color: #1f2937; border-color: #374151; color: #e5e7eb; }
+            html.dark .btn-secondary:hover { background-color: #374151; }
+            html.dark .file-card { background-color: #1f2937; border-color: #374151; }
+            html.dark .file-title { color: #f3f4f6; }
+            html.dark .empty-state-box { background-color: #1f2937 !important; border-color: #374151 !important; }
+            html.dark .empty-state-icon { background-color: #374151 !important; color: #d1d5db !important; }
+            html.dark .empty-state-text { color: #9ca3af !important; }
+            html.dark #welcomeModal > div { background-color: #1f2937 !important; border-color: #374151 !important; }
+            html.dark #welcomeModal h2 { color: #ffffff !important; }
+            html.dark #welcomeModal p { color: #9ca3af !important; }
+            html.dark #welcomeModal h4 { color: #e5e7eb !important; }
+            html.dark #welcomeModal span { color: #9ca3af !important; }
+            html.dark #welcomeModal .bg-gray-50 { background-color: #2d3748 !important; }
+            html.dark #welcomeModal .text-gray-800 { color: #f3f4f6 !important; }
+            html.dark #welcomeModal .text-gray-500 { color: #cbd5e0 !important; }
+            html.dark #createFolderModal > div { background-color: #1f2937; color: #ffffff; }
+            html.dark #createFolderModal input { background-color: #374151; border-color: #4b5563; color: #ffffff; }
+            html.dark #fileViewerModal > div { background-color: #1f2937; }
+            html.dark #modalFileTitle { color: #ffffff; }
 
             @layer components {
-                .page-body {
-                    @apply flex min-h-screen w-full text-gray-800 bg-[#f8f9fa] font-sans transition-colors duration-200;
-                }
-                .sidebar {
-                    @apply w-64 bg-white border-r border-gray-100 flex flex-col justify-between p-4 flex-shrink-0 min-h-screen shadow-sm z-10 transition-colors duration-200;
-                }
-                .brand-container {
-                    @apply flex items-center space-x-3 px-2 py-1;
-                }
-                .brand-logo {
-                    @apply w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-sm shadow-indigo-600/20;
-                }
-                .brand-text {
-                    @apply font-bold text-gray-900 text-base tracking-tight;
-                }
-                .nav-link {
-                    @apply flex items-center space-x-3 px-4 py-2.5 text-gray-600 hover:bg-gray-50 rounded-xl font-medium text-sm transition-all w-full text-left;
-                }
-                .nav-link-active {
-                    @apply flex items-center space-x-3 px-4 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl font-semibold text-sm transition-colors w-full text-left;
-                }
-                .wallet-widget {
-                    @apply w-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white p-4 rounded-2xl shadow-md shadow-indigo-600/10 relative overflow-hidden;
-                }
-                .wallet-header {
-                    @apply flex justify-between items-center opacity-85;
-                }
-                .wallet-title {
-                    @apply text-xs font-medium tracking-wide;
-                }
-                .wallet-balance {
-                    @apply text-xl font-bold mt-2 tracking-tight;
-                }
-                .user-area {
-                    @apply pt-2 border-t border-gray-100 flex flex-col gap-1;
-                }
-                .user-profile-link {
-                    @apply flex items-center space-x-3 px-2 py-2 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer;
-                }
-                .user-avatar {
-                    @apply w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 flex-shrink-0 font-bold text-xs uppercase;
-                }
-                .user-name {
-                    @apply text-sm font-bold text-gray-900 truncate;
-                }
-                .user-role {
-                    @apply text-[11px] text-gray-400 font-medium;
-                }
-                .logout-btn {
-                    @apply w-full flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors text-left;
-                }
-                .main-content {
-                    @apply flex-1 p-8 overflow-y-auto h-screen relative flex flex-col;
-                }
-                .header-container {
-                    @apply flex justify-between items-center mb-6 flex-shrink-0;
-                }
-                .page-title {
-                    @apply text-2xl font-bold text-gray-900 tracking-tight;
-                }
-                .btn-primary {
-                    @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-[#5c3cf5] text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm shadow-sm shadow-indigo-100 cursor-pointer;
-                }
-                .btn-secondary {
-                    @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm shadow-sm cursor-pointer;
-                }
-
-                /* Tối ưu hóa hệ lưới hiển thị Icon to theo kiểu File Explorer */
-                .file-grid {
-                    @apply grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6;
-                }
-                .file-card {
-                    @apply bg-white border border-gray-100 rounded-2xl p-4 hover:shadow-md transition-all cursor-pointer flex flex-col items-center text-center justify-between aspect-square relative select-none;
-                }
-                .file-icon-box {
-                    @apply w-20 h-20 rounded-2xl flex items-center justify-center mb-2 transition-transform duration-200 group-hover:scale-105;
-                }
-                .file-title {
-                    @apply font-semibold text-gray-800 text-sm mb-1 w-full truncate px-1;
-                }
-                .file-size {
-                    @apply text-[11px] text-gray-400 font-medium;
-                }
-                .file-date {
-                    @apply text-[10px] text-gray-400 font-medium mt-1;
-                }
+                .page-body { @apply flex min-h-screen w-full text-gray-800 bg-[#f8f9fa] font-sans transition-colors duration-200; }
+                .sidebar { @apply w-64 bg-white border-r border-gray-100 flex flex-col justify-between p-4 flex-shrink-0 min-h-screen shadow-sm z-10 transition-colors duration-200; }
+                .brand-container { @apply flex items-center space-x-3 px-2 py-1; }
+                .brand-logo { @apply w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-sm shadow-indigo-600/20; }
+                .brand-text { @apply font-bold text-gray-900 text-base tracking-tight; }
+                .nav-link { @apply flex items-center space-x-3 px-4 py-2.5 text-gray-600 hover:bg-gray-50 rounded-xl font-medium text-sm transition-all w-full text-left; }
+                .nav-link-active { @apply flex items-center space-x-3 px-4 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl font-semibold text-sm transition-colors w-full text-left; }
+                .wallet-widget { @apply w-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white p-4 rounded-2xl shadow-md shadow-indigo-600/10 relative overflow-hidden; }
+                .wallet-header { @apply flex justify-between items-center opacity-85; }
+                .wallet-title { @apply text-xs font-medium tracking-wide; }
+                .wallet-balance { @apply text-xl font-bold mt-2 tracking-tight; }
+                .user-area { @apply pt-2 border-t border-gray-100 flex flex-col gap-1; }
+                .user-profile-link { @apply flex items-center space-x-3 px-2 py-2 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer; }
+                .user-avatar { @apply w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 flex-shrink-0 font-bold text-xs uppercase; }
+                .user-name { @apply text-sm font-bold text-gray-900 truncate; }
+                .user-role { @apply text-[11px] text-gray-400 font-medium; }
+                .logout-btn { @apply w-full flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors text-left; }
+                .main-content { @apply flex-1 p-8 overflow-y-auto h-screen relative flex flex-col; }
+                .header-container { @apply flex justify-between items-center mb-6 flex-shrink-0; }
+                .page-title { @apply text-2xl font-bold text-gray-900 tracking-tight; }
+                .btn-primary { @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-[#5c3cf5] text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm shadow-sm shadow-indigo-100 cursor-pointer; }
+                .btn-secondary { @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm shadow-sm cursor-pointer; }
+                .file-grid { @apply grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6; }
+                .file-card { @apply bg-white border border-gray-100 rounded-2xl p-4 hover:shadow-md transition-all cursor-pointer flex flex-col items-center text-center justify-between aspect-square relative select-none; }
+                .file-icon-box { @apply w-20 h-20 rounded-2xl flex items-center justify-center mb-2 transition-transform duration-200 group-hover:scale-105; }
+                .file-title { @apply font-semibold text-gray-800 text-sm mb-1 w-full truncate px-1; }
+                .file-size { @apply text-[11px] text-gray-400 font-medium; }
+                .file-date { @apply text-[10px] text-gray-400 font-medium mt-1; }
             }
         </style>
     </head>
@@ -470,8 +368,8 @@
 
             <div class="mb-6 bg-white border border-gray-100 rounded-2xl p-5 shadow-sm transition-colors duration-200 dark:bg-gray-800 dark:border-gray-700 flex-shrink-0">
                 <div class="flex items-center justify-between mb-2">
-                    <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Dung lượng đã sử dụng (<%= isPremiumUser ? "PREMIUM" : "FREE"%>)</span>
-                    <span class="text-sm font-bold text-black dark:text-white"><%= String.format("%.2f", totalSizeGb)%> GB / <%= (int) maxStorageGb%> GB</span>
+                    <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Dung lượng đã sử dụng (<%= tierNameDisplay %>)</span>
+                    <span class="text-sm font-bold text-black dark:text-white"><%= String.format("%.2f", totalSizeGb)%> GB / <%= String.format("%.2f", maxStorageGb).replace(".00", "") %> GB</span>
                 </div>
                 <div class="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
                     <div class="bg-[#5c3cf5] h-2 rounded-full transition-all duration-500 ease-out" style="width: <%= storagePercent%>%"></div>
@@ -491,10 +389,7 @@
                         <div class="pl-2 space-y-1">
                             <%
                                 if (allFolders != null) {
-                                    // 1. Tính toán danh sách các ID thư mục nằm trên trục đường dẫn đang mở rộng
                                     List<Integer> activePathIds = getActivePathIds(currentFolderId, allFolders);
-
-                                    // 2. Chuyển giao danh sách trục đường dẫn vào hàm renderTree cải tiến
                                     renderTree(out, allFolders, allDocs, null, currentFolderId, activePathIds, request.getContextPath());
                                 }
                             %>
@@ -591,17 +486,16 @@
         </div>
 
         <script>
-            const MAX_FILE_SIZE_BYTES = <%= maxUploadSizeBytes%>;
-            const USER_ROLE_STR = "<%= isPremiumUser ? "Premium" : "Free"%>";
+            // --- JAVASCRIPT ĐÃ ĐƯỢC KHỬ HARDCODE HOÀN TOÀN ---
+            const MAX_FILE_SIZE_BYTES = <%= maxUploadSizeBytes %>;
+            const USER_ROLE_STR = "<%= tierNameDisplay %>";
+            const LIMIT_MB = <%= limitUploadMb %>;
             const CURRENT_USER_ID = "<%= userId%>";
             const ALLOWED_EXTENSIONS = ['pptx', 'docx', 'xlsx', 'pdf', 'txt'];
 
-            // Nạp dữ liệu đồng thời thư mục con (Child Folders) và tệp tin (Documents) vào ngăn phải
             const dbItems = [
             <%
                 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-
-                // 1. Kết xuất các thư mục con (Nếu có)
                 if (childFolders != null) {
                     for (int i = 0; i < childFolders.size(); i++) {
                         Folder f = childFolders.get(i);
@@ -613,7 +507,6 @@
             <%      }
                 }
 
-                // 2. Kết xuất các tài liệu thuộc thư mục hiện hành
                 if (myDocuments != null) {
                     for (int i = 0; i < myDocuments.size(); i++) {
                         Document doc = myDocuments.get(i);
@@ -673,9 +566,10 @@
                     return;
                 }
 
+                // CHẶN BẰNG DATA ĐỘNG TỪ DATABASE THAY VÌ HARDCODE 50/100
                 if (file.size > MAX_FILE_SIZE_BYTES) {
-                    const limitMb = <%= isPremiumUser ? "100" : "50"%>;
-                    alert(`Tài khoản của bạn (\${USER_ROLE_STR}) bị giới hạn dung lượng tối đa là \${limitMb}MB cho mỗi tài liệu.\n\nTập tin của bạn nặng: \${(file.size / (1024 * 1024)).toFixed(2)} MB.`);
+                    let fileSizeMb = (file.size / (1024 * 1024)).toFixed(2);
+                    alert("Tài khoản của bạn (Gói " + USER_ROLE_STR + ") bị giới hạn dung lượng tối đa là " + LIMIT_MB + "MB cho mỗi tài liệu.\n\nTập tin của bạn nặng: " + fileSizeMb + " MB.");
                     input.value = '';
                     return;
                 }
@@ -722,7 +616,6 @@
                 }
             }
 
-            // 🚀 CẢI TIẾN: Thiết kế icon lớn, phối màu chuẩn hóa theo từng Extension định dạng file
             function getFileStyle(item) {
                 if (item.isFolder) {
                     return {
@@ -806,7 +699,7 @@
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                         </a>
                     </div>
-                </div>`;;
+                </div>`;
                 }).join('');
             }
 

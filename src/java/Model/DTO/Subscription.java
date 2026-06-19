@@ -15,16 +15,18 @@ public class Subscription {
     private int maxStorageMb;
     private int aiPromptLimitPerDay;
     private double price;
+    private int totalStorageMb;
 
     public Subscription() {
     }
 
-    public Subscription(int tierId, String tierName, int maxStorageMb, int aiPromptLimitPerDay, double price) {
+    public Subscription(int tierId, String tierName, int maxStorageMb, int aiPromptLimitPerDay, double price, int totalStorageMb) {
         this.tierId = tierId;
         this.tierName = tierName;
         this.maxStorageMb = maxStorageMb;
         this.aiPromptLimitPerDay = aiPromptLimitPerDay;
         this.price = price;
+        this.totalStorageMb = totalStorageMb;
     }
 
     // Getters and Setters
@@ -42,4 +44,7 @@ public class Subscription {
 
     public double getPrice() { return price; }
     public void setPrice(double price) { this.price = price; }
+    
+    public int getTotalStorageMb() { return totalStorageMb; }
+    public void setTotalStorageMb(int totalStorageMb) { this.totalStorageMb = totalStorageMb; }
 }

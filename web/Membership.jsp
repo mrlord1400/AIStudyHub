@@ -20,7 +20,7 @@
 
     // QUẢN LÝ QUYỀN
     if (role == null || !"ADMIN".equalsIgnoreCase(role.trim())) {
-        role = "STUDENT"; 
+        role = "STUDENT";
     } else {
         role = "ADMIN";
     }
@@ -72,62 +72,183 @@
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
         <style type="text/tailwindcss">
-            html.dark .page-body { background-color: #111827; color: #f3f4f6; }
-            html.dark .sidebar { background-color: #1f2937; border-color: #374151; }
-            html.dark .brand-text { color: #ffffff; }
-            html.dark .nav-link { color: #d1d5db; }
-            html.dark .nav-link:hover { background-color: #374151; }
-            html.dark .nav-link-active { background-color: rgba(49, 46, 129, 0.6); color: #818cf8; }
-            html.dark .user-name { color: #ffffff; }
-            html.dark .user-profile-link:hover { background-color: #374151; }
-            html.dark .logout-btn { color: #9ca3af; }
-            html.dark .logout-btn:hover { background-color: rgba(127, 29, 29, 0.3); color: #f87171; }
-            html.dark .btn-secondary { background-color: #1f2937; border-color: #374151; color: #e5e7eb; }
-            html.dark .btn-secondary:hover { background-color: #374151; }
-            html.dark .stat-widget { background-color: #1f2937; border-color: #374151; }
-            html.dark .stat-label { color: #d1d5db; }
-            html.dark .stat-value { color: #ffffff; }
-            html.dark .content-box { background-color: #1f2937; border-color: #374151; }
-            html.dark .content-title { color: #ffffff; }
-            html.dark .empty-state-box { background-color: #1f2937 !important; border-color: #374151 !important; }
-            html.dark .empty-state-icon { background-color: #374151 !important; color: #d1d5db !important; }
-            html.dark #purchase-modal > div { background-color: #1f2937 !important; color: #ffffff !important; border-color: #374151 !important; }
-            html.dark #purchase-modal h3, html.dark #purchase-modal h4 { color: #ffffff !important; }
-            html.dark #purchase-modal .border-gray-100, html.dark #purchase-modal .border-gray-200 { border-color: #374151 !important; }
-            html.dark #purchase-modal .text-gray-800 { color: #e5e7eb !important; }
-            html.dark #purchase-modal .modal-alert-note { background-color: rgba(55, 65, 81, 0.4) !important; border-color: #4b5563 !important; }
-            html.dark #purchase-modal .modal-alert-text { color: #cbd5e0 !important; }
-            html.dark #purchase-modal .modal-alert-text p { color: #a78bfa !important; }
+            html.dark .page-body {
+                background-color: #111827;
+                color: #f3f4f6;
+            }
+            html.dark .sidebar {
+                background-color: #1f2937;
+                border-color: #374151;
+            }
+            html.dark .brand-text {
+                color: #ffffff;
+            }
+            html.dark .nav-link {
+                color: #d1d5db;
+            }
+            html.dark .nav-link:hover {
+                background-color: #374151;
+            }
+            html.dark .nav-link-active {
+                background-color: rgba(49, 46, 129, 0.6);
+                color: #818cf8;
+            }
+            html.dark .user-name {
+                color: #ffffff;
+            }
+            html.dark .user-profile-link:hover {
+                background-color: #374151;
+            }
+            html.dark .logout-btn {
+                color: #9ca3af;
+            }
+            html.dark .logout-btn:hover {
+                background-color: rgba(127, 29, 29, 0.3);
+                color: #f87171;
+            }
+            html.dark .btn-secondary {
+                background-color: #1f2937;
+                border-color: #374151;
+                color: #e5e7eb;
+            }
+            html.dark .btn-secondary:hover {
+                background-color: #374151;
+            }
+            html.dark .stat-widget {
+                background-color: #1f2937;
+                border-color: #374151;
+            }
+            html.dark .stat-label {
+                color: #d1d5db;
+            }
+            html.dark .stat-value {
+                color: #ffffff;
+            }
+            html.dark .content-box {
+                background-color: #1f2937;
+                border-color: #374151;
+            }
+            html.dark .content-title {
+                color: #ffffff;
+            }
+            html.dark .empty-state-box {
+                background-color: #1f2937 !important;
+                border-color: #374151 !important;
+            }
+            html.dark .empty-state-icon {
+                background-color: #374151 !important;
+                color: #d1d5db !important;
+            }
+            html.dark #purchase-modal > div {
+                background-color: #1f2937 !important;
+                color: #ffffff !important;
+                border-color: #374151 !important;
+            }
+            html.dark #purchase-modal h3, html.dark #purchase-modal h4 {
+                color: #ffffff !important;
+            }
+            html.dark #purchase-modal .border-gray-100, html.dark #purchase-modal .border-gray-200 {
+                border-color: #374151 !important;
+            }
+            html.dark #purchase-modal .text-gray-800 {
+                color: #e5e7eb !important;
+            }
+            html.dark #purchase-modal .modal-alert-note {
+                background-color: rgba(55, 65, 81, 0.4) !important;
+                border-color: #4b5563 !important;
+            }
+            html.dark #purchase-modal .modal-alert-text {
+                color: #cbd5e0 !important;
+            }
+            html.dark #purchase-modal .modal-alert-text p {
+                color: #a78bfa !important;
+            }
 
             @layer components {
-                .page-body { @apply flex min-h-screen w-full text-gray-800 bg-[#f8f9fa] font-sans transition-colors duration-200; }
-                .sidebar { @apply w-64 bg-white border-r border-gray-100 flex flex-col justify-between p-4 flex-shrink-0 min-h-screen shadow-sm z-10 transition-colors duration-200; }
-                .brand-container { @apply flex items-center space-x-3 px-2 py-1; }
-                .brand-logo { @apply w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-sm shadow-indigo-600/20; }
-                .brand-text { @apply font-bold text-gray-900 text-base tracking-tight; }
-                .nav-link { @apply flex items-center space-x-3 px-4 py-2.5 text-gray-600 hover:bg-gray-50 rounded-xl font-medium text-sm transition-all w-full text-left; }
-                .nav-link-active { @apply flex items-center space-x-3 px-4 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl font-semibold text-sm transition-colors w-full text-left; }
-                .wallet-widget { @apply w-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white p-4 rounded-2xl shadow-md shadow-indigo-600/10 relative overflow-hidden; }
-                .wallet-header { @apply flex justify-between items-center opacity-85; }
-                .wallet-title { @apply text-xs font-medium tracking-wide; }
-                .wallet-balance { @apply text-xl font-bold mt-2 tracking-tight; }
-                .user-area { @apply pt-2 border-t border-gray-100 flex flex-col gap-1; }
-                .user-profile-link { @apply flex items-center space-x-3 px-2 py-2 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer; }
-                .user-avatar { @apply w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 flex-shrink-0 font-bold text-xs uppercase; }
-                .user-info { @apply flex-1 min-w-0; }
-                .user-name { @apply text-sm font-bold text-gray-900 truncate; }
-                .user-role { @apply text-[11px] text-gray-400 font-medium; }
-                .logout-btn { @apply w-full flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors text-left; }
-                .main-content { @apply flex-1 p-8 overflow-y-auto h-screen relative; }
-                .header-container { @apply flex justify-between items-center mb-6; }
-                .page-title { @apply text-2xl font-bold text-gray-900 tracking-tight; }
-                .btn-primary { @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-[#5c3cf5] text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm shadow-sm shadow-indigo-100 cursor-pointer; }
-                .btn-secondary { @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm shadow-sm cursor-pointer; }
-                .stat-widget { @apply bg-white border border-gray-100 rounded-2xl p-6 shadow-sm flex items-center justify-between transition-colors duration-200; }
-                .stat-label { @apply text-sm text-gray-600 font-medium; }
-                .stat-value { @apply text-xl font-bold text-gray-900; }
-                .content-box { @apply bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden transition-colors duration-200; }
-                .content-title { @apply text-base font-bold text-gray-900; }
+                .page-body {
+                    @apply flex min-h-screen w-full text-gray-800 bg-[#f8f9fa] font-sans transition-colors duration-200;
+                }
+                .sidebar {
+                    @apply w-64 bg-white border-r border-gray-100 flex flex-col justify-between p-4 flex-shrink-0 min-h-screen shadow-sm z-10 transition-colors duration-200;
+                }
+                .brand-container {
+                    @apply flex items-center space-x-3 px-2 py-1;
+                }
+                .brand-logo {
+                    @apply w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-sm shadow-indigo-600/20;
+                }
+                .brand-text {
+                    @apply font-bold text-gray-900 text-base tracking-tight;
+                }
+                .nav-link {
+                    @apply flex items-center space-x-3 px-4 py-2.5 text-gray-600 hover:bg-gray-50 rounded-xl font-medium text-sm transition-all w-full text-left;
+                }
+                .nav-link-active {
+                    @apply flex items-center space-x-3 px-4 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl font-semibold text-sm transition-colors w-full text-left;
+                }
+                .wallet-widget {
+                    @apply w-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white p-4 rounded-2xl shadow-md shadow-indigo-600/10 relative overflow-hidden;
+                }
+                .wallet-header {
+                    @apply flex justify-between items-center opacity-85;
+                }
+                .wallet-title {
+                    @apply text-xs font-medium tracking-wide;
+                }
+                .wallet-balance {
+                    @apply text-xl font-bold mt-2 tracking-tight;
+                }
+                .user-area {
+                    @apply pt-2 border-t border-gray-100 flex flex-col gap-1;
+                }
+                .user-profile-link {
+                    @apply flex items-center space-x-3 px-2 py-2 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer;
+                }
+                .user-avatar {
+                    @apply w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 flex-shrink-0 font-bold text-xs uppercase;
+                }
+                .user-info {
+                    @apply flex-1 min-w-0;
+                }
+                .user-name {
+                    @apply text-sm font-bold text-gray-900 truncate;
+                }
+                .user-role {
+                    @apply text-[11px] text-gray-400 font-medium;
+                }
+                .logout-btn {
+                    @apply w-full flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors text-left;
+                }
+                .main-content {
+                    @apply flex-1 p-8 overflow-y-auto h-screen relative;
+                }
+                .header-container {
+                    @apply flex justify-between items-center mb-6;
+                }
+                .page-title {
+                    @apply text-2xl font-bold text-gray-900 tracking-tight;
+                }
+                .btn-primary {
+                    @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-[#5c3cf5] text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm shadow-sm shadow-indigo-100 cursor-pointer;
+                }
+                .btn-secondary {
+                    @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm shadow-sm cursor-pointer;
+                }
+                .stat-widget {
+                    @apply bg-white border border-gray-100 rounded-2xl p-6 shadow-sm flex items-center justify-between transition-colors duration-200;
+                }
+                .stat-label {
+                    @apply text-sm text-gray-600 font-medium;
+                }
+                .stat-value {
+                    @apply text-xl font-bold text-gray-900;
+                }
+                .content-box {
+                    @apply bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden transition-colors duration-200;
+                }
+                .content-title {
+                    @apply text-base font-bold text-gray-900;
+                }
             }
         </style>
     </head>
@@ -247,16 +368,38 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="36" height="32" viewBox="0 0 24 24" fill="none" stroke="gold" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z"/><path d="M5 20h14"/></svg>
                             <h3 class="text-2xl font-bold mb-1">${premiumPlan.tierName}</h3>
                             <p class="text-purple-100 text-xs mb-4">Dành cho những bước tiến xa hơn</p>
-                            <div class="flex items-end"><span class="text-4xl font-extrabold tracking-tight"><fmt:formatNumber value="${premiumPlan.price}" pattern="#,###"/> Coin</span><span class="text-sm ml-1.5 mb-1 text-purple-200">/tháng</span></div>
+                            <div class="flex items-end">
+                                <span class="text-4xl font-extrabold tracking-tight"><fmt:formatNumber value="${premiumPlan.price}" pattern="#,###"/> Coin</span>
+                                <span class="text-sm ml-1.5 mb-1 text-purple-200">/tháng</span>
+                            </div>
                         </div>
                         <div class="p-8 bg-white dark:bg-gray-800">
                             <ul class="space-y-4 mb-8 text-sm text-gray-600 dark:text-gray-300">
-                                <li class="flex items-start font-medium text-amber-600 dark:text-amber-400"><svg class="w-5 h-5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg><span>Mở rộng Upload lên tới 100 MB / mỗi tài liệu</span></li>
-                                <li class="flex items-start"><svg class="w-5 h-5 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg><span>${premiumPlan.maxStorageMb / 1000} GB dung lượng lưu trữ đám mây</span></li>
-                                <li class="flex items-start"><svg class="w-5 h-5 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg><span>Tải lên & Tải xuống không giới hạn file</span></li>
-                                <li class="flex items-start"><svg class="w-5 h-5 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg><span>Truy cập kho tài liệu cộng đồng</span></li>
-                                <li class="flex items-start"><svg class="w-5 h-5 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg><span>AI Chatbot nâng cao (${premiumPlan.aiPromptLimitPerDay} câu hỏi/ngày)</span></li>
-                                <li class="flex items-start"><svg class="w-5 h-5 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg><span>AI phân tích, tóm tắt tự động</span></li>
+                                <li class="flex items-start font-medium text-amber-600 dark:text-amber-400">
+                                    <svg class="w-5 h-5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                                    <span>Mở rộng Upload lên tới ${premiumPlan.maxStorageMb} MB / mỗi tài liệu</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                                    <%-- SỬA Ở ĐÂY: Dùng totalStorageMb chia cho 1024 để ra GB chuẩn --%>
+                                    <span><fmt:formatNumber value="${premiumPlan.totalStorageMb / 1024}" maxFractionDigits="1"/> GB dung lượng lưu trữ đám mây</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                                    <span>Tải lên & Tải xuống không giới hạn file</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                                    <span>Truy cập kho tài liệu cộng đồng</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                                    <span>AI Chatbot nâng cao (${premiumPlan.aiPromptLimitPerDay} câu hỏi/ngày)</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                                    <span>AI phân tích, tóm tắt tự động</span>
+                                </li>
                             </ul>
                             <% if (isPremiumUser) { %>
                             <button disabled class="w-full py-3 bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400 rounded-xl font-semibold cursor-not-allowed">Bạn đang sử dụng gói này</button>
