@@ -70,7 +70,20 @@ public class ChatBotController extends HttpServlet {
 
             // BƯỚC 3: GỬI LỊCH SỬ LÊN GEMINI API ĐỂ LẤY CÂU TRẢ LỜI
             String aiResponse = geminiService.getGeminiResponse(chatHistory);
-
+            
+            if (aiResponse.toUpperCase().indexOf("RESPONSE:") >=0 && aiResponse.toUpperCase().indexOf("RESPONSE:") <=1){
+                //Insert "RESPONSE:" logic here
+                
+            } else if (aiResponse.toUpperCase().indexOf("SEARCH") >=0 && aiResponse.toUpperCase().indexOf("SEARCH") <=4){
+                //Insert "SEARCH" logic here
+                
+            } else if (aiResponse.toUpperCase().indexOf("VIEW") >=0 && aiResponse.toUpperCase().indexOf("VIEW") <=6){
+                //Insert "VIEW" logic here
+                
+            } else {
+                
+            }
+            
             // BƯỚC 4: LƯU CÂU TRẢ LỜI CỦA AI VÀO CƠ SỞ DỮ LIỆU
             boolean isBotMsgSaved = chatMessageDAO.createBotMessage(aiResponse, sessionId);
             if (!isBotMsgSaved) {
