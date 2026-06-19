@@ -15,18 +15,17 @@ public class SubscriptionDAO {
     public List<Subscription> getAllSubscriptions() {
         List<Subscription> list = new ArrayList<>();
         String sql = "SELECT * FROM subscriptions";
-        
-        try (Connection conn = DBUtils.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            
+
+        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+
             while (rs.next()) {
                 Subscription sub = new Subscription(
-                    rs.getInt("tier_id"),
-                    rs.getString("tier_name"),
-                    rs.getInt("max_storage_mb"),
-                    rs.getInt("ai_prompt_limit_per_day"),
-                    rs.getDouble("price")
+                        rs.getInt("tier_id"),
+                        rs.getString("tier_name"),
+                        rs.getInt("max_storage_mb"),
+                        rs.getInt("ai_prompt_limit_per_day"),
+                        rs.getDouble("price"),
+                        rs.getInt("total_storage_mb")
                 );
                 list.add(sub);
             }
@@ -38,16 +37,15 @@ public class SubscriptionDAO {
 
     // Cập nhật cấu hình khi Admin bấm Lưu
     public boolean updateSubscription(Subscription sub) {
-        String sql = "UPDATE subscriptions SET max_storage_mb = ?, ai_prompt_limit_per_day = ?, price = ? WHERE tier_id = ?";
-        
-        try (Connection conn = DBUtils.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            
+        String sql = "UPDATE subscriptions SET max_storage_mb = ?, ai_prompt_limit_per_day = ?, price = ?, total_storage_mb = ? WHERE tier_id = ?";
+        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+
             ps.setInt(1, sub.getMaxStorageMb());
             ps.setInt(2, sub.getAiPromptLimitPerDay());
             ps.setDouble(3, sub.getPrice());
-            ps.setInt(4, sub.getTierId());
-            
+            ps.setInt(4, sub.getTotalStorageMb());
+            ps.setInt(5, sub.getTierId());
+
             int rowsAffected = ps.executeUpdate();
             return rowsAffected > 0;
         } catch (Exception e) {

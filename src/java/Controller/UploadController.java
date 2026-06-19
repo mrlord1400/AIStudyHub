@@ -26,8 +26,8 @@ import java.time.LocalDateTime;
 @WebServlet(name = "UploadController", urlPatterns = {"/UploadController"})
 @MultipartConfig(
         fileSizeThreshold = 1024 * 1024, // 1 MB — ghi thẳng vào đĩa nếu vượt ngưỡng
-        maxFileSize = 50 * 1024 * 1024, // 50 MB — giới hạn tối đa mỗi file
-        maxRequestSize = 55 * 1024 * 1024 // 55 MB — giới hạn toàn bộ request payload
+        maxFileSize = 100 * 1024 * 1024, // 100 MB — giới hạn tối đa mỗi file
+        maxRequestSize = 105 * 1024 * 1024 // 105 MB — giới hạn toàn bộ request payload
 )
 public class UploadController extends HttpServlet {
 
