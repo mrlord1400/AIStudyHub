@@ -1,7 +1,9 @@
 package Controller;
 
+import DAO.ChatMessageDAO;
 import Model.DTO.ChatSession;
 import Model.DAO.ChatSessionDAO;
+import Model.DTO.ChatMessage;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -24,7 +26,7 @@ public class SessionController extends HttpServlet {
 
         // Nếu không có action, mặc định load trang chủ chat kèm lịch sử
         if (action == null) {
-            action = "chatMain"; 
+            action = "chatMain";
         }
 
         try {
@@ -77,7 +79,7 @@ public class SessionController extends HttpServlet {
 
         int userId = (int) session.getAttribute("userId");
         ChatSessionDAO dao = new ChatSessionDAO();
-        
+
         // Lấy danh sách lịch sử để in ra Drawer
         List<ChatSession> chatHistory = dao.getAllSessionsByUserId(userId);
         request.setAttribute("chatHistory", chatHistory);
@@ -103,8 +105,8 @@ public class SessionController extends HttpServlet {
             int sessionId = Integer.parseInt(sessionIdStr);
             ChatSessionDAO dao = new ChatSessionDAO();
 
-            ChatSession currentChat = dao.getSessionById(sessionId); 
-            
+            ChatSession currentChat = dao.getSessionById(sessionId);
+
             // Bảo mật: Kiểm tra session có tồn tại và đúng của user này không
             if (currentChat == null || currentChat.getUserId() != userId) {
                 response.sendRedirect(request.getContextPath() + "/SessionController?action=chatMain&error=unauthorized");
@@ -112,7 +114,11 @@ public class SessionController extends HttpServlet {
             }
 
             List<ChatSession> chatHistory = dao.getAllSessionsByUserId(userId);
-            
+            ChatMessageDAO messageDao = new ChatMessageDAO();
+            List<ChatMessage> messageList = messageDao.getAllMessageFromSession(sessionId);
+
+            // Đưa danh sách tin nhắn vào request để JSP hiển thị
+            request.setAttribute("messageList", messageList);
             request.setAttribute("currentChat", currentChat);
             request.setAttribute("chatHistory", chatHistory);
             request.getRequestDispatcher("/chat_session.jsp").forward(request, response);
@@ -154,11 +160,12 @@ public class SessionController extends HttpServlet {
     }
 
     /**
-     * Cập nhật tên của một Session (Trả về JSON để giao diện edit inline không bị reload trang)
+     * Cập nhật tên của một Session (Trả về JSON để giao diện edit inline không
+     * bị reload trang)
      */
     private void handleUpdateSessionName(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
-        
+
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         PrintWriter out = response.getWriter();
@@ -202,7 +209,7 @@ public class SessionController extends HttpServlet {
      */
     private void handleDeleteSession(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
-            
+
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         PrintWriter out = response.getWriter();
@@ -239,7 +246,7 @@ public class SessionController extends HttpServlet {
      */
     private void handleFindSessionByName(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
-            
+
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         PrintWriter out = response.getWriter();
@@ -251,7 +258,9 @@ public class SessionController extends HttpServlet {
         }
 
         String searchName = request.getParameter("sessionName");
-        if (searchName == null) searchName = "";
+        if (searchName == null) {
+            searchName = "";
+        }
 
         ChatSessionDAO dao = new ChatSessionDAO();
         List<ChatSession> searchResults = dao.findSessionByName(searchName);
@@ -261,8 +270,8 @@ public class SessionController extends HttpServlet {
         for (int i = 0; i < searchResults.size(); i++) {
             ChatSession s = searchResults.get(i);
             jsonBuilder.append("{\"sessionId\":").append(s.getSessionId())
-                       .append(", \"sessionName\":\"").append(s.getSessionName().replace("\"", "\\\""))
-                       .append("\"}");
+                    .append(", \"sessionName\":\"").append(s.getSessionName().replace("\"", "\\\""))
+                    .append("\"}");
             if (i < searchResults.size() - 1) {
                 jsonBuilder.append(",");
             }
