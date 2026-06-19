@@ -17,7 +17,7 @@
 
     // Quản lý quyền
     if (role == null || !"ADMIN".equalsIgnoreCase(role.trim())) {
-        role = "STUDENT"; 
+        role = "STUDENT";
     } else {
         role = "ADMIN";
     }
@@ -56,76 +56,221 @@
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
         <style type="text/tailwindcss">
-            ::-webkit-scrollbar { width: 6px; height: 6px; }
-            ::-webkit-scrollbar-track { background: transparent; }
-            ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
-            ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+            ::-webkit-scrollbar {
+                width: 6px;
+                height: 6px;
+            }
+            ::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #4b5563;
+                border-radius: 4px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+                background: #6b7280;
+            }
 
-            html.dark .page-body { background-color: #111827; color: #f3f4f6; }
-            html.dark .sidebar { background-color: #1f2937; border-color: #374151; }
-            html.dark .brand-text { color: #ffffff; }
-            html.dark .nav-link { color: #d1d5db; }
-            html.dark .nav-link:hover { background-color: #374151; }
-            html.dark .nav-link-active { background-color: rgba(49, 46, 129, 0.6); color: #818cf8; }
-            html.dark .user-name { color: #ffffff; }
-            html.dark .user-profile-link:hover { background-color: #374151; }
-            html.dark .logout-btn { color: #9ca3af; }
-            html.dark .logout-btn:hover { background-color: rgba(127, 29, 29, 0.3); color: #f87171; }
-            html.dark .btn-secondary { background-color: #1f2937; border-color: #374151; color: #e5e7eb; }
-            html.dark .btn-secondary:hover { background-color: #374151; }
+            html.dark .page-body {
+                background-color: #111827;
+                color: #f3f4f6;
+            }
+            html.dark .sidebar {
+                background-color: #1f2937;
+                border-color: #374151;
+            }
+            html.dark .brand-text {
+                color: #ffffff;
+            }
+            html.dark .nav-link {
+                color: #d1d5db;
+            }
+            html.dark .nav-link:hover {
+                background-color: #374151;
+            }
+            html.dark .nav-link-active {
+                background-color: rgba(49, 46, 129, 0.6);
+                color: #818cf8;
+            }
+            html.dark .user-name {
+                color: #ffffff;
+            }
+            html.dark .user-profile-link:hover {
+                background-color: #374151;
+            }
+            html.dark .logout-btn {
+                color: #9ca3af;
+            }
+            html.dark .logout-btn:hover {
+                background-color: rgba(127, 29, 29, 0.3);
+                color: #f87171;
+            }
+            html.dark .btn-secondary {
+                background-color: #1f2937;
+                border-color: #374151;
+                color: #e5e7eb;
+            }
+            html.dark .btn-secondary:hover {
+                background-color: #374151;
+            }
 
-            .chat-container { background-color: #111827 !important; }
-            .chat-header { background-color: #1f2937 !important; border-color: #374151 !important; }
-            .chat-header h2 { color: #ffffff !important; }
-            .chat-sub-header { background-color: #1f2937 !important; border-color: #374151 !important; }
-            .chat-sub-header h3 { color: #ffffff !important; }
-            .chat-bg-area { background-color: #111827 !important; }
-            .bot-msg-box { background-color: #1f2937 !important; border-color: #374151 !important; color: #e5e7eb !important; }
+            .chat-container {
+                background-color: #111827 !important;
+            }
+            .chat-header {
+                background-color: #1f2937 !important;
+                border-color: #374151 !important;
+            }
+            .chat-header h2 {
+                color: #ffffff !important;
+            }
+            .chat-sub-header {
+                background-color: #1f2937 !important;
+                border-color: #374151 !important;
+            }
+            .chat-sub-header h3 {
+                color: #ffffff !important;
+            }
+            .chat-bg-area {
+                background-color: #111827 !important;
+            }
+            .bot-msg-box {
+                background-color: #1f2937 !important;
+                border-color: #374151 !important;
+                color: #e5e7eb !important;
+            }
 
-            .chat-footer-input { background-color: #1f2937 !important; border-t-color: #374151 !important; }
-            .chat-input-wrapper { background-color: #111827 !important; border-color: #374151 !important; color: #ffffff !important; }
-            .chat-input-wrapper input { background-color: transparent !important; color: #ffffff !important; }
-            .chat-footer-bar { background-color: #1f2937 !important; border-t-color: #374151 !important; }
+            .chat-footer-input {
+                background-color: #1f2937 !important;
+                border-t-color: #374151 !important;
+            }
+            .chat-input-wrapper {
+                background-color: #111827 !important;
+                border-color: #374151 !important;
+                color: #ffffff !important;
+            }
+            .chat-input-wrapper input {
+                background-color: transparent !important;
+                color: #ffffff !important;
+            }
+            .chat-footer-bar {
+                background-color: #1f2937 !important;
+                border-t-color: #374151 !important;
+            }
 
-            .suggest-btn-1 { background-color: rgba(30, 58, 138, 0.4) !important; border-color: rgba(59, 130, 246, 0.3) !important; color: #60a5fa !important; }
-            .suggest-btn-2 { background-color: rgba(120, 53, 4, 0.4) !important; border-color: rgba(245, 158, 11, 0.3) !important; color: #fbbf24 !important; }
-            .suggest-btn-3 { background-color: rgba(6, 78, 59, 0.4) !important; border-color: rgba(16, 185, 129, 0.3) !important; color: #34d399 !important; }
-            .suggest-btn-4 { background-color: rgba(88, 28, 135, 0.4) !important; border-color: rgba(139, 92, 246, 0.3) !important; color: #c084fc !important; }
+            .suggest-btn-1 {
+                background-color: rgba(30, 58, 138, 0.4) !important;
+                border-color: rgba(59, 130, 246, 0.3) !important;
+                color: #60a5fa !important;
+            }
+            .suggest-btn-2 {
+                background-color: rgba(120, 53, 4, 0.4) !important;
+                border-color: rgba(245, 158, 11, 0.3) !important;
+                color: #fbbf24 !important;
+            }
+            .suggest-btn-3 {
+                background-color: rgba(6, 78, 59, 0.4) !important;
+                border-color: rgba(16, 185, 129, 0.3) !important;
+                color: #34d399 !important;
+            }
+            .suggest-btn-4 {
+                background-color: rgba(88, 28, 135, 0.4) !important;
+                border-color: rgba(139, 92, 246, 0.3) !important;
+                color: #c084fc !important;
+            }
 
-            #historyDrawer > div:nth-child(2) { background-color: #1f2937 !important; border-color: #374151 !important; color: #ffffff !important; }
-            #historyDrawer h3 { color: #ffffff !important; }
+            #historyDrawer > div:nth-child(2) {
+                background-color: #1f2937 !important;
+                border-color: #374151 !important;
+                color: #ffffff !important;
+            }
+            #historyDrawer h3 {
+                color: #ffffff !important;
+            }
 
             @layer components {
-                .page-body { @apply flex min-h-screen w-full font-sans transition-colors duration-200; }
-                .sidebar { @apply w-64 flex flex-col justify-between p-4 flex-shrink-0 min-h-screen border-r border-gray-100 shadow-sm z-10 transition-colors duration-200; }
-                .brand-container { @apply flex items-center space-x-3 px-2 py-1; }
-                .brand-logo { @apply w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-sm shadow-indigo-600/20; }
-                .brand-text { @apply font-bold text-base tracking-tight; }
-                .nav-link { @apply flex items-center space-x-3 px-4 py-2.5 text-gray-600 hover:bg-gray-50 rounded-xl font-medium text-sm transition-all w-full text-left; }
-                .nav-link-active { @apply flex items-center space-x-3 px-4 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl font-semibold text-sm transition-colors w-full text-left; }
+                .page-body {
+                    @apply flex min-h-screen w-full font-sans transition-colors duration-200;
+                }
+                .sidebar {
+                    @apply w-64 flex flex-col justify-between p-4 flex-shrink-0 min-h-screen border-r border-gray-100 shadow-sm z-10 transition-colors duration-200;
+                }
+                .brand-container {
+                    @apply flex items-center space-x-3 px-2 py-1;
+                }
+                .brand-logo {
+                    @apply w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-sm shadow-indigo-600/20;
+                }
+                .brand-text {
+                    @apply font-bold text-base tracking-tight;
+                }
+                .nav-link {
+                    @apply flex items-center space-x-3 px-4 py-2.5 text-gray-600 hover:bg-gray-50 rounded-xl font-medium text-sm transition-all w-full text-left;
+                }
+                .nav-link-active {
+                    @apply flex items-center space-x-3 px-4 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl font-semibold text-sm transition-colors w-full text-left;
+                }
 
-                .wallet-widget { @apply w-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white p-4 rounded-2xl shadow-md shadow-indigo-600/10 relative overflow-hidden; }
-                .wallet-header { @apply flex justify-between items-center opacity-85; }
-                .wallet-title { @apply text-xs font-medium tracking-wide; }
-                .wallet-balance { @apply text-xl font-bold mt-2 tracking-tight; }
+                .wallet-widget {
+                    @apply w-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white p-4 rounded-2xl shadow-md shadow-indigo-600/10 relative overflow-hidden;
+                }
+                .wallet-header {
+                    @apply flex justify-between items-center opacity-85;
+                }
+                .wallet-title {
+                    @apply text-xs font-medium tracking-wide;
+                }
+                .wallet-balance {
+                    @apply text-xl font-bold mt-2 tracking-tight;
+                }
 
-                .user-area { @apply pt-2 border-t border-gray-100 flex flex-col gap-1; }
-                .user-profile-link { @apply flex items-center space-x-3 px-2 py-2 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer; }
-                .user-avatar { @apply w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 flex-shrink-0 font-bold text-xs uppercase; }
-                .user-info { @apply flex-1 min-w-0; }
-                .user-name { @apply text-sm font-bold truncate; }
-                .user-role { @apply text-[11px] text-gray-400 font-medium; }
-                .logout-btn { @apply w-full flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors text-left; }
+                .user-area {
+                    @apply pt-2 border-t border-gray-100 flex flex-col gap-1;
+                }
+                .user-profile-link {
+                    @apply flex items-center space-x-3 px-2 py-2 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer;
+                }
+                .user-avatar {
+                    @apply w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 flex-shrink-0 font-bold text-xs uppercase;
+                }
+                .user-info {
+                    @apply flex-1 min-w-0;
+                }
+                .user-name {
+                    @apply text-sm font-bold truncate;
+                }
+                .user-role {
+                    @apply text-[11px] text-gray-400 font-medium;
+                }
+                .logout-btn {
+                    @apply w-full flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors text-left;
+                }
 
-                .chat-container { @apply flex-1 flex flex-col h-full relative transition-colors duration-200; }
-                .chat-header { @apply h-14 border-b px-6 flex items-center justify-between flex-shrink-0 transition-colors duration-200; }
-                .chat-bg-area { @apply flex-1 overflow-y-auto p-6 space-y-6 transition-colors duration-200; }
+                .chat-container {
+                    @apply flex-1 flex flex-col h-full relative transition-colors duration-200;
+                }
+                .chat-header {
+                    @apply h-14 border-b px-6 flex items-center justify-between flex-shrink-0 transition-colors duration-200;
+                }
+                .chat-bg-area {
+                    @apply flex-1 overflow-y-auto p-6 space-y-6 transition-colors duration-200;
+                }
 
-                .btn-secondary { @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm shadow-sm cursor-pointer; }
-                .suggest-btn-1, .suggest-btn-2, .suggest-btn-3, .suggest-btn-4 { @apply flex items-center space-x-3 p-3.5 rounded-xl border hover:opacity-90 font-semibold text-xs text-left transition-colors; }
-                .bot-msg-box { @apply border rounded-2xl p-4 max-w-[85%] text-sm shadow-sm relative transition-colors duration-200; }
-                .chat-footer-input { @apply p-4 border-t flex-shrink-0 transition-colors duration-200; }
-                .chat-footer-bar { @apply border-t px-6 py-2.5 flex-shrink-0 transition-colors duration-200; }
+                .btn-secondary {
+                    @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm shadow-sm cursor-pointer;
+                }
+                .suggest-btn-1, .suggest-btn-2, .suggest-btn-3, .suggest-btn-4 {
+                    @apply flex items-center space-x-3 p-3.5 rounded-xl border hover:opacity-90 font-semibold text-xs text-left transition-colors;
+                }
+                .bot-msg-box {
+                    @apply border rounded-2xl p-4 max-w-[85%] text-sm shadow-sm relative transition-colors duration-200;
+                }
+                .chat-footer-input {
+                    @apply p-4 border-t flex-shrink-0 transition-colors duration-200;
+                }
+                .chat-footer-bar {
+                    @apply border-t px-6 py-2.5 flex-shrink-0 transition-colors duration-200;
+                }
             }
         </style>
     </head>
@@ -234,6 +379,50 @@
 
                 <div class="chat-bg-area" id="chatMessageLogs">
                     <div class="max-w-4xl mx-auto space-y-6" id="chatLogsContainer">
+                        <c:choose>
+                            <%-- Nếu danh sách tin nhắn rỗng, hiển thị lời chào mặc định --%>
+                            <c:when test="${empty messageList}">
+                                <div class="flex items-start gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.886L4.2 10.8 10.088 12.714 12 18.6l1.912-5.886L19.8 10.8l-5.886-1.914Z"/></svg>
+                                    </div>
+                                    <div class="bot-msg-box">
+                                        <p class="leading-relaxed font-medium">Xin chào! Bạn đang ở chủ đề <b>${currentChat.sessionName}</b>. Tôi có thể giúp bạn giải đáp thắc mắc về tài liệu học tập, hoặc hỗ trợ làm bài tập. Bạn cần tôi giúp gì?</p>
+                                    </div>
+                                </div>
+                            </c:when>
+
+                            <%-- Nếu có tin nhắn, lặp qua danh sách và in ra --%>
+                            <c:otherwise>
+                                <c:forEach var="msg" items="${messageList}">
+                                    <c:choose>
+                                        <%-- Tin nhắn của người dùng --%>
+                                        <c:when test="${msg.sender == 'USER'}">
+                                            <div class="flex items-start gap-3 justify-end">
+                                                <div class="bg-indigo-600 text-white rounded-2xl p-4 max-w-[85%] text-sm shadow-sm relative">
+                                                    <p class="leading-relaxed font-medium">${msg.messageContent}</p>
+                                                </div>
+                                                <div class="w-8 h-8 rounded-full bg-indigo-900/60 text-indigo-300 flex items-center justify-center font-bold text-xs uppercase flex-shrink-0 shadow-sm">
+                                                    <%= username != null && !username.isEmpty() ? username.substring(0, 1) : "U"%>
+                                                </div>
+                                            </div>
+                                        </c:when>
+
+                                        <%-- Tin nhắn của AI --%>
+                                        <c:otherwise>
+                                            <div class="flex items-start gap-3">
+                                                <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.886L4.2 10.8 10.088 12.714 12 18.6l1.912-5.886L19.8 10.8l-5.886-1.914Z"/></svg>
+                                                </div>
+                                                <div class="bot-msg-box">
+                                                    <p class="leading-relaxed font-medium">${msg.messageContent}</p>
+                                                </div>
+                                            </div>
+                                        </c:otherwise>
+                                    </c:choose>
+                                </c:forEach>
+                            </c:otherwise>
+                        </c:choose>
                     </div>
                 </div>
 
@@ -284,7 +473,7 @@
         <div id="createSessionModal" class="fixed inset-0 z-[200] hidden bg-gray-950/60 backdrop-blur-sm flex items-center justify-center transition-opacity">
             <div class="bg-[#1f2937] border border-gray-700 rounded-2xl p-6 w-full max-w-md shadow-2xl transform transition-all">
                 <h3 class="text-lg font-bold text-white mb-4">Bắt đầu cuộc trò chuyện</h3>
-                <form action="<%= request.getContextPath() %>/SessionController" method="POST">
+                <form action="<%= request.getContextPath()%>/SessionController" method="POST">
                     <input type="hidden" name="action" value="createSession">
                     <div class="mb-5">
                         <label class="block text-sm font-medium text-gray-400 mb-2">Tên chủ đề (Tùy chọn)</label>
@@ -302,7 +491,7 @@
         <div id="historyDrawer" class="fixed inset-0 z-[150] hidden bg-gray-950/40 backdrop-blur-xs flex justify-end">
             <div onclick="toggleHistoryDrawer(false)" class="flex-1 h-full"></div>
             <div class="w-full max-w-sm h-full shadow-2xl border-l border-gray-700 flex flex-col transform translate-x-full transition-transform duration-300 ease-out p-0 bg-[#1f2937]">
-                
+
                 <div class="p-6 pb-4 border-b border-gray-700 flex-shrink-0">
                     <div class="flex justify-between items-center mb-4">
                         <div class="flex items-center space-x-2">
@@ -313,7 +502,7 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
                         </button>
                     </div>
-                    
+
                     <div class="relative">
                         <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                         <input type="text" id="searchSessionInput" onkeyup="filterSessions()" placeholder="Tìm kiếm cuộc trò chuyện..." 
@@ -329,10 +518,10 @@
                         <c:otherwise>
                             <c:forEach var="sessionItem" items="${chatHistory}">
                                 <c:set var="isActive" value="${sessionItem.sessionId == currentChat.sessionId}" />
-                                
+
                                 <div class="session-row p-3 rounded-xl border transition-all flex items-center justify-between group ${isActive ? 'bg-gray-800 border-gray-700' : 'bg-[#111827] border-transparent hover:border-gray-700 hover:bg-gray-800'}" 
                                      data-name="${sessionItem.sessionName.toLowerCase()}">
-                                    
+
                                     <div id="display-area-${sessionItem.sessionId}" class="flex-1 min-w-0 flex items-start space-x-3 cursor-pointer" onclick="selectHistorySession('${sessionItem.sessionId}')">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500 mt-0.5 group-hover:text-indigo-400 flex-shrink-0"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                                         <div class="flex-1 min-w-0 pr-2">
@@ -372,7 +561,7 @@
             // --- Modal & Drawer Logic ---
             function toggleCreateModal(open) {
                 const modal = document.getElementById('createSessionModal');
-                if(open) {
+                if (open) {
                     modal.classList.remove('hidden');
                 } else {
                     modal.classList.add('hidden');
@@ -403,7 +592,7 @@
             function filterSessions() {
                 const input = document.getElementById("searchSessionInput").value.toLowerCase();
                 const rows = document.querySelectorAll(".session-row");
-                
+
                 rows.forEach(row => {
                     const sessionName = row.getAttribute("data-name");
                     if (sessionName.includes(input)) {
@@ -421,11 +610,11 @@
                 document.getElementById('display-area-' + id).classList.add('hidden');
                 document.getElementById('action-area-' + id).classList.remove('group-hover:flex');
                 document.getElementById('action-area-' + id).classList.add('hidden');
-                
+
                 const editArea = document.getElementById('edit-area-' + id);
                 editArea.classList.remove('hidden');
                 editArea.classList.add('flex');
-                
+
                 const input = document.getElementById('edit-input-' + id);
                 input.focus();
                 input.setSelectionRange(input.value.length, input.value.length);
@@ -434,14 +623,16 @@
             function cancelEditSession(id) {
                 document.getElementById('edit-area-' + id).classList.add('hidden');
                 document.getElementById('edit-area-' + id).classList.remove('flex');
-                
+
                 document.getElementById('display-area-' + id).classList.remove('hidden');
                 document.getElementById('action-area-' + id).classList.remove('hidden');
                 document.getElementById('action-area-' + id).classList.add('group-hover:flex');
             }
 
             function handleBlurEdit(id) {
-                setTimeout(() => { cancelEditSession(id); }, 150);
+                setTimeout(() => {
+                    cancelEditSession(id);
+                }, 150);
             }
 
             function handleKeyEdit(event, id) {
@@ -467,33 +658,33 @@
 
                 fetch(url, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                     body: formData.toString()
                 })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        document.getElementById('title-text-' + id).textContent = newName;
-                        document.getElementById('display-area-' + id).closest('.session-row').setAttribute('data-name', newName.toLowerCase());
-                        
-                        // Nếu đang đổi tên chính session hiện tại, cập nhật luôn Header
-                        if (id == "${currentChat.sessionId}") {
-                            document.getElementById('currentSessionTitle').textContent = newName;
-                        }
-                    } else {
-                        alert("Lỗi: " + data.message);
-                    }
-                    cancelEditSession(id);
-                })
-                .catch(err => {
-                    console.error("Edit Error:", err);
-                    cancelEditSession(id);
-                });
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                document.getElementById('title-text-' + id).textContent = newName;
+                                document.getElementById('display-area-' + id).closest('.session-row').setAttribute('data-name', newName.toLowerCase());
+
+                                // Nếu đang đổi tên chính session hiện tại, cập nhật luôn Header
+                                if (id == "${currentChat.sessionId}") {
+                                    document.getElementById('currentSessionTitle').textContent = newName;
+                                }
+                            } else {
+                                alert("Lỗi: " + data.message);
+                            }
+                            cancelEditSession(id);
+                        })
+                        .catch(err => {
+                            console.error("Edit Error:", err);
+                            cancelEditSession(id);
+                        });
             }
 
             // --- Delete Session ---
             function deleteSession(id, name) {
-                if(confirm("Tất cả dữ liệu của cuộc trò chuyện '" + name + "' sẽ bị xóa vĩnh viễn. Bạn có chắc chắn không?")) {
+                if (confirm("Tất cả dữ liệu của cuộc trò chuyện '" + name + "' sẽ bị xóa vĩnh viễn. Bạn có chắc chắn không?")) {
                     const url = "<%= request.getContextPath()%>/SessionController?action=deleteSession";
                     const formData = new URLSearchParams();
                     formData.append('sessionId', id);
@@ -501,23 +692,23 @@
 
                     fetch(url, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                         body: formData.toString()
                     })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            // Nếu xóa đúng cái đang xem, đẩy ra trang chủ chat. Ngược lại chỉ reload.
-                            if (id == "${currentChat.sessionId}") {
-                                window.location.href = "<%= request.getContextPath()%>/SessionController?action=chatMain";
-                            } else {
-                                window.location.reload();
-                            }
-                        } else {
-                            alert("Có lỗi xảy ra, không thể xóa cuộc trò chuyện.");
-                        }
-                    })
-                    .catch(err => console.error("Delete Error:", err));
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    // Nếu xóa đúng cái đang xem, đẩy ra trang chủ chat. Ngược lại chỉ reload.
+                                    if (id == "${currentChat.sessionId}") {
+                                        window.location.href = "<%= request.getContextPath()%>/SessionController?action=chatMain";
+                                    } else {
+                                        window.location.reload();
+                                    }
+                                } else {
+                                    alert("Có lỗi xảy ra, không thể xóa cuộc trò chuyện.");
+                                }
+                            })
+                            .catch(err => console.error("Delete Error:", err));
                 }
             }
 
@@ -526,65 +717,29 @@
             // MOCK TIN NHẮN BẰNG LOCAL STORAGE (Dùng tạm cho tới khi có Message DB)
             // Lấy sessionId thật từ DB truyền qua để làm key lưu trữ
             // ==============================================================================
+            // Cuộn khung chat xuống cuối cùng mỗi khi load trang
+            // ==============================================================================
+            // CÁC HÀM XỬ LÝ GIAO DIỆN VÀ GỬI TIN NHẮN
+            // ==============================================================================
+
+            // Biến toàn cục để lưu file đính kèm
             let attachedFileHolder = null;
-            let currentSessionIdDB = "db_session_${currentChat.sessionId}"; 
-            let chatSessions = JSON.parse(localStorage.getItem('chatSessionsData')) || {};
 
-            function saveSessions() {
-                localStorage.setItem('chatSessionsData', JSON.stringify(chatSessions));
-            }
-
-            function loadChatLogs() {
-                const logsContainer = document.getElementById('chatLogsContainer');
-                logsContainer.innerHTML = "";
-
-                const currentSession = chatSessions[currentSessionIdDB];
-
-                if (!currentSession || currentSession.messages.length === 0) {
-                    logsContainer.innerHTML = `
-                        <div class="flex items-start gap-3">
-                            <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.886L4.2 10.8 10.088 12.714 12 18.6l1.912-5.886L19.8 10.8l-5.886-1.914Z"/></svg>
-                            </div>
-                            <div class="bot-msg-box">
-                                <p class="leading-relaxed font-medium">Xin chào! Bạn đang ở chủ đề <b>${currentChat.sessionName}</b>. Tôi có thể giúp bạn giải đáp thắc mắc về tài liệu học tập, hoặc hỗ trợ làm bài tập. Bạn cần tôi giúp gì?</p>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    currentSession.messages.forEach(msg => {
-                        const messageNode = document.createElement('div');
-                        if (msg.sender === 'user') {
-                            messageNode.className = "flex items-start gap-3 justify-end";
-                            messageNode.innerHTML = `
-                                <div class="bg-indigo-600 text-white rounded-2xl p-4 max-w-[85%] text-sm shadow-sm relative">
-                                    <p class="leading-relaxed font-medium">\${msg.text}</p>
-                                </div>
-                                <div class="w-8 h-8 rounded-full bg-indigo-900/60 text-indigo-300 flex items-center justify-center font-bold text-xs uppercase flex-shrink-0 shadow-sm">
-                                    <%= username != null && !username.isEmpty() ? username.substring(0, 1) : "U"%>
-                                </div>
-                            `;
-                        } else {
-                            messageNode.className = "flex items-start gap-3";
-                            messageNode.innerHTML = `
-                                <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.886L4.2 10.8 10.088 12.714 12 18.6l1.912-5.886L19.8 10.8l-5.886-1.914Z"/></svg>
-                                </div>
-                                <div class="bot-msg-box">
-                                    <p class="leading-relaxed font-medium">\${msg.text}</p>
-                                </div>
-                            `;
-                        }
-                        logsContainer.appendChild(messageNode);
-                    });
-                }
+            // Cuộn khung chat xuống cuối cùng mỗi khi load trang
+            function scrollToBottom() {
                 const scrollArea = document.getElementById('chatMessageLogs');
                 scrollArea.scrollTop = scrollArea.scrollHeight;
             }
 
+            document.addEventListener("DOMContentLoaded", function () {
+                scrollToBottom();
+            });
+
+            // --- XỬ LÝ FILE ĐÍNH KÈM ---
             function handleChatFileSelect(input) {
                 const file = input.files[0];
-                if (!file) return;
+                if (!file)
+                    return;
 
                 const allowedExtensions = /(\.docx|\.doc|\.pptx|\.xlsx|\.pdf|\.txt)$/i;
                 if (!allowedExtensions.exec(file.name)) {
@@ -601,8 +756,8 @@
                 container.innerHTML = `
                     <div class="flex items-center space-x-2 bg-gray-800 border border-gray-700 text-indigo-400 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
-                        <span class="max-w-[200px] truncate">\${filename}</span>
-                        <span class="text-[10px] opacity-60">(\${sizeKB} KB)</span>
+                        <span class="max-w-[200px] truncate">${filename}</span>
+                        <span class="text-[10px] opacity-60">(${sizeKB} KB)</span>
                         <button onclick="removeAttachedFile()" class="hover:text-red-400 transition-colors ml-1 p-0.5 rounded-full hover:bg-gray-700">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
                         </button>
@@ -617,40 +772,97 @@
                 document.getElementById('filePreviewContainer').classList.add('hidden');
             }
 
+            // --- XỬ LÝ PHÍM ENTER ---
             function handleInputKeyDown(event) {
                 if (event.key === 'Enter') {
-                    event.preventDefault();
+                    event.preventDefault(); // Ngăn hành vi xuống dòng của ô input
                     processSendMessage();
                 }
             }
 
+            // --- XỬ LÝ GỬI TIN NHẮN TỚI MAIN CONTROLLER ---
             function processSendMessage() {
                 const inputElement = document.getElementById('userChatInput');
+                const logsContainer = document.getElementById('chatLogsContainer');
                 const messageText = inputElement.value.trim();
 
-                if (!messageText && !attachedFileHolder) return;
+                // Nếu không có chữ và không có file thì không làm gì cả
+                if (!messageText && !attachedFileHolder)
+                    return;
 
-                if (!chatSessions[currentSessionIdDB]) {
-                    chatSessions[currentSessionIdDB] = { messages: [] };
+                // Chuẩn bị text gửi đi
+                let finalMessage = messageText;
+                if (attachedFileHolder && !messageText) {
+                    finalMessage = "[Gửi tệp: " + attachedFileHolder.name + "]";
+                }
+                if (attachedFileHolder && messageText) {
+                    finalMessage += " [Kèm tệp: " + attachedFileHolder.name + "]";
                 }
 
-                let finalMessage = messageText;
-                if (attachedFileHolder && !messageText) finalMessage = "[Gửi tệp: " + attachedFileHolder.name + "]";
-                if (attachedFileHolder && messageText) finalMessage += " [Kèm tệp: " + attachedFileHolder.name + "]";
+                // 1. Vẽ tin nhắn của User lên giao diện ngay lập tức
+                const userMsgHtml = `
+                    <div class="flex items-start gap-3 justify-end">
+                        <div class="bg-indigo-600 text-white rounded-2xl p-4 max-w-[85%] text-sm shadow-sm relative">
+                            <p class="leading-relaxed font-medium">${finalMessage}</p>
+                        </div>
+                        <div class="w-8 h-8 rounded-full bg-indigo-900/60 text-indigo-300 flex items-center justify-center font-bold text-xs uppercase flex-shrink-0 shadow-sm">
+            <%= username != null && !username.isEmpty() ? username.substring(0, 1) : "U"%>
+                        </div>
+                    </div>
+                `;
+                logsContainer.insertAdjacentHTML('beforeend', userMsgHtml);
+                scrollToBottom();
 
-                chatSessions[currentSessionIdDB].messages.push({ sender: 'user', text: finalMessage });
-                chatSessions[currentSessionIdDB].messages.push({ sender: 'bot', text: "Hệ thống đã ghi nhận: '" + finalMessage + "'. Backend xử lý message đang được phát triển..." });
-
-                saveSessions();
-                loadChatLogs();
-
+                // Reset input và khóa lại để tránh spam
                 inputElement.value = "";
                 removeAttachedFile();
-            }
+                inputElement.disabled = true;
 
-            document.addEventListener("DOMContentLoaded", function () {
-                loadChatLogs();
-            });
+                // Nếu vùng chat chỉ có lời chào mặc định, ta xóa nó đi cho đẹp
+                if (logsContainer.children.length === 2 && logsContainer.innerHTML.includes("Xin chào! Bạn đang ở chủ đề")) {
+                    logsContainer.firstElementChild.remove();
+                }
+
+                // 2. Gửi request POST đến MainController
+                fetch('<%= request.getContextPath()%>/MainController', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'action=chatbotPrompt&message=' + encodeURIComponent(finalMessage) + '&sessionId=${currentChat.sessionId}'
+                })
+                        .then(response => {
+                            if (!response.ok)
+                                throw new Error("Network error");
+                            return response.text();
+                        })
+                        .then(data => {
+                            // 3. Vẽ câu trả lời của AI
+                            const formattedData = data.replace(/\n/g, "<br>");
+                            const botMsgHtml = `
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.886L4.2 10.8 10.088 12.714 12 18.6l1.912-5.886L19.8 10.8l-5.886-1.914Z"/></svg>
+                            </div>
+                            <div class="bot-msg-box">
+                                <p class="leading-relaxed font-medium">` + formattedData + `</p>
+                            </div>
+                        </div>
+                    `;
+                            logsContainer.insertAdjacentHTML('beforeend', botMsgHtml);
+                            scrollToBottom();
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            logsContainer.insertAdjacentHTML('beforeend', `<div class="text-red-500 text-center text-sm mt-2">Đã xảy ra lỗi khi kết nối với máy chủ.</div>`);
+                            scrollToBottom();
+                        })
+                        .finally(() => {
+                            // Mở khóa input
+                            inputElement.disabled = false;
+                            inputElement.focus();
+                        });
+            }
         </script>
     </body>
 </html>

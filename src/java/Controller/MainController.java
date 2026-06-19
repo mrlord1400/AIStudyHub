@@ -22,6 +22,7 @@ public class MainController extends HttpServlet {
     private static final String FOLDER_CONTROLLER = "FolderController";
     private static final String TRANSACTION_CONTROLLER = "TransactionController";
     private static final String ADMIN_CONTROLLER = "AdminController";
+    private static final String CHATBOT_CONTROLLER = "ChatBotController";
 
     // --- Future Controllers (Uncomment when you build them) ---
     // private static final String DOCUMENT_CONTROLLER = "DocumentController";
@@ -54,7 +55,7 @@ public class MainController extends HttpServlet {
                     case "editDoc":
                     case "deleteDoc":
                     case "updateDoc":
-                    case "viewDoc":      
+                    case "viewDoc":
                     case "downloadDoc":
                         url = DOCUMENT_CONTROLLER;
                         break;
@@ -86,6 +87,9 @@ public class MainController extends HttpServlet {
                         break;
                     case "wallet":
                         url = "CreditWallet.jsp";
+                        break;
+                    case "chatbotPrompt":
+                        url = CHATBOT_CONTROLLER;
                         break;
                     default:
                         // If an unknown action is sent, redirect to login as a failsafe
