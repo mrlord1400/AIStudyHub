@@ -14,7 +14,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
 
-@WebServlet(name = "AIChatBotController", urlPatterns = {"/chat-api"})
+@WebServlet(name = "ChatBotController", urlPatterns = {"/ChatBotController"})
 public class ChatBotController extends HttpServlet {
 
     private GeminiService geminiService;
