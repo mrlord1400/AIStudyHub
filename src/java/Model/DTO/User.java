@@ -19,14 +19,16 @@ public class User {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private int balance;
+    private int aiPromptsToday;
+    private java.sql.Timestamp lastPromptReset;
 
     public User() {
     }
 
     public User(int userId, String username, String email,
-                String passwordHash, String role,
-                int tierId, String status, LocalDateTime expiresAt, 
-                LocalDateTime createdAt, LocalDateTime updatedAt) {
+            String passwordHash, String role,
+            int tierId, String status, LocalDateTime expiresAt,
+            LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.userId = userId;
         this.username = username;
         this.email = email;
@@ -125,5 +127,21 @@ public class User {
 
     public void setBalance(int balance) {
         this.balance = balance;
+    }
+    
+    public int getAiPromptsToday() {
+        return aiPromptsToday;
+    }
+
+    public void setAiPromptsToday(int aiPromptsToday) {
+        this.aiPromptsToday = aiPromptsToday;
+    }
+
+    public java.sql.Timestamp getLastPromptReset() {
+        return lastPromptReset;
+    }
+
+    public void setLastPromptReset(java.sql.Timestamp lastPromptReset) {
+        this.lastPromptReset = lastPromptReset;
     }
 }

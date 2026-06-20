@@ -803,7 +803,7 @@
                 const userMsgHtml = `
                     <div class="flex items-start gap-3 justify-end">
                         <div class="bg-indigo-600 text-white rounded-2xl p-4 max-w-[85%] text-sm shadow-sm relative">
-                            <p class="leading-relaxed font-medium">${finalMessage}</p>
+                            <p class="leading-relaxed font-medium">` + finalMessage + `</p>
                         </div>
                         <div class="w-8 h-8 rounded-full bg-indigo-900/60 text-indigo-300 flex items-center justify-center font-bold text-xs uppercase flex-shrink-0 shadow-sm">
             <%= username != null && !username.isEmpty() ? username.substring(0, 1) : "U"%>
@@ -823,17 +823,24 @@
                     logsContainer.firstElementChild.remove();
                 }
 
-                // 2. Gửi request POST đến MainController
-                fetch('<%= request.getContextPath()%>/MainController', {
+                // 2. Gửi request POST đến ChatBotController (Đã sửa URL)
+                fetch('<%= request.getContextPath()%>/ChatBotController', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: 'action=chatbotPrompt&message=' + encodeURIComponent(finalMessage) + '&sessionId=${currentChat.sessionId}'
+                    body: 'message=' + encodeURIComponent(finalMessage) + '&sessionId=${currentChat.sessionId}'
                 })
-                        .then(response => {
-                            if (!response.ok)
-                                throw new Error("Network error");
+                        .then(async response => {
+                            // BẮT LỖI 429 TẠI ĐÂY (Hết lượt chat)
+                            if (response.status === 429) {
+                                const errorMsg = await response.text();
+                                throw new Error("RATE_LIMIT:" + errorMsg);
+                            }
+                            if (!response.ok) {
+                                const errorMsg = await response.text();
+                                throw new Error(errorMsg || "Network error");
+                            }
                             return response.text();
                         })
                         .then(data => {
@@ -844,7 +851,7 @@
                             <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.886L4.2 10.8 10.088 12.714 12 18.6l1.912-5.886L19.8 10.8l-5.886-1.914Z"/></svg>
                             </div>
-                            <div class="bot-msg-box">
+                            <div class="bot-msg-box border rounded-2xl p-4 max-w-[85%] text-sm shadow-sm relative transition-colors duration-200">
                                 <p class="leading-relaxed font-medium">` + formattedData + `</p>
                             </div>
                         </div>
@@ -854,7 +861,26 @@
                         })
                         .catch(error => {
                             console.error('Error:', error);
-                            logsContainer.insertAdjacentHTML('beforeend', `<div class="text-red-500 text-center text-sm mt-2">Đã xảy ra lỗi khi kết nối với máy chủ.</div>`);
+                            // XỬ LÝ IN LỖI RA GIAO DIỆN
+                            let displayError = "Đã xảy ra lỗi khi kết nối với máy chủ.";
+                            if (error.message.startsWith("RATE_LIMIT:")) {
+                                displayError = error.message.replace("RATE_LIMIT:", "").replace(/\n/g, "<br>");
+                            } else if (error.message) {
+                                displayError = error.message;
+                            }
+                            
+                            // Tạo box AI màu đỏ báo lỗi
+                            const errorMsgHtml = `
+                                <div class="flex items-start gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                    </div>
+                                    <div class="border border-red-500/30 bg-red-500/10 text-red-400 rounded-2xl p-4 max-w-[85%] text-sm shadow-sm relative">
+                                        <p class="leading-relaxed font-semibold">` + displayError + `</p>
+                                    </div>
+                                </div>
+                            `;
+                            logsContainer.insertAdjacentHTML('beforeend', errorMsgHtml);
                             scrollToBottom();
                         })
                         .finally(() => {

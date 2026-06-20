@@ -65,8 +65,6 @@ public class UserDAO {
                 String dbPasswordHash = rs.getString("password_hash");
 
                 // Verify the plain text password against the DB hash
-                // Note: I am assuming verifyPassword exists based on your checkPassword method!
-                // If it doesn't, use: org.mindrot.jbcrypt.BCrypt.checkpw(password, dbPasswordHash)
                 if (PasswordUtil.verifyPassword(password, dbPasswordHash)) {
 
                     User user = new User();
@@ -77,6 +75,10 @@ public class UserDAO {
                     user.setRole(rs.getString("role"));
                     user.setTierId(rs.getInt("tier_id"));
                     user.setStatus(rs.getString("status"));
+                    
+                    // --- MAP THÊM 2 CỘT QUẢN LÝ AI PROMPT ---
+                    user.setAiPromptsToday(rs.getInt("ai_prompts_today"));
+                    user.setLastPromptReset(rs.getTimestamp("last_prompt_reset"));
 
                     // Backwards-compatible DATETIME2 parsing
                     Timestamp expiresTs = rs.getTimestamp("expires_at");
@@ -172,6 +174,10 @@ public class UserDAO {
                 user.setTierId(rs.getInt("tier_id"));
                 user.setStatus(rs.getString("status"));
                 user.setBalance(rs.getInt("balance"));
+                
+                // --- MAP THÊM 2 CỘT QUẢN LÝ AI PROMPT ---
+                user.setAiPromptsToday(rs.getInt("ai_prompts_today"));
+                user.setLastPromptReset(rs.getTimestamp("last_prompt_reset"));
 
                 // Backwards-compatible DATETIME2 parsing
                 Timestamp expiresTs = rs.getTimestamp("expires_at");
@@ -322,6 +328,10 @@ public class UserDAO {
                         rs.getString("status"));
                 user.setBalance(
                         rs.getInt("balance"));
+                        
+                // --- MAP THÊM 2 CỘT QUẢN LÝ AI PROMPT ---
+                user.setAiPromptsToday(rs.getInt("ai_prompts_today"));
+                user.setLastPromptReset(rs.getTimestamp("last_prompt_reset"));
 
                 return user;
             }
@@ -363,6 +373,23 @@ public class UserDAO {
             DBUtils.closeConnection(conn);
         }
 
+        return false;
+    }
+    
+    // --- HÀM MỚI: DÙNG ĐỂ CẬP NHẬT HOẶC RESET LƯỢT HỎI AI ---
+    public boolean updateAiUsage(int userId, int promptsToday, java.sql.Timestamp lastReset) {
+        String sql = "UPDATE users SET ai_prompts_today = ?, last_prompt_reset = ? WHERE user_id = ?";
+        try (Connection conn = DBUtils.getConnection(); 
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            
+            ps.setInt(1, promptsToday);
+            ps.setTimestamp(2, lastReset);
+            ps.setInt(3, userId);
+            
+            return ps.executeUpdate() > 0;
+        } catch (Exception e) {
+            System.out.println("[UserDAO.updateAiUsage] " + e.getMessage());
+        }
         return false;
     }
 
