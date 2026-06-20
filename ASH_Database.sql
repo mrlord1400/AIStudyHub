@@ -23,15 +23,16 @@ CREATE TABLE subscriptions (
     tier_name NVARCHAR(50) NOT NULL UNIQUE, -- e.g., 'Free', 'Premium'
     max_storage_mb INT NOT NULL,            -- Storage quota
     ai_prompt_limit_per_day INT NOT NULL,   -- Rate limiting for API costs
-    price DECIMAL(10, 2) DEFAULT 0.00
+    price DECIMAL(10, 2) DEFAULT 0.00,
+	total_storage_mb INT NOT NULL DEFAULT 0
 );
 GO
 
-INSERT INTO subscriptions (tier_name, max_storage_mb, ai_prompt_limit_per_day, price) 
+INSERT INTO subscriptions (tier_name, max_storage_mb, ai_prompt_limit_per_day, price,total_storage_mb ) 
 VALUES 
-('Guest', 0, 3, 0.00),     -- Very restricted: 50MB storage, 3 AI prompts
-('Free', 50, 10, 0.00),
-('Premium', 100, 100, 99000);
+('Guest', 0, 3, 0.00, 0),     -- Very restricted: 0MB storage, 3 AI prompts
+('Free', 50, 10, 0.00, 5120),
+('Premium', 100, 100, 99000, 51200);
 GO
 
 -- -----------------------------------------------------
@@ -46,6 +47,8 @@ CREATE TABLE users (
     role NVARCHAR(10) DEFAULT 'STUDENT' CHECK (role IN ('GUEST', 'STUDENT', 'ADMIN')), 
     tier_id INT DEFAULT 1, 
     balance INT DEFAULT 0, 
+	ai_prompts_today INT DEFAULT 0,
+	last_prompt_reset DATETIME DEFAULT GETDATE(),
     status NVARCHAR(10) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'SUSPENDED', 'BANNED')),
     expires_at DATETIME2 NULL,     
     created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
