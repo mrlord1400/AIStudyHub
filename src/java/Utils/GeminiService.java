@@ -12,7 +12,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 public class GeminiService {
-    private static final String API_KEY = "API_KEY"; 
+    private static final String API_KEY = ""; 
     private static final String API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=" + API_KEY;
 
     public String getGeminiResponse(List<ChatMessage> messageHistory) throws Exception {
