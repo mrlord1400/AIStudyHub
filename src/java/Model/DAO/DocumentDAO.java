@@ -473,17 +473,16 @@ public class DocumentDAO {
      * Tìm chính xác trước, nếu không tìm thấy thì fallback sang LIKE.
      *
      * @param userId ID của người dùng sở hữu document
-     * @param title  Tên document mà AI trả về
+     * @param title Tên document mà AI trả về
      * @return Document object nếu tìm thấy, null nếu không
      */
     public Document findByTitleAndUserId(int userId, String title) {
         // Bước 1: Tìm chính xác theo title
         String sql = "SELECT * FROM documents WHERE user_id = ? AND title = ?";
-        try (Connection conn = DBUtils.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, userId);
             ps.setString(2, title);
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return mapRow(rs);
                 }
@@ -494,11 +493,10 @@ public class DocumentDAO {
 
         // Bước 2: Nếu không tìm thấy chính xác, thử tìm gần đúng bằng LIKE
         String sqlLike = "SELECT TOP 1 * FROM documents WHERE user_id = ? AND title LIKE ?";
-        try (Connection conn = DBUtils.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sqlLike)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sqlLike)) {
             ps.setInt(1, userId);
             ps.setString(2, "%" + title + "%");
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return mapRow(rs);
                 }
@@ -508,4 +506,24 @@ public class DocumentDAO {
         }
         return null;
     }
+
+    // ─── NEW: Update ai_parsing_status for a document ──────────────────────────
+    // Called after text extraction to mark document as READY for AI analysis.
+    public boolean updateAiParsingStatus(int documentId, String status) {
+        String sql = "UPDATE documents SET ai_parsing_status = ? WHERE document_id = ?";
+
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, status);
+            ps.setInt(2, documentId);
+
+            return ps.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+            System.err.println("[DocumentDAO] updateAiParsingStatus failed: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return false;
+    }
+    // ──────────────────────────────────────────────────────────────────
 }
