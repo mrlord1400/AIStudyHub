@@ -466,4 +466,46 @@ public class DocumentDAO {
         }
         return false;
     }
+
+    // ─── AI CHATBOT SUPPORT: TÌM DOCUMENT THEO TÊN ─────────────────────────
+    /**
+     * Tìm document theo title và userId. Dùng cho luồng VIEW của AI chatbot.
+     * Tìm chính xác trước, nếu không tìm thấy thì fallback sang LIKE.
+     *
+     * @param userId ID của người dùng sở hữu document
+     * @param title  Tên document mà AI trả về
+     * @return Document object nếu tìm thấy, null nếu không
+     */
+    public Document findByTitleAndUserId(int userId, String title) {
+        // Bước 1: Tìm chính xác theo title
+        String sql = "SELECT * FROM documents WHERE user_id = ? AND title = ?";
+        try (Connection conn = DBUtils.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            ps.setString(2, title);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapRow(rs);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[DocumentDAO] findByTitleAndUserId exact failed: " + e.getMessage());
+        }
+
+        // Bước 2: Nếu không tìm thấy chính xác, thử tìm gần đúng bằng LIKE
+        String sqlLike = "SELECT TOP 1 * FROM documents WHERE user_id = ? AND title LIKE ?";
+        try (Connection conn = DBUtils.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sqlLike)) {
+            ps.setInt(1, userId);
+            ps.setString(2, "%" + title + "%");
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapRow(rs);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[DocumentDAO] findByTitleAndUserId LIKE failed: " + e.getMessage());
+        }
+        return null;
+    }
 }
