@@ -10,8 +10,8 @@ import Model.DTO.User;
 import Model.DTO.Subscription;
 import Model.DTO.Document;
 import Model.Folder;
+import Model.DAO.DocumentTextDAO;
 import Utils.GeminiService;
-
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -35,6 +35,7 @@ public class ChatBotController extends HttpServlet {
     private SubscriptionDAO subscriptionDAO;
     private FolderDAO folderDAO;
     private DocumentDAO documentDAO;
+    private DocumentTextDAO documentTextDAO;
 
     // Giới hạn số lần loop để tránh infinite loop khi AI liên tục trả SEARCH/VIEW
     private static final int MAX_AI_LOOP = 5;
@@ -47,12 +48,13 @@ public class ChatBotController extends HttpServlet {
         subscriptionDAO = new SubscriptionDAO();
         folderDAO = new FolderDAO();
         documentDAO = new DocumentDAO();
+        documentTextDAO = new DocumentTextDAO();
     }
 
     @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response) 
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        
+
         request.setCharacterEncoding("UTF-8");
         response.setContentType("text/plain; charset=UTF-8");
         PrintWriter out = response.getWriter();
@@ -147,7 +149,6 @@ public class ChatBotController extends HttpServlet {
             finalPromptsToday += 1;
             userDAO.updateAiUsage(userId, finalPromptsToday, finalResetTs);
 
-
             // BƯỚC 3: LƯU TIN NHẮN CỦA USER VÀO CƠ SỞ DỮ LIỆU
             boolean isUserMsgSaved = chatMessageDAO.createUserMessage(userMessage, sessionId);
             if (!isUserMsgSaved) {
@@ -224,33 +225,42 @@ public class ChatBotController extends HttpServlet {
                     Document foundDoc = documentDAO.findByTitleAndUserId(userId, docName);
 
                     if (foundDoc == null) {
-                        // Document không tồn tại
-                        systemMessage = "Hệ thống không tìm thấy tài liệu có tên \"" + docName 
+                        // Document not found — unchanged from original
+                        systemMessage = "Hệ thống không tìm thấy tài liệu có tên \"" + docName
                                 + "\" trong kho lưu trữ của sinh viên. "
                                 + "Hãy thông báo cho sinh viên biết và hỏi lại tên chính xác.";
                     } else {
-                        // Document tồn tại → kiểm tra trạng thái AI Parsing
                         String parsingStatus = foundDoc.getAiParsingStatus();
 
                         if (!"READY".equalsIgnoreCase(parsingStatus)) {
-                            // Document chưa được parse xong
-                            systemMessage = "Tài liệu \"" + foundDoc.getTitle() 
+                            // Document not ready — unchanged from original
+                            systemMessage = "Tài liệu \"" + foundDoc.getTitle()
                                     + "\" được tìm thấy nhưng chưa sẵn sàng để phân tích "
                                     + "(trạng thái hiện tại: " + parsingStatus + "). "
                                     + "Hãy thông báo cho sinh viên rằng tài liệu đang được xử lý "
                                     + "và yêu cầu họ thử lại sau.";
                         } else {
-                            // Document đã parsed → gửi metadata cho AI
-                            systemMessage = "Đây là thông tin tài liệu mà sinh viên yêu cầu:\n"
-                                    + "- Tên tài liệu: " + foundDoc.getTitle() + "\n"
-                                    + "- Định dạng file: " + foundDoc.getFileExtension() + "\n"
-                                    + "- Dung lượng: " + foundDoc.getFileSizeMb() + " MB\n"
-                                    + "- Đường dẫn lưu trữ: " + foundDoc.getCloudStorageUrl() + "\n"
-                                    + "- Trạng thái phân tích: " + foundDoc.getAiParsingStatus() + "\n"
-                                    + "Hãy phân tích và trả lời câu hỏi của sinh viên dựa trên thông tin này.";
+                            // ─── CHANGED: Instead of sending metadata, now retrieve and send
+                            // the actual extracted text content from the document_extracted_text table.
+                            // This allows the AI to properly analyze the document content. ──────────
+                            String extractedText = documentTextDAO.getExtractedText(foundDoc.getDocumentId());
+
+                            if (extractedText == null || extractedText.trim().isEmpty()) {
+                                // Extracted text not found in DB even though status is READY
+                                systemMessage = "Tài liệu \"" + foundDoc.getTitle()
+                                        + "\" được tìm thấy nhưng nội dung chưa được trích xuất. "
+                                        + "Hãy thông báo cho sinh viên rằng tài liệu đang được xử lý "
+                                        + "và yêu cầu họ thử lại sau.";
+                            } else {
+                                // Send extracted text to AI for analysis
+                                systemMessage = "Đây là nội dung tài liệu \"" + foundDoc.getTitle()
+                                        + "\" mà sinh viên yêu cầu:\n\n"
+                                        + extractedText
+                                        + "\n\nDựa trên nội dung trên, hãy trả lời câu hỏi của sinh viên.";
+                            }
+                            // ─────────────────────────────────────────────────────────
                         }
                     }
-
                     // 3d. Lưu system message vào DB như USER message
                     chatMessageDAO.createUserMessage(systemMessage, sessionId);
 
@@ -297,15 +307,10 @@ public class ChatBotController extends HttpServlet {
     // ══════════════════════════════════════════════════════════════════════════
     // HELPER: Build cây thư mục dạng string cho luồng SEARCH
     // ══════════════════════════════════════════════════════════════════════════
-
     /**
-     * Xây dựng cấu trúc cây thư mục dạng string.
-     * VD output:
-     *   - Folder Gốc 1
-     *   -- Folder Con A
-     *   --- [Document] BaiGiang.pdf
-     *   -- Folder Con B
-     *   - [Document] TaiLieu_Root.docx
+     * Xây dựng cấu trúc cây thư mục dạng string. VD output: - Folder Gốc 1 --
+     * Folder Con A --- [Document] BaiGiang.pdf -- Folder Con B - [Document]
+     * TaiLieu_Root.docx
      */
     private String buildFolderTree(List<Folder> allFolders, List<Document> allDocuments) {
         StringBuilder tree = new StringBuilder();
@@ -341,14 +346,14 @@ public class ChatBotController extends HttpServlet {
     /**
      * Đệ quy build cây thư mục. Mỗi cấp tăng thêm 1 dấu "-".
      *
-     * @param tree         StringBuilder đang xây dựng
+     * @param tree StringBuilder đang xây dựng
      * @param currentFolder Folder hiện tại đang xử lý
-     * @param allFolders   Danh sách tất cả folders của user
+     * @param allFolders Danh sách tất cả folders của user
      * @param allDocuments Danh sách tất cả documents của user
-     * @param depth        Cấp độ hiện tại (1 = gốc)
+     * @param depth Cấp độ hiện tại (1 = gốc)
      */
     private void buildFolderTreeRecursive(StringBuilder tree, Folder currentFolder,
-                                           List<Folder> allFolders, List<Document> allDocuments, int depth) {
+            List<Folder> allFolders, List<Document> allDocuments, int depth) {
         // Tạo prefix dấu "-" theo cấp độ
         StringBuilder prefix = new StringBuilder();
         for (int i = 0; i < depth; i++) {
@@ -375,8 +380,8 @@ public class ChatBotController extends HttpServlet {
     }
 
     @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) 
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         response.sendRedirect(request.getContextPath() + "/SessionController?action=chatMain");
     }
-}
+}

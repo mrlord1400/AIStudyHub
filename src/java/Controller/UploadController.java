@@ -10,10 +10,22 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import javax.servlet.http.Part;
-
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
+// ─── NEW IMPORTS: Added for document text extraction ───────────────────────
+import Model.DAO.DocumentTextDAO;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xslf.usermodel.XMLSlideShow;
+import org.apache.poi.xslf.usermodel.XSLFShape;
+import org.apache.poi.xslf.usermodel.XSLFSlide;
+import org.apache.poi.xslf.usermodel.XSLFTextShape;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
+import java.io.FileInputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 /**
  * UploadController — Servlet xử lý luồng tải lên tài liệu 3 bước: * POST
@@ -162,6 +174,29 @@ public class UploadController extends HttpServlet {
                 return;
             }
 
+            // ─── NEW: Extract text from the uploaded file and save to DB ───────────────
+            // This enables the AI chatbot VIEW flow to retrieve actual document content
+            // instead of just metadata. Runs asynchronously so upload speed is unaffected.
+            try {
+                String extractedText = extractTextFromFile(savedFilePath, fileExtension);
+                if (extractedText != null && !extractedText.trim().isEmpty()) {
+                    DocumentTextDAO documentTextDAO = new DocumentTextDAO();
+                    boolean textSaved = documentTextDAO.saveExtractedText(newDocumentId, extractedText);
+                    if (textSaved) {
+                        // Update ai_parsing_status to READY since text was extracted successfully
+                        DocumentDAO daoForStatus = new DocumentDAO();
+                        daoForStatus.updateAiParsingStatus(newDocumentId, "READY");
+                    } else {
+                        System.err.println("[UploadController] Warning: text extracted but failed to save to DB for docId: " + newDocumentId);
+                    }
+                } else {
+                    System.err.println("[UploadController] Warning: no text extracted from file: " + savedFilePath);
+                }
+            } catch (Exception e) {
+                // Non-fatal: log the error but don't stop the upload flow
+                System.err.println("[UploadController] Text extraction failed for docId " + newDocumentId + ": " + e.getMessage());
+            }
+            // ──────────────────────────────────────────────────────────────────
             // Lưu thông tin tạm vào Session để quản lý luồng Xác nhận/Hủy ở Bước 2 & 3
             HttpSession session = request.getSession();
             session.setAttribute("pendingDocumentId", newDocumentId);
@@ -227,7 +262,7 @@ public class UploadController extends HttpServlet {
 
         // Thêm đoạn này để lấy extension từ Session
         String fileExt = (String) session.getAttribute("pendingFileExtension");
-        
+
         // Cập nhật lời gọi hàm
         String pendingFilePath = (String) session.getAttribute("pendingDocumentPath");
         String newCloudUrl = renameToFinalName(pendingFilePath, userId, newTitle, fileExt, request);
@@ -292,6 +327,23 @@ public class UploadController extends HttpServlet {
 
             // 4. Xóa bản ghi TẠM (pending) trong DB — file vật lý đã rename rồi
             dao.deleteDocument(pendingDocId);
+            // ─── NEW: Re-extract text from the new file and update the extracted text
+            // in DB for the replaced document, since the file content has changed. ───────
+            try {
+                String newExtractedText = extractTextFromFile(pendingFilePath, pendingDoc.getFileExtension());
+                if (newExtractedText != null && !newExtractedText.trim().isEmpty()) {
+                    DocumentTextDAO documentTextDAO = new DocumentTextDAO();
+                    // Delete old extracted text first, then save new one
+                    documentTextDAO.deleteExtractedText(duplicateDocId);
+                    documentTextDAO.saveExtractedText(duplicateDocId, newExtractedText);
+                    // Mark document as READY
+                    dao.updateAiParsingStatus(duplicateDocId, "READY");
+                }
+            } catch (Exception e) {
+                System.err.println("[UploadController] Re-extraction failed on replace for docId "
+                        + duplicateDocId + ": " + e.getMessage());
+            }
+            // ──────────────────────────────────────────────────────────────────
         }
 
         clearPendingSession(session);
@@ -324,7 +376,7 @@ public class UploadController extends HttpServlet {
         }
 
         DocumentDAO dao = new DocumentDAO();
-        
+
         // Lấy extension từ Session
         String fileExt = (String) session.getAttribute("pendingFileExtension");
 
@@ -507,4 +559,62 @@ public class UploadController extends HttpServlet {
         } while (dao.titleExistsAtLocation(userId, candidate, folderId, excludeDocId));
         return candidate;
     }
+
+    // ─── NEW METHOD: Extracts text content from uploaded files ─────────────────
+    // Supports: PDF (PDFBox), DOCX/PPTX (Apache POI), TXT/MD (plain Java)
+    // Returns null if the file type is unsupported or extraction fails.
+    private String extractTextFromFile(String filePath, String fileExtension) {
+        try {
+            switch (fileExtension.toLowerCase()) {
+
+                case "pdf": {
+                    // PDF extraction using Apache PDFBox
+                    try ( PDDocument document = Loader.loadPDF(new File(filePath))) {
+                        PDFTextStripper stripper = new PDFTextStripper();
+                        return stripper.getText(document);
+                    }
+                }
+
+                case "docx": {
+                    // DOCX extraction using Apache POI
+                    try ( FileInputStream fis = new FileInputStream(filePath);  XWPFDocument docx = new XWPFDocument(fis)) {
+                        StringBuilder sb = new StringBuilder();
+                        docx.getParagraphs().forEach(p -> sb.append(p.getText()).append("\n"));
+                        return sb.toString();
+                    }
+                }
+
+                case "pptx": {
+                    // PPTX extraction using Apache POI
+                    try ( FileInputStream fis = new FileInputStream(filePath);  XMLSlideShow pptx = new XMLSlideShow(fis)) {
+                        StringBuilder sb = new StringBuilder();
+                        for (XSLFSlide slide : pptx.getSlides()) {
+                            for (XSLFShape shape : slide.getShapes()) {
+                                if (shape instanceof XSLFTextShape) {
+                                    sb.append(((XSLFTextShape) shape).getText()).append("\n");
+                                }
+                            }
+                        }
+                        return sb.toString();
+                    }
+                }
+
+                case "txt":
+                case "md": {
+                    // Plain text and Markdown — no library needed, just read the file
+                    return new String(Files.readAllBytes(Paths.get(filePath)), "UTF-8");
+                }
+
+                default:
+                    // Unsupported file type (images, java, jsp, html, xlsx, etc.)
+                    System.out.println("[UploadController] Unsupported file type for text extraction: " + fileExtension);
+                    return null;
+            }
+
+        } catch (Exception e) {
+            System.err.println("[UploadController] extractTextFromFile error for " + filePath + ": " + e.getMessage());
+            return null;
+        }
+    }
+    // ───────────────────────────────────────────────────────────
 }
