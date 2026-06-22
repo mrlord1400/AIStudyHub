@@ -45,7 +45,7 @@ CREATE TABLE users (
     email NVARCHAR(100) UNIQUE NULL,
     password_hash NVARCHAR(255) NULL,   
     role NVARCHAR(10) DEFAULT 'STUDENT' CHECK (role IN ('GUEST', 'STUDENT', 'ADMIN')), 
-    tier_id INT DEFAULT 1, 
+    tier_id INT DEFAULT 2, 
     balance INT DEFAULT 0, 
 	ai_prompts_today INT DEFAULT 0,
 	last_prompt_reset DATETIME DEFAULT GETDATE(),
@@ -156,6 +156,7 @@ CREATE TABLE chat_messages (
     session_id INT NOT NULL,
     sender NVARCHAR(10) NOT NULL CHECK (sender IN ('USER', 'BOT')),
     message_content NVARCHAR(MAX) NOT NULL,
+	display BIT DEFAULT 1,   
     created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (session_id) REFERENCES chat_sessions(session_id) ON DELETE CASCADE
 );

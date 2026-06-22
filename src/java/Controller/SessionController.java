@@ -115,7 +115,7 @@ public class SessionController extends HttpServlet {
 
             List<ChatSession> chatHistory = dao.getAllSessionsByUserId(userId);
             ChatMessageDAO messageDao = new ChatMessageDAO();
-            List<ChatMessage> messageList = messageDao.getAllMessageFromSession(sessionId);
+            List<ChatMessage> messageList = messageDao.getAllDisplayableMessage(sessionId);
 
             // Đưa danh sách tin nhắn vào request để JSP hiển thị
             request.setAttribute("messageList", messageList);
