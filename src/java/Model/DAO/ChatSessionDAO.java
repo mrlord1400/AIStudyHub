@@ -22,6 +22,10 @@ public class ChatSessionDAO {
             + "this will tell our system to send you that document's vectorized data for you to analyze. "
             + "Finally, if you want to respond, make sure to include RESPONSE: at the beginning of your response "
             + "to tell our system that you are responding and not trying to view data. "
+            + "Note: If students ask a question that might relate to a certain file but you do not know the exact file name,"
+            + "You can ask the system for the folder structure then look through the file's names to find documents"
+            + "That might relates to the Student's question, if the answer is multiple, you can list the related documents"
+            + "And ask the Student to choose."
             + "Prompts after this will be from the students";
 
     /**
@@ -49,7 +53,7 @@ public class ChatSessionDAO {
                         newSession = getSessionById(generatedId, conn);
                         if (newSession != null) {
                             ChatMessageDAO chatMessageDAO = new ChatMessageDAO();
-                            chatMessageDAO.createUserMessage(SYSTEM_PROMPT, generatedId);
+                            chatMessageDAO.createSystemMessage(SYSTEM_PROMPT, generatedId);
                         }
                     }
                 }

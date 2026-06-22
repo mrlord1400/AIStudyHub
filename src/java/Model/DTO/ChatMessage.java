@@ -7,6 +7,7 @@ public class ChatMessage {
     private int sessionId;
     private String sender;          // Giữ giá trị 'USER' hoặc 'BOT'
     private String messageContent;
+    private boolean display;
     private Timestamp createdAt;    
 
     // 1. Constructor mặc định (Cần thiết khi sử dụng các framework hoặc DAO)
@@ -19,9 +20,17 @@ public class ChatMessage {
         this.sender = sender;
         this.messageContent = messageContent;
     }
+    
+    // 2.5. Constructor for inserting system or AI message not meant to be displayed
+    public ChatMessage(int sessionId, String sender, String messageContent, boolean display) {
+        this.sessionId = sessionId;
+        this.sender = sender;
+        this.messageContent = messageContent;
+        this.display = display;
+    }
 
     // 3. Constructor đầy đủ dùng để SELECT dữ liệu từ DB lên
-    public ChatMessage(int messageId, int sessionId, String sender, String messageContent, Timestamp createdAt) {
+    public ChatMessage(int messageId, int sessionId, String sender, String messageContent, boolean display, Timestamp createdAt) {
         this.messageId = messageId;
         this.sessionId = sessionId;
         this.sender = sender;
@@ -61,6 +70,14 @@ public class ChatMessage {
 
     public void setMessageContent(String messageContent) {
         this.messageContent = messageContent;
+    }
+
+    public boolean isDisplay() {
+        return display;
+    }
+
+    public void setDisplay(boolean display) {
+        this.display = display;
     }
 
     public Timestamp getCreatedAt() {

@@ -184,7 +184,7 @@ public class ChatBotController extends HttpServlet {
                     // ══════════════════════════════════════════════════════════
 
                     // 2a. Lưu response "SEARCH" của AI vào DB như BOT message
-                    chatMessageDAO.createBotMessage(trimmedResponse, sessionId);
+                    chatMessageDAO.createNonDisplayBotMessage(trimmedResponse, sessionId);
 
                     // 2b. Lấy tất cả folders và documents của user
                     List<Folder> allFolders = folderDAO.getAllFoldersByUserId(userId);
@@ -197,7 +197,7 @@ public class ChatBotController extends HttpServlet {
                     String treeMessage = "Đây là cấu trúc cây tài liệu của sinh viên:\n" + folderTree;
 
                     // 2e. Lưu tree data vào DB như USER message (hệ thống gửi thay user)
-                    chatMessageDAO.createUserMessage(treeMessage, sessionId);
+                    chatMessageDAO.createSystemMessage(treeMessage, sessionId);
 
                     // 2f. Reload lịch sử và gọi Gemini lần tiếp theo
                     chatHistory = chatMessageDAO.getAllMessageFromSession(sessionId);
@@ -210,7 +210,7 @@ public class ChatBotController extends HttpServlet {
                     // ══════════════════════════════════════════════════════════
 
                     // 3a. Lưu response "VIEW/..." của AI vào DB như BOT message
-                    chatMessageDAO.createBotMessage(trimmedResponse, sessionId);
+                    chatMessageDAO.createNonDisplayBotMessage(trimmedResponse, sessionId);
 
                     // 3b. Extract tên document từ response
                     String docName;
@@ -262,7 +262,7 @@ public class ChatBotController extends HttpServlet {
                         }
                     }
                     // 3d. Lưu system message vào DB như USER message
-                    chatMessageDAO.createUserMessage(systemMessage, sessionId);
+                    chatMessageDAO.createSystemMessage(systemMessage, sessionId);
 
                     // 3e. Reload lịch sử và gọi Gemini lần tiếp theo
                     chatHistory = chatMessageDAO.getAllMessageFromSession(sessionId);

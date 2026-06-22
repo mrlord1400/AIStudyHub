@@ -48,12 +48,77 @@ public class ChatMessageDAO {
             return false;
         }
     }
+    
+        // Hàm 1: Lưu tin nhắn của người dùng
+    public boolean createSystemMessage(String systemMessage, int sessionId) {
+        String sql = "INSERT INTO chat_messages (session_id, sender, message_content, display) VALUES (?, 'USER', ?, 0)";
+        
+        try (Connection conn = DBUtils.getConnection(); // Thay bằng class lấy connection của bạn
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            
+            ps.setInt(1, sessionId);
+            ps.setString(2, systemMessage);
+            
+            int rowsAffected = ps.executeUpdate();
+            return rowsAffected > 0;
+            
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+        public boolean createNonDisplayBotMessage(String botMessage, int sessionId) {
+        String sql = "INSERT INTO chat_messages (session_id, sender, message_content, display) VALUES (?, 'BOT', ?, 0)";
+        
+        try (Connection conn = DBUtils.getConnection(); // Thay bằng class lấy connection của bạn
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            
+            ps.setInt(1, sessionId);
+            ps.setString(2, botMessage);
+            
+            int rowsAffected = ps.executeUpdate();
+            return rowsAffected > 0;
+            
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 
     // Hàm 3: Lấy toàn bộ lịch sử trò chuyện của một Session (Sắp xếp từ cũ tới mới)
     public List<ChatMessage> getAllMessageFromSession(int sessionId) {
         List<ChatMessage> list = new ArrayList<>();
         // Quan trọng: Phải ORDER BY message_id ASC để AI đọc đúng luồng thời gian
         String sql = "SELECT * FROM chat_messages WHERE session_id = ? ORDER BY message_id ASC";
+        
+        try (Connection conn = DBUtils.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            
+            ps.setInt(1, sessionId);
+            
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ChatMessage msg = new ChatMessage();
+                    msg.setMessageId(rs.getInt("message_id"));
+                    msg.setSessionId(rs.getInt("session_id"));
+                    msg.setSender(rs.getString("sender"));
+                    msg.setMessageContent(rs.getString("message_content"));
+                    msg.setCreatedAt(rs.getTimestamp("created_at"));
+                    
+                    list.add(msg);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+    
+        public List<ChatMessage> getAllDisplayableMessage(int sessionId) {
+        List<ChatMessage> list = new ArrayList<>();
+        // Quan trọng: Phải ORDER BY message_id ASC để AI đọc đúng luồng thời gian
+        String sql = "SELECT * FROM chat_messages WHERE session_id = ? AND display = 1 ORDER BY message_id ASC";
         
         try (Connection conn = DBUtils.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
