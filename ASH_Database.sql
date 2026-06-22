@@ -178,3 +178,12 @@ CREATE TABLE transactions (
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 GO
+
+CREATE TABLE document_extracted_text (
+    extraction_id  INT IDENTITY(1,1) PRIMARY KEY,
+    document_id    INT NOT NULL UNIQUE,
+    extracted_text NVARCHAR(MAX) NOT NULL,
+    created_at     DATETIME2 DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (document_id) REFERENCES documents(document_id) ON DELETE CASCADE
+);
+GO
