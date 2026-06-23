@@ -3,7 +3,7 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="Model.DTO.Document" %>
 <%@ page import="Model.DAO.DocumentDAO" %>
-<%@ page import="Model.Folder" %>
+<%@ page import="Model.DTO.Folder" %>
 <%@ page import="Model.DAO.FolderDAO" %>
 <%@ page import="Model.DTO.Subscription" %>
 <%@ page import="Model.DAO.SubscriptionDAO" %>

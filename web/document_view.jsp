@@ -1,9 +1,9 @@
-<%@page import="Model.User"%>
-<%@page import="Model.UserDAO"%>
+<%@page import="Model.DTO.User"%>
+<%@page import="Model.DAO.UserDAO"%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-<%@ page import="Model.Document" %>
-<%@ page import="Model.Folder" %>
-<%@ page import="Model.FolderDAO" %>
+<%@ page import="Model.DTO.Document" %>
+<%@ page import="Model.DTO.Folder" %>
+<%@ page import="Model.DAO.FolderDAO" %>
 <%@ page import="java.util.List" %>
 <%@ page import="java.time.format.DateTimeFormatter" %>
 <%!
