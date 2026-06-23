@@ -2,7 +2,7 @@
 <%@page import="Model.DAO.UserDAO"%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="Model.DTO.Document" %>
-<%@ page import="Model.Folder" %>
+<%@ page import="Model.DTO.Folder" %>
 <%@ page import="Model.DAO.FolderDAO" %>
 <%@ page import="java.util.List" %>
 <%!

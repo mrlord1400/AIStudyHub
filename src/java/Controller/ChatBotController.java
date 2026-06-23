@@ -9,7 +9,7 @@ import Model.DTO.ChatMessage;
 import Model.DTO.User;
 import Model.DTO.Subscription;
 import Model.DTO.Document;
-import Model.Folder;
+import Model.DTO.Folder;
 import Model.DAO.DocumentTextDAO;
 import Utils.GeminiService;
 import javax.servlet.ServletException;

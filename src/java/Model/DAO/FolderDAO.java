@@ -1,7 +1,7 @@
 package Model.DAO;
 
 import Model.DTO.Document;
-import Model.Folder;
+import Model.DTO.Folder;
 import Utils.DBUtils;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
