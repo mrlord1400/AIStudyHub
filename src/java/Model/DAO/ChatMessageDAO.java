@@ -1,15 +1,52 @@
 package DAO;
 
+import Model.DAO.DocumentDAO;
+import Model.DAO.FolderDAO;
 import Model.DTO.ChatMessage;
 import Utils.DBUtils;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ChatMessageDAO {
+    
+    public String createInitMessage(int userID){
+        LocalDateTime currentDateTime = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        String today = currentDateTime.format(formatter);
+        FolderDAO fDao = new FolderDAO();
+        DocumentDAO dDao = new DocumentDAO();
+        String folderTree = fDao.buildFolderTree(fDao.getAllFoldersByUserId(userID), dDao.getDocumentsByUserId(userID));
+        String context = "You are a student's virtual personal assistant.\n"
+            + "\n"
+            + "These are the current data that you need to know:\n"
+            + "\n"
+            + "Today's Date:" + today
+            + "\n"
+            + "The Student's Folder Tree and its created date: " + folderTree
+            + "\n"
+            + "Based on these informations, Do the following:\n"
+            + "- With every response that isn't a command, make sure to include RESPONSE: at the beginning of your response\n"
+            + "- Answer the Students queries\n"
+            + "- Help Student locate folders or documents location\n"
+            + "- Help Student Analyze or summarize the document's content\n"
+            + "\n"
+            + "If you are missing any Information, use the command list below\n"
+            + "NOTE: If you want to use a command, only type the command and nothing else, make sure to not type the commands description\n"
+            + "\n"
+            + "Command List (command - description):\n"
+            + "- SEARCH - to see the folder tree again\n"
+            + "- VIEW/[insert document name] - to see one specific document's content\n"
+            + "- TODAY - to see current time and date\n"
+            + "\n"
+            + "Prompts after this will be from the students";
+        return context;
+    }
 
     // Hàm 1: Lưu tin nhắn của người dùng
     public boolean createUserMessage(String userMessage, int sessionId) {
@@ -30,7 +67,7 @@ public class ChatMessageDAO {
         }
     }
 
-    // Hàm 2: Lưu câu trả lời của AI (Bot)
+    // Hàm 3: Lưu câu trả lời của AI không display
     public boolean createBotMessage(String botMessage, int sessionId) {
         String sql = "INSERT INTO chat_messages (session_id, sender, message_content) VALUES (?, 'BOT', ?)";
         
@@ -49,7 +86,7 @@ public class ChatMessageDAO {
         }
     }
     
-        // Hàm 1: Lưu tin nhắn của người dùng
+        // Hàm 4: Lưu tin nhắn của System
     public boolean createSystemMessage(String systemMessage, int sessionId) {
         String sql = "INSERT INTO chat_messages (session_id, sender, message_content, display) VALUES (?, 'USER', ?, 0)";
         

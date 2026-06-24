@@ -23,6 +23,7 @@ import java.io.PrintWriter;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -161,7 +162,7 @@ public class ChatBotController extends HttpServlet {
             // BƯỚC 5: GỬI LỊCH SỬ LÊN GEMINI API ĐỂ LẤY CÂU TRẢ LỜI
             String aiResponse = geminiService.getGeminiResponse(chatHistory);
 
-            // BƯỚC 5.5: VÒNG LẶP XỬ LÝ AI RESPONSE (SEARCH / VIEW / RESPONSE)
+            // BƯỚC 5.5: VÒNG LẶP XỬ LÝ AI RESPONSE (SEARCH / VIEW / RESPONSE/ TODAY)
             // AI có thể trả về SEARCH hoặc VIEW, cần xử lý rồi gọi lại Gemini
             // Loop tối đa MAX_AI_LOOP lần để tránh infinite loop
             int loopCount = 0;
@@ -191,10 +192,10 @@ public class ChatBotController extends HttpServlet {
                     List<Document> allDocuments = documentDAO.getDocumentsByUserId(userId);
 
                     // 2c. Build cây thư mục dạng string
-                    String folderTree = buildFolderTree(allFolders, allDocuments);
+                    String folderTree = folderDAO.buildFolderTree(allFolders, allDocuments);
 
                     // 2d. Tạo nội dung gửi lại cho AI
-                    String treeMessage = "Đây là cấu trúc cây tài liệu của sinh viên:\n" + folderTree;
+                    String treeMessage = "Đây là cấu trúc cây tài liệu hiện tại của sinh viên:\n" + folderTree;
 
                     // 2e. Lưu tree data vào DB như USER message (hệ thống gửi thay user)
                     chatMessageDAO.createSystemMessage(treeMessage, sessionId);
@@ -269,6 +270,17 @@ public class ChatBotController extends HttpServlet {
                     aiResponse = geminiService.getGeminiResponse(chatHistory);
                     // Quay lại đầu while loop để kiểm tra response mới
 
+                } else if (trimmedResponse.toUpperCase().startsWith("TODAY")){
+                    chatMessageDAO.createNonDisplayBotMessage(trimmedResponse, sessionId);
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                    String today = now.format(formatter);
+                    String timeMessage = "Đây là thời gian của hiện tại:\n" + today;
+
+                    chatMessageDAO.createSystemMessage(timeMessage, sessionId);
+
+                    // 2f. Reload lịch sử và gọi Gemini lần tiếp theo
+                    chatHistory = chatMessageDAO.getAllMessageFromSession(sessionId);
+                    aiResponse = geminiService.getGeminiResponse(chatHistory);
                 } else {
                     // ══════════════════════════════════════════════════════════
                     // CASE 4: AI không theo format → thông báo lỗi
