@@ -171,9 +171,9 @@
                             </td>
                             <td class="px-6 py-4">
                                 <% if ("DEPOSIT".equalsIgnoreCase(t.getType())) { %>
-                                    <span class="font-bold text-emerald-600 dark:text-emerald-400">+<%= String.format("%,.0f", t.getAmount()) %></span>
+                                    <span class="font-bold text-emerald-600 dark:text-emerald-400">+<%= String.format("%,.0f", Math.abs(t.getAmount())) %></span>
                                 <% } else { %>
-                                    <span class="font-bold text-rose-600 dark:text-rose-400">-<%= String.format("%,.0f", t.getAmount()) %></span>
+                                    <span class="font-bold text-rose-600 dark:text-rose-400">-<%= String.format("%,.0f", Math.abs(t.getAmount())) %></span>
                                 <% } %>
                             </td>
                             <td class="px-6 py-4">
