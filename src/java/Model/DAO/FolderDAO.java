@@ -306,4 +306,93 @@ public class FolderDAO {
         }
         return null;
     }
+    
+   public String buildFolderTree(List<Folder> allFolders, List<Document> allDocuments) {
+        StringBuilder tree = new StringBuilder();
+        
+        // Khởi tạo Formatter để format ngày giờ
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");
+
+        // 1. Tìm tất cả folders gốc (parent_folder_id == null)
+        List<Folder> rootFolders = new ArrayList<>();
+        for (Folder f : allFolders) {
+            if (f.getParentFolderId() == null) {
+                rootFolders.add(f);
+            }
+        }
+
+        // 2. Đệ quy build cây cho từng folder gốc
+        for (Folder rootFolder : rootFolders) {
+            buildFolderTreeRecursive(tree, rootFolder, allFolders, allDocuments, 1, formatter);
+        }
+
+        // 3. Thêm documents ở root (folder_id == null) — không thuộc folder nào
+        for (Document doc : allDocuments) {
+            if (doc.getFolderId() == null) {
+                // Lấy chuỗi ngày giờ của Document (nếu có)
+                String dateStr = (doc.getCreatedAt() != null) 
+                        ? " (" + doc.getCreatedAt().format(formatter) + ")" 
+                        : "";
+                        
+                tree.append("- [Document] ").append(doc.getTitle()).append(dateStr).append("\n");
+            }
+        }
+
+        // Nếu user chưa có gì
+        if (tree.length() == 0) {
+            tree.append("(Trống — Sinh viên chưa có thư mục hoặc tài liệu nào)");
+        }
+
+        return tree.toString().trim();
+    }
+
+    /**
+     * Đệ quy build cây thư mục. Mỗi cấp tăng thêm 1 dấu "-".
+     *
+     * @param tree StringBuilder đang xây dựng
+     * @param currentFolder Folder hiện tại đang xử lý
+     * @param allFolders Danh sách tất cả folders của user
+     * @param allDocuments Danh sách tất cả documents của user
+     * @param depth Cấp độ hiện tại (1 = gốc)
+     * @param formatter Bộ định dạng ngày giờ để tối ưu tái sử dụng
+     */
+    private void buildFolderTreeRecursive(StringBuilder tree, Folder currentFolder,
+            List<Folder> allFolders, List<Document> allDocuments, int depth, java.time.format.DateTimeFormatter formatter) {
+        
+        // Tạo prefix dấu "-" theo cấp độ
+        StringBuilder prefix = new StringBuilder();
+        for (int i = 0; i < depth; i++) {
+            prefix.append("-");
+        }
+        String depthPrefix = prefix.toString();
+
+        // Lấy chuỗi ngày giờ của Folder hiện tại
+        String folderDateStr = (currentFolder.getCreatedAt() != null) 
+                ? " (" + currentFolder.getCreatedAt().format(formatter) + ")" 
+                : "";
+
+        // Thêm folder hiện tại vào cây (Kèm ngày giờ)
+        tree.append(depthPrefix).append(" ").append(currentFolder.getFolderName()).append(folderDateStr).append("\n");
+
+        // Tìm documents thuộc folder này
+        for (Document doc : allDocuments) {
+            if (doc.getFolderId() != null && doc.getFolderId() == currentFolder.getFolderId()) {
+                
+                // Lấy chuỗi ngày giờ của Document
+                String docDateStr = (doc.getCreatedAt() != null) 
+                        ? " (" + doc.getCreatedAt().format(formatter) + ")" 
+                        : "";
+                        
+                // Document nằm trong folder nên cần thụt lề thêm 1 cấp (depthPrefix + "-")
+                tree.append(depthPrefix).append("- [Document] ").append(doc.getTitle()).append(docDateStr).append("\n");
+            }
+        }
+
+        // Tìm folders con và đệ quy
+        for (Folder child : allFolders) {
+            if (child.getParentFolderId() != null && child.getParentFolderId() == currentFolder.getFolderId()) {
+                buildFolderTreeRecursive(tree, child, allFolders, allDocuments, depth + 1, formatter);
+            }
+        }
+    }
 }

@@ -10,24 +10,6 @@ import java.util.List;
 
 public class ChatSessionDAO {
 
-    private static final String SYSTEM_PROMPT
-            = "You are a student's personal assistant, your mission is to answer students queries, "
-            + "help the student find where their missing documents or folders are, find the right folder "
-            + "for the student to place their documents into and analyze the student's document to summarize "
-            + "or to answer questions relating to that specific documents. "
-            + "To help with this, whenever the student ask a question relating to location of folders and document, "
-            + "you must respond with only one word SEARCH, this helps our system to know that you want to know "
-            + "the student's folders and our system will send you the folder tree data, "
-            + "if the student asks a question relating to documents content, you must respond with only VIEW/[insert Document Name], "
-            + "this will tell our system to send you that document's vectorized data for you to analyze. "
-            + "Finally, if you want to respond, make sure to include RESPONSE: at the beginning of your response "
-            + "to tell our system that you are responding and not trying to view data. "
-            + "Note: If students ask a question that might relate to a certain file but you do not know the exact file name,"
-            + "You can ask the system for the folder structure then look through the file's names to find documents"
-            + "That might relates to the Student's question, if the answer is multiple, you can list the related documents"
-            + "And ask the Student to choose."
-            + "Prompts after this will be from the students";
-
     /**
      * Tạo 1 session mới, lưu vào database và trả về object ChatSession vừa tạo
      */
@@ -53,7 +35,7 @@ public class ChatSessionDAO {
                         newSession = getSessionById(generatedId, conn);
                         if (newSession != null) {
                             ChatMessageDAO chatMessageDAO = new ChatMessageDAO();
-                            chatMessageDAO.createSystemMessage(SYSTEM_PROMPT, generatedId);
+                            chatMessageDAO.createSystemMessage(chatMessageDAO.createInitMessage(userId), generatedId);
                         }
                     }
                 }
