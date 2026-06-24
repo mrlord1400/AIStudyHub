@@ -13,14 +13,19 @@ import java.util.List;
 public class TransactionDAO {
 
     /**
-     * Tạo giao dịch mới — status mặc định là PENDING.
-     * started_at do DB tự set (DEFAULT GETDATE()).
+     * Tạo giao dịch mới — status mặc định là PENDING. started_at do DB tự set
+     * (DEFAULT GETDATE()).
+     */
+    /**
+     * Tạo giao dịch mới. Lấy status từ object truyền vào, nếu không có sẽ mặc
+     * định là PENDING. started_at do DB tự set (DEFAULT GETDATE()).
      */
     public boolean createTransaction(Transaction t) {
 
-        String sql =
-                "INSERT INTO transactions(user_id, amount, type, status) " +
-                        "VALUES(?, ?, ?, 'PENDING')";
+        // FIX: Đổi 'PENDING' thành dấu chấm hỏi (?) để truyền giá trị động
+        String sql
+                = "INSERT INTO transactions(user_id, amount, type, status) "
+                + "VALUES(?, ?, ?, ?)";
 
         Connection conn = null;
 
@@ -33,6 +38,14 @@ public class TransactionDAO {
             ps.setDouble(2, t.getAmount());
             ps.setString(3, t.getType());
 
+            // FIX: Kiểm tra status từ Controller truyền xuống.
+            // Nếu có (như lúc mua Premium truyền "SUCCESS") thì dùng luôn. 
+            // Nếu null hoặc rỗng thì gán mặc định là "PENDING".
+            String status = (t.getStatus() != null && !t.getStatus().trim().isEmpty())
+                    ? t.getStatus()
+                    : "PENDING";
+            ps.setString(4, status);
+
             return ps.executeUpdate() > 0;
 
         } catch (SQLException e) {
@@ -44,17 +57,14 @@ public class TransactionDAO {
         return false;
     }
 
-    /**
-     * Lấy danh sách giao dịch của 1 user (sắp xếp mới nhất lên đầu).
-     */
     public List<Transaction> getTransactionsByUserId(int userId) {
 
         List<Transaction> list = new ArrayList<>();
 
-        String sql =
-                "SELECT * FROM transactions " +
-                        "WHERE user_id = ? " +
-                        "ORDER BY started_at DESC";
+        String sql
+                = "SELECT * FROM transactions "
+                + "WHERE user_id = ? "
+                + "ORDER BY started_at DESC";
 
         Connection conn = null;
 
@@ -80,18 +90,17 @@ public class TransactionDAO {
     }
 
     /**
-     * Lấy TẤT CẢ giao dịch (cho Admin).
-     * JOIN với bảng users để lấy username.
+     * Lấy TẤT CẢ giao dịch (cho Admin). JOIN với bảng users để lấy username.
      */
     public List<Transaction> getAllTransactions() {
 
         List<Transaction> list = new ArrayList<>();
 
-        String sql =
-                "SELECT t.*, u.username " +
-                        "FROM transactions t " +
-                        "JOIN users u ON t.user_id = u.user_id " +
-                        "ORDER BY t.started_at DESC";
+        String sql
+                = "SELECT t.*, u.username "
+                + "FROM transactions t "
+                + "JOIN users u ON t.user_id = u.user_id "
+                + "ORDER BY t.started_at DESC";
 
         Connection conn = null;
 
@@ -147,19 +156,19 @@ public class TransactionDAO {
     }
 
     /**
-     * Admin cập nhật trạng thái giao dịch.
-     * Nếu status = SUCCESS hoặc CANCELLED thì set completed_at = GETDATE().
+     * Admin cập nhật trạng thái giao dịch. Nếu status = SUCCESS hoặc CANCELLED
+     * thì set completed_at = GETDATE().
      */
     public boolean updateTransactionStatus(int transactionId, String newStatus) {
 
         String sql;
 
         if ("SUCCESS".equals(newStatus) || "CANCELLED".equals(newStatus)) {
-            sql = "UPDATE transactions SET status = ?, completed_at = GETDATE() " +
-                    "WHERE transaction_id = ?";
+            sql = "UPDATE transactions SET status = ?, completed_at = GETDATE() "
+                    + "WHERE transaction_id = ?";
         } else {
-            sql = "UPDATE transactions SET status = ? " +
-                    "WHERE transaction_id = ?";
+            sql = "UPDATE transactions SET status = ? "
+                    + "WHERE transaction_id = ?";
         }
 
         Connection conn = null;
@@ -196,10 +205,14 @@ public class TransactionDAO {
         t.setStatus(rs.getString("status"));
 
         Timestamp startedTs = rs.getTimestamp("started_at");
-        if (startedTs != null) t.setStartedAt(startedTs.toLocalDateTime());
+        if (startedTs != null) {
+            t.setStartedAt(startedTs.toLocalDateTime());
+        }
 
         Timestamp completedTs = rs.getTimestamp("completed_at");
-        if (completedTs != null) t.setCompletedAt(completedTs.toLocalDateTime());
+        if (completedTs != null) {
+            t.setCompletedAt(completedTs.toLocalDateTime());
+        }
 
         return t;
     }
