@@ -454,7 +454,7 @@
                                         <% }%>
                                     </td>
                                     <td class="p-4 font-bold text-base">
-                                        <%= isDeposit ? "+" : "-"%> <%= String.format("%,d", (int) t.getAmount())%> Coin
+                                        <%= isDeposit ? "+" : "-"%> <%= String.format("%,d", (int) Math.abs(t.getAmount()))%> Coin
                                     </td>
                                     <td class="p-4">
                                         <% if ("SUCCESS".equalsIgnoreCase(t.getStatus())) { %>
