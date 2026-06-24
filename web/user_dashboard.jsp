@@ -94,7 +94,7 @@
     Integer userId = (Integer) userSession.getAttribute("userId");
     String username = (String) userSession.getAttribute("username");
     String role = (String) userSession.getAttribute("role");
-    
+
     // 🔥 SỬA LỖI TẠI ĐÂY: Lấy tierId từ Session như cũ cho an toàn tuyệt đối
     Integer tierId = (Integer) userSession.getAttribute("tierId");
 
@@ -114,7 +114,7 @@
             // Đã xóa phần gọi getTierId() dễ gây sập Web
         }
     }
-    
+
     if (tierId == null || tierId < 2) {
         tierId = 2; // Mặc định gói Free
     }
@@ -135,8 +135,8 @@
     }
 
     // 4. Fallback Cứu Hộ: Giá trị mặc định nếu Database sập hoặc rỗng
-    long limitUploadMb = 50; 
-    double maxStorageGb = 5.0; 
+    long limitUploadMb = 50;
+    double maxStorageGb = 5.0;
     String tierNameDisplay = "CƠ BẢN";
 
     if (currentSub != null) {
@@ -149,7 +149,7 @@
     // 5. Tiếp nhận dữ liệu thư mục & tài liệu
     FolderDAO folderDao = new FolderDAO();
     DocumentDAO docDao = new DocumentDAO();
-    
+
     List<Folder> allFolders = (List<Folder>) request.getAttribute("allFolders");
     List<Folder> childFolders = (List<Folder>) request.getAttribute("childFolders");
     List<Document> myDocuments = (List<Document>) request.getAttribute("documents");
@@ -174,9 +174,9 @@
         }
     }
     double totalSizeGb = totalSizeMb / 1024.0;
-    
+
     // 🔥 SỬA LỖI TẠI ĐÂY: Rào thêm vụ chia cho 0 lỡ Admin vô tình cấu hình maxStorage = 0
-    double storagePercent = maxStorageGb > 0 ? (totalSizeGb / maxStorageGb) * 100.0 : 100.0; 
+    double storagePercent = maxStorageGb > 0 ? (totalSizeGb / maxStorageGb) * 100.0 : 100.0;
     if (storagePercent > 100) {
         storagePercent = 100;
     }
@@ -199,65 +199,192 @@
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
         <style type="text/tailwindcss">
-            html.dark .page-body { background-color: #111827; color: #f3f4f6; }
-            html.dark .sidebar { background-color: #1f2937; border-color: #374151; }
-            html.dark .brand-text { color: #ffffff; }
-            html.dark .nav-link { color: #d1d5db; }
-            html.dark .nav-link:hover { background-color: #374151; }
-            html.dark .nav-link-active { background-color: rgba(49, 46, 129, 0.6); color: #818cf8; }
-            html.dark .user-name { color: #ffffff; }
-            html.dark .user-profile-link:hover { background-color: #374151; }
-            html.dark .logout-btn { color: #9ca3af; }
-            html.dark .logout-btn:hover { background-color: rgba(127, 29, 29, 0.3); color: #f87171; }
-            html.dark .btn-secondary { background-color: #1f2937; border-color: #374151; color: #e5e7eb; }
-            html.dark .btn-secondary:hover { background-color: #374151; }
-            html.dark .file-card { background-color: #1f2937; border-color: #374151; }
-            html.dark .file-title { color: #f3f4f6; }
-            html.dark .empty-state-box { background-color: #1f2937 !important; border-color: #374151 !important; }
-            html.dark .empty-state-icon { background-color: #374151 !important; color: #d1d5db !important; }
-            html.dark .empty-state-text { color: #9ca3af !important; }
-            html.dark #welcomeModal > div { background-color: #1f2937 !important; border-color: #374151 !important; }
-            html.dark #welcomeModal h2 { color: #ffffff !important; }
-            html.dark #welcomeModal p { color: #9ca3af !important; }
-            html.dark #welcomeModal h4 { color: #e5e7eb !important; }
-            html.dark #welcomeModal span { color: #9ca3af !important; }
-            html.dark #welcomeModal .bg-gray-50 { background-color: #2d3748 !important; }
-            html.dark #welcomeModal .text-gray-800 { color: #f3f4f6 !important; }
-            html.dark #welcomeModal .text-gray-500 { color: #cbd5e0 !important; }
-            html.dark #createFolderModal > div { background-color: #1f2937; color: #ffffff; }
-            html.dark #createFolderModal input { background-color: #374151; border-color: #4b5563; color: #ffffff; }
-            html.dark #fileViewerModal > div { background-color: #1f2937; }
-            html.dark #modalFileTitle { color: #ffffff; }
+            html.dark .page-body {
+                background-color: #111827;
+                color: #f3f4f6;
+            }
+            html.dark .sidebar {
+                background-color: #1f2937;
+                border-color: #374151;
+            }
+            html.dark .brand-text {
+                color: #ffffff;
+            }
+            html.dark .nav-link {
+                color: #d1d5db;
+            }
+            html.dark .nav-link:hover {
+                background-color: #374151;
+            }
+            html.dark .nav-link-active {
+                background-color: rgba(49, 46, 129, 0.6);
+                color: #818cf8;
+            }
+            html.dark .user-name {
+                color: #ffffff;
+            }
+            html.dark .user-profile-link:hover {
+                background-color: #374151;
+            }
+            html.dark .logout-btn {
+                color: #9ca3af;
+            }
+            html.dark .logout-btn:hover {
+                background-color: rgba(127, 29, 29, 0.3);
+                color: #f87171;
+            }
+            html.dark .btn-secondary {
+                background-color: #1f2937;
+                border-color: #374151;
+                color: #e5e7eb;
+            }
+            html.dark .btn-secondary:hover {
+                background-color: #374151;
+            }
+            html.dark .file-card {
+                background-color: #1f2937;
+                border-color: #374151;
+            }
+            html.dark .file-title {
+                color: #f3f4f6;
+            }
+            html.dark .empty-state-box {
+                background-color: #1f2937 !important;
+                border-color: #374151 !important;
+            }
+            html.dark .empty-state-icon {
+                background-color: #374151 !important;
+                color: #d1d5db !important;
+            }
+            html.dark .empty-state-text {
+                color: #9ca3af !important;
+            }
+            html.dark #welcomeModal > div {
+                background-color: #1f2937 !important;
+                border-color: #374151 !important;
+            }
+            html.dark #welcomeModal h2 {
+                color: #ffffff !important;
+            }
+            html.dark #welcomeModal p {
+                color: #9ca3af !important;
+            }
+            html.dark #welcomeModal h4 {
+                color: #e5e7eb !important;
+            }
+            html.dark #welcomeModal span {
+                color: #9ca3af !important;
+            }
+            html.dark #welcomeModal .bg-gray-50 {
+                background-color: #2d3748 !important;
+            }
+            html.dark #welcomeModal .text-gray-800 {
+                color: #f3f4f6 !important;
+            }
+            html.dark #welcomeModal .text-gray-500 {
+                color: #cbd5e0 !important;
+            }
+            html.dark #createFolderModal > div {
+                background-color: #1f2937;
+                color: #ffffff;
+            }
+            html.dark #createFolderModal input {
+                background-color: #374151;
+                border-color: #4b5563;
+                color: #ffffff;
+            }
+            html.dark #fileViewerModal > div {
+                background-color: #1f2937;
+            }
+            html.dark #modalFileTitle {
+                color: #ffffff;
+            }
 
             @layer components {
-                .page-body { @apply flex min-h-screen w-full text-gray-800 bg-[#f8f9fa] font-sans transition-colors duration-200; }
-                .sidebar { @apply w-64 bg-white border-r border-gray-100 flex flex-col justify-between p-4 flex-shrink-0 min-h-screen shadow-sm z-10 transition-colors duration-200; }
-                .brand-container { @apply flex items-center space-x-3 px-2 py-1; }
-                .brand-logo { @apply w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-sm shadow-indigo-600/20; }
-                .brand-text { @apply font-bold text-gray-900 text-base tracking-tight; }
-                .nav-link { @apply flex items-center space-x-3 px-4 py-2.5 text-gray-600 hover:bg-gray-50 rounded-xl font-medium text-sm transition-all w-full text-left; }
-                .nav-link-active { @apply flex items-center space-x-3 px-4 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl font-semibold text-sm transition-colors w-full text-left; }
-                .wallet-widget { @apply w-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white p-4 rounded-2xl shadow-md shadow-indigo-600/10 relative overflow-hidden; }
-                .wallet-header { @apply flex justify-between items-center opacity-85; }
-                .wallet-title { @apply text-xs font-medium tracking-wide; }
-                .wallet-balance { @apply text-xl font-bold mt-2 tracking-tight; }
-                .user-area { @apply pt-2 border-t border-gray-100 flex flex-col gap-1; }
-                .user-profile-link { @apply flex items-center space-x-3 px-2 py-2 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer; }
-                .user-avatar { @apply w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 flex-shrink-0 font-bold text-xs uppercase; }
-                .user-name { @apply text-sm font-bold text-gray-900 truncate; }
-                .user-role { @apply text-[11px] text-gray-400 font-medium; }
-                .logout-btn { @apply w-full flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors text-left; }
-                .main-content { @apply flex-1 p-8 overflow-y-auto h-screen relative flex flex-col; }
-                .header-container { @apply flex justify-between items-center mb-6 flex-shrink-0; }
-                .page-title { @apply text-2xl font-bold text-gray-900 tracking-tight; }
-                .btn-primary { @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-[#5c3cf5] text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm shadow-sm shadow-indigo-100 cursor-pointer; }
-                .btn-secondary { @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm shadow-sm cursor-pointer; }
-                .file-grid { @apply grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6; }
-                .file-card { @apply bg-white border border-gray-100 rounded-2xl p-4 hover:shadow-md transition-all cursor-pointer flex flex-col items-center text-center justify-between aspect-square relative select-none; }
-                .file-icon-box { @apply w-20 h-20 rounded-2xl flex items-center justify-center mb-2 transition-transform duration-200 group-hover:scale-105; }
-                .file-title { @apply font-semibold text-gray-800 text-sm mb-1 w-full truncate px-1; }
-                .file-size { @apply text-[11px] text-gray-400 font-medium; }
-                .file-date { @apply text-[10px] text-gray-400 font-medium mt-1; }
+                .page-body {
+                    @apply flex min-h-screen w-full text-gray-800 bg-[#f8f9fa] font-sans transition-colors duration-200;
+                }
+                .sidebar {
+                    @apply w-64 bg-white border-r border-gray-100 flex flex-col justify-between p-4 flex-shrink-0 min-h-screen shadow-sm z-10 transition-colors duration-200;
+                }
+                .brand-container {
+                    @apply flex items-center space-x-3 px-2 py-1;
+                }
+                .brand-logo {
+                    @apply w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-sm shadow-indigo-600/20;
+                }
+                .brand-text {
+                    @apply font-bold text-gray-900 text-base tracking-tight;
+                }
+                .nav-link {
+                    @apply flex items-center space-x-3 px-4 py-2.5 text-gray-600 hover:bg-gray-50 rounded-xl font-medium text-sm transition-all w-full text-left;
+                }
+                .nav-link-active {
+                    @apply flex items-center space-x-3 px-4 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl font-semibold text-sm transition-colors w-full text-left;
+                }
+                .wallet-widget {
+                    @apply w-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white p-4 rounded-2xl shadow-md shadow-indigo-600/10 relative overflow-hidden;
+                }
+                .wallet-header {
+                    @apply flex justify-between items-center opacity-85;
+                }
+                .wallet-title {
+                    @apply text-xs font-medium tracking-wide;
+                }
+                .wallet-balance {
+                    @apply text-xl font-bold mt-2 tracking-tight;
+                }
+                .user-area {
+                    @apply pt-2 border-t border-gray-100 flex flex-col gap-1;
+                }
+                .user-profile-link {
+                    @apply flex items-center space-x-3 px-2 py-2 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer;
+                }
+                .user-avatar {
+                    @apply w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 flex-shrink-0 font-bold text-xs uppercase;
+                }
+                .user-name {
+                    @apply text-sm font-bold text-gray-900 truncate;
+                }
+                .user-role {
+                    @apply text-[11px] text-gray-400 font-medium;
+                }
+                .logout-btn {
+                    @apply w-full flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors text-left;
+                }
+                .main-content {
+                    @apply flex-1 p-8 overflow-y-auto h-screen relative flex flex-col;
+                }
+                .header-container {
+                    @apply flex justify-between items-center mb-6 flex-shrink-0;
+                }
+                .page-title {
+                    @apply text-2xl font-bold text-gray-900 tracking-tight;
+                }
+                .btn-primary {
+                    @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-[#5c3cf5] text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm shadow-sm shadow-indigo-100 cursor-pointer;
+                }
+                .btn-secondary {
+                    @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm shadow-sm cursor-pointer;
+                }
+                .file-grid {
+                    @apply grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6;
+                }
+                .file-card {
+                    @apply bg-white border border-gray-100 rounded-2xl p-4 hover:shadow-md transition-all cursor-pointer flex flex-col items-center text-center justify-between aspect-square relative select-none;
+                }
+                .file-icon-box {
+                    @apply w-20 h-20 rounded-2xl flex items-center justify-center mb-2 transition-transform duration-200 group-hover:scale-105;
+                }
+                .file-title {
+                    @apply font-semibold text-gray-800 text-sm mb-1 w-full truncate px-1;
+                }
+                .file-size {
+                    @apply text-[11px] text-gray-400 font-medium;
+                }
+                .file-date {
+                    @apply text-[10px] text-gray-400 font-medium mt-1;
+                }
             }
         </style>
     </head>
@@ -368,8 +495,8 @@
 
             <div class="mb-6 bg-white border border-gray-100 rounded-2xl p-5 shadow-sm transition-colors duration-200 dark:bg-gray-800 dark:border-gray-700 flex-shrink-0">
                 <div class="flex items-center justify-between mb-2">
-                    <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Dung lượng đã sử dụng (<%= tierNameDisplay %>)</span>
-                    <span class="text-sm font-bold text-black dark:text-white"><%= String.format("%.2f", totalSizeGb)%> GB / <%= String.format("%.2f", maxStorageGb).replace(".00", "") %> GB</span>
+                    <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Dung lượng đã sử dụng (<%= tierNameDisplay%>)</span>
+                    <span class="text-sm font-bold text-black dark:text-white"><%= String.format("%.2f", totalSizeGb)%> GB / <%= String.format("%.2f", maxStorageGb).replace(".00", "")%> GB</span>
                 </div>
                 <div class="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
                     <div class="bg-[#5c3cf5] h-2 rounded-full transition-all duration-500 ease-out" style="width: <%= storagePercent%>%"></div>
@@ -487,9 +614,9 @@
 
         <script>
             // --- JAVASCRIPT ĐÃ ĐƯỢC KHỬ HARDCODE HOÀN TOÀN ---
-            const MAX_FILE_SIZE_BYTES = <%= maxUploadSizeBytes %>;
-            const USER_ROLE_STR = "<%= tierNameDisplay %>";
-            const LIMIT_MB = <%= limitUploadMb %>;
+            const MAX_FILE_SIZE_BYTES = <%= maxUploadSizeBytes%>;
+            const USER_ROLE_STR = "<%= tierNameDisplay%>";
+            const LIMIT_MB = <%= limitUploadMb%>;
             const CURRENT_USER_ID = "<%= userId%>";
             const ALLOWED_EXTENSIONS = ['pptx', 'docx', 'xlsx', 'pdf', 'txt'];
 
@@ -533,12 +660,14 @@
                         ? `<div class="p-1.5 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-xl"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></div>`
                         : `<div class="p-1.5 bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rounded-xl"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>`;
 
-                toast.innerHTML = icon + `<span class="text-sm font-semibold tracking-tight">\           ${message}</span>`;
+                toast.innerHTML = icon + '<span class="text-sm font-semibold tracking-tight">' + message + '</span>';
+
                 container.appendChild(toast);
 
                 setTimeout(() => {
                     toast.classList.remove('translate-x-20', 'opacity-0');
                 }, 50);
+
                 setTimeout(() => {
                     toast.classList.add('opacity-0', 'translate-x-10');
                     setTimeout(() => {
@@ -597,17 +726,17 @@
                     if (status === 'created')
                         showToast("📁 Đã khởi tạo thư mục mới thành công!", "success");
                     if (status === 'deleted')
-                        showToast("🗑️ Đã xóa sạch thư mục và các tệp đính kèm!", "success");
+                        showToast("🗑 Đã xóa sạch thư mục và các tệp đính kèm!", "success");
                 }
                 if (urlParams.has('deleteSuccess'))
-                    showToast("🗑️ Đã loại bỏ tài liệu thành công!", "success");
+                    showToast("🗑 Đã loại bỏ tài liệu thành công!", "success");
                 if (urlParams.has('depositSuccess'))
                     showToast("🔑 Đồng bộ số dư ví Coin thành công!", "success");
                 if (urlParams.has('upgradeSuccess'))
                     showToast("👑 Kích hoạt tài khoản Premium thành công!", "success");
 
                 if (<%= storagePercent%> >= 85.0) {
-                    showToast("⚠️ Cảnh báo: Dung lượng lưu trữ sắp đầy!", "info");
+                    showToast("⚠ Cảnh báo: Dung lượng lưu trữ sắp đầy!", "info");
                 }
 
                 if (urlParams.toString() !== "") {
