@@ -28,12 +28,10 @@ public class DocumentController extends HttpServlet {
         int userId = (int) session.getAttribute("userId");
         try {
             if ("editDoc".equals(action)) {
-                // Fetch document details for the edit form
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 Document doc = dao.findById(docId);
 
                 if (doc != null) {
-                    // Attach the document to the request and forward to JSP
                     request.setAttribute("document", doc);
                     request.getRequestDispatcher("/document_edit.jsp").forward(request, response);
                 } else {
@@ -41,8 +39,6 @@ public class DocumentController extends HttpServlet {
                 }
 
             } else if ("viewPage".equals(action)) {
-                // Opens the full "document_view.jsp" page (new tab) showing
-                // content + metadata sidebar + action buttons.
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 Document doc = dao.findById(docId);
 
@@ -55,11 +51,9 @@ public class DocumentController extends HttpServlet {
 
             } else if ("deleteDoc".equals(action)) {
                 int docId = Integer.parseInt(request.getParameter("docId"));
-                // 1. Get document info BEFORE deleting (to find the physical file)
                 Document doc = dao.findById(docId);
 
                 if (doc != null) {
-                    // 2. Delete physical file from server
                     String cloudUrl = doc.getCloudStorageUrl();
                     if (cloudUrl != null && !cloudUrl.trim().isEmpty()) {
                         String relativePath = cloudUrl;
@@ -81,7 +75,6 @@ public class DocumentController extends HttpServlet {
                         }
                     }
 
-                    // 3. Delete DB record
                     boolean deleted = dao.deleteDocument(docId);
                     if (deleted) {
                         response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?deleteSuccess=1");
@@ -105,27 +98,21 @@ public class DocumentController extends HttpServlet {
                 if (folderStr != null && !folderStr.trim().isEmpty()) {
                     try {
                         folderId = Integer.parseInt(folderStr);
-                    } catch (NumberFormatException ignored) {
-                    }
+                    } catch (NumberFormatException ignored) {}
                 }
 
-                // Lấy cloud_storage_url hiện tại (không đổi khi chỉ edit metadata)
                 Document existingDoc = dao.findById(docId);
                 String existingCloudUrl = (existingDoc != null) ? existingDoc.getCloudStorageUrl() : "";
 
-                // Execute Update
                 boolean updated = dao.updateDocumentInfo(docId, newTitle, folderId, sharingPerm.toUpperCase(), existingCloudUrl);
 
                 if (updated) {
                     response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?updateSuccess=1");
                 } else {
-                    // Send them back to the edit page with an error if it fails
                     request.setAttribute("errorMessage", "Không thể cập nhật. Vui lòng thử lại.");
                     request.getRequestDispatcher("/MainController?action=editDoc&docId=" + docId).forward(request, response);
                 }
             } else if ("updatePermission".equals(action)) {
-                // Quick-update used by the "Chỉnh permission" modal on
-                // document_view.jsp — only changes sharing_permission.
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 String sharingPerm = request.getParameter("sharingPermission");
                 if (sharingPerm == null || sharingPerm.trim().isEmpty()) {
@@ -147,10 +134,7 @@ public class DocumentController extends HttpServlet {
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 Document doc = dao.findById(docId);
 
-                // Security: Ensure the file exists and the user owns it
                 if (doc != null && doc.getUserId() == userId) {
-
-                    // 1. Trích xuất đường dẫn tương đối từ cloudStorageUrl
                     String url = doc.getCloudStorageUrl();
                     String relativePath = url;
                     String ctxPath = request.getContextPath();
@@ -161,27 +145,39 @@ public class DocumentController extends HttpServlet {
                         relativePath = relativePath.substring(1);
                     }
 
-                    // 2. Rebuild the physical server path
                     String realPath = getServletContext().getRealPath("");
                     if (realPath == null) {
                         realPath = System.getProperty("java.io.tmpdir");
                     }
                     String filePath = realPath + java.io.File.separator + relativePath.replace("/", java.io.File.separator);
-
                     java.io.File file = new java.io.File(filePath);
 
                     if (file.exists()) {
-                        // 3. Detect file type so the browser knows how to render it
                         String mimeType = getServletContext().getMimeType(filePath);
                         if (mimeType == null) {
                             mimeType = "application/octet-stream";
                         }
 
-                        // 4. Force INLINE viewing instead of downloading
-                        response.setContentType(mimeType);
-                        response.setHeader("Content-Disposition", "inline; filename=\"" + doc.getTitle() + "\"");
+                        String ext = doc.getFileExtension() != null ? doc.getFileExtension().toLowerCase() : "";
+                        String disposition = "attachment"; // Mặc định là tải về với Office
+                        
+                        if ("pdf".equals(ext) || "txt".equals(ext) || "md".equals(ext)) {
+                            disposition = "inline";
+                        }
 
-                        // 5. Stream the bytes directly to the iframe
+                        response.setContentType(mimeType);
+                        
+                        String downloadFileName = doc.getTitle();
+                        if (!downloadFileName.toLowerCase().endsWith("." + ext)) {
+                            downloadFileName += "." + ext;
+                        }
+                        
+                        // 🔥 FIX: Encode chuỗi Tiếng Việt có dấu sang định dạng chuẩn URL UTF-8
+                        String encodedFileName = java.net.URLEncoder.encode(downloadFileName, "UTF-8").replaceAll("\\+", "%20");
+                        
+                        // Sử dụng cú pháp chuẩn filename*=UTF-8'' để trình duyệt tự giải mã đúng tiếng Việt
+                        response.setHeader("Content-Disposition", disposition + "; filename*=UTF-8''" + encodedFileName);
+
                         try ( java.io.FileInputStream inStream = new java.io.FileInputStream(file);  java.io.OutputStream outStream = response.getOutputStream()) {
                             byte[] buffer = new byte[4096];
                             int bytesRead;
@@ -200,7 +196,6 @@ public class DocumentController extends HttpServlet {
                 Document doc = dao.findById(docId);
 
                 if (doc != null && doc.getUserId() == userId) {
-                    // Trích xuất đường dẫn tương đối từ cloudStorageUrl
                     String url = doc.getCloudStorageUrl();
                     String relativePath = url;
                     String ctxPath = request.getContextPath();
@@ -212,7 +207,6 @@ public class DocumentController extends HttpServlet {
                     }
                     String savedFileName = url.substring(url.lastIndexOf("/") + 1);
 
-                    // Rebuild the absolute path to the server's uploads folder
                     String realPath = getServletContext().getRealPath("");
                     if (realPath == null) {
                         realPath = System.getProperty("java.io.tmpdir");
@@ -221,17 +215,20 @@ public class DocumentController extends HttpServlet {
 
                     java.io.File downloadFile = new java.io.File(filePath);
                     if (downloadFile.exists()) {
-                        // Grab the file extension to append to the user's custom title
                         String ext = "";
                         if (savedFileName.lastIndexOf('.') > 0) {
                             ext = savedFileName.substring(savedFileName.lastIndexOf('.'));
                         }
 
-                        // Force the browser to download the file instead of viewing it
-                        response.setContentType("application/octet-stream");
-                        response.setHeader("Content-Disposition", "attachment; filename=\"" + doc.getTitle() + ext + "\"");
+                        // Lấy tên tải về
+                        String downloadFileName = doc.getTitle() + ext;
+                        
+                        // 🔥 FIX: Encode chuỗi Tiếng Việt có dấu tương tự hàm viewDoc bên trên
+                        String encodedFileName = java.net.URLEncoder.encode(downloadFileName, "UTF-8").replaceAll("\\+", "%20");
 
-                        // Stream the file bytes to the client
+                        response.setContentType("application/octet-stream");
+                        response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + encodedFileName);
+
                         try ( java.io.FileInputStream inStream = new java.io.FileInputStream(downloadFile);  java.io.OutputStream outStream = response.getOutputStream()) {
                             byte[] buffer = new byte[4096];
                             int bytesRead;

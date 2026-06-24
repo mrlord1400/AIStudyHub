@@ -23,7 +23,7 @@
     
     // Tính toán số liệu nhanh để hiển thị các Thẻ Thống kê (Stat Cards)
     int totalTrans = (transList != null) ? transList.size() : 0;
-    double totalDeposit = 0; // Đổi sang double cho đồng bộ với Model
+    double totalDeposit = 0; 
     int pendingCount = 0;
     
     if (transList != null) {
@@ -55,27 +55,16 @@
 
     <style type="text/tailwindcss">
         @layer components {
-            .page-body { 
-                @apply flex min-h-screen w-full text-gray-800 bg-[#f8f9fa] font-sans dark:bg-gray-900 dark:text-gray-100; 
-            }
-            .sidebar { 
-                @apply w-64 bg-white border-r border-gray-100 flex flex-col justify-between p-4 flex-shrink-0 min-h-screen shadow-sm dark:bg-gray-800 dark:border-gray-700; 
-            }
-            .nav-link { 
-                @apply flex items-center space-x-3 px-4 py-2.5 text-gray-600 hover:bg-gray-50 rounded-xl font-medium text-sm transition-all w-full text-left dark:text-gray-300 dark:hover:bg-gray-700; 
-            }
-            .nav-link-active { 
-                @apply flex items-center space-x-3 px-4 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl font-semibold text-sm transition-colors w-full text-left dark:bg-indigo-900/50 dark:text-indigo-400; 
-            }
-            .status-select { 
-                @apply bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-1.5 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 cursor-pointer transition-all; 
-            }
+            .page-body { @apply flex min-h-screen w-full text-gray-800 bg-[#f8f9fa] font-sans dark:bg-gray-900 dark:text-gray-100; }
+            .sidebar { @apply w-64 bg-white border-r border-gray-100 flex flex-col justify-between p-4 flex-shrink-0 min-h-screen shadow-sm dark:bg-gray-800 dark:border-gray-700; }
+            .nav-link { @apply flex items-center space-x-3 px-4 py-2.5 text-gray-600 hover:bg-gray-50 rounded-xl font-medium text-sm transition-all w-full text-left dark:text-gray-300 dark:hover:bg-gray-700; }
+            .nav-link-active { @apply flex items-center space-x-3 px-4 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl font-semibold text-sm transition-colors w-full text-left dark:bg-indigo-900/50 dark:text-indigo-400; }
+            .status-select { @apply bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-1.5 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 cursor-pointer transition-all; }
         }
     </style>
 </head>
 <body class="page-body">
 
-    <!-- SIDEBAR COMPONENT -->
     <aside class="sidebar">
         <div class="space-y-6 w-full">
             <a href="<%= request.getContextPath()%>/MainController?action=listDashboard" class="flex items-center space-x-3 px-2 py-1 transition-opacity hover:opacity-80 block w-full">
@@ -98,12 +87,16 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
                     <span>Quản lý giao dịch</span>
                 </a>
+                <a href="<%= request.getContextPath()%>/admin/system-config" class="nav-link">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <span>Cấu hình hệ thống</span>
+                </a>
             </nav>
         </div>
 
         <div class="pt-4 border-t border-gray-100 dark:border-gray-700">
             <a href="<%= request.getContextPath()%>/admin_profile.jsp" class="flex items-center space-x-3 px-2 py-2 mb-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group">
-                <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs uppercase group-hover:bg-red-200 transition-colors"><%= currentUsername != null ? currentUsername.substring(0, 1) : "A"%></div>
+                <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs uppercase group-hover:bg-red-200 transition-colors"><%= currentUsername != null && !currentUsername.isEmpty() ? currentUsername.substring(0, 1) : "A"%></div>
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-bold text-gray-900 truncate dark:text-white group-hover:text-red-600 transition-colors"><%= currentUsername != null ? currentUsername : "Admin"%></p>
                     <p class="text-[11px] text-gray-400 font-medium">Hồ sơ cá nhân</p>
@@ -116,17 +109,13 @@
         </div>
     </aside>
 
-    <!-- MAIN CONTENT SECTION -->
     <main class="flex-1 p-8 overflow-y-auto h-screen relative">
-        <!-- Header thông tin -->
         <div class="mb-8">
             <h1 class="text-2xl font-bold text-gray-900 tracking-tight dark:text-white">Tổng quan giao dịch</h1>
             <p class="text-gray-500 text-sm mt-0.5">Theo dõi chi tiết và phê duyệt các thanh toán từ hệ thống.</p>
         </div>
 
-        <!-- Các thẻ thống kê (Stat Cards) đồng bộ hoàn toàn với Dashboard -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <!-- Tổng hóa đơn -->
             <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between dark:bg-gray-800 dark:border-gray-700">
                 <div>
                     <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Tổng số hóa đơn</p>
@@ -137,7 +126,6 @@
                 </div>
             </div>
 
-            <!-- Doanh thu nạp sạch -->
             <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between dark:bg-gray-800 dark:border-gray-700">
                 <div>
                     <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Doanh thu tổng</p>
@@ -148,7 +136,6 @@
                 </div>
             </div>
 
-            <!-- Đơn đang chờ duyệt -->
             <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between dark:bg-gray-800 dark:border-gray-700">
                 <div>
                     <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Đơn đang chờ duyệt</p>
@@ -160,7 +147,6 @@
             </div>
         </div>
 
-        <!-- Bảng hiển thị dữ liệu chi tiết -->
         <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden dark:bg-gray-800 dark:border-gray-700">
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm text-gray-600 dark:text-gray-300">
@@ -204,14 +190,12 @@
                                     <span>---</span>
                                 <% } %>
                                 
-                                <%-- Hiển thị thêm dòng ngày hoàn thành nhỏ ở dưới nếu giao dịch đã xử lý xong thành công --%>
                                 <% if ("SUCCESS".equalsIgnoreCase(t.getStatus()) && t.getCompletedAt() != null) { %>
                                     <p class="text-[10px] text-emerald-500 mt-0.5 font-medium">Khớp: <%= t.getCompletedAt().format(formatter) %></p>
                                 <% } %>
                             </td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center justify-center">
-                                    <!-- Form tự động submit thay đổi về MainController -->
                                     <form action="<%= request.getContextPath() %>/MainController" method="POST" class="flex items-center space-x-2">
                                         <input type="hidden" name="action" value="adminUpdateTransaction" />
                                         <input type="hidden" name="transactionId" value="<%= t.getTransactionId() %>" />

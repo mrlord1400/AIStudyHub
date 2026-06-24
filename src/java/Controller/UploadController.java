@@ -2,6 +2,8 @@ package Controller;
 
 import Model.DTO.Document;
 import Model.DAO.DocumentDAO;
+import Model.DAO.DocumentTextDAO;
+
 import javax.servlet.ServletException;
 import javax.servlet.annotation.MultipartConfig;
 import javax.servlet.annotation.WebServlet;
@@ -13,33 +15,28 @@ import javax.servlet.http.Part;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
-// ─── NEW IMPORTS: Added for document text extraction ───────────────────────
-import Model.DAO.DocumentTextDAO;
-import org.apache.poi.xwpf.usermodel.XWPFDocument;
-import org.apache.poi.xslf.usermodel.XMLSlideShow;
-import org.apache.poi.xslf.usermodel.XSLFShape;
-import org.apache.poi.xslf.usermodel.XSLFSlide;
-import org.apache.poi.xslf.usermodel.XSLFTextShape;
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.text.PDFTextStripper;
 import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
-/**
- * UploadController — Servlet xử lý luồng tải lên tài liệu 3 bước: * POST
- * /UploadController?action=upload → Bước 1: Tiếp nhận file, lưu tạm, trích xuất
- * Extension, thêm DB, chuyển sang form chỉnh sửa POST
- * /UploadController?action=confirm → Bước 2: Xác nhận thông tin tài liệu từ
- * phía user → Cập nhật DB POST /UploadController?action=cancel → Bước 3: Người
- * dùng hủy tác vụ → Xóa file vật lý + Xóa bản ghi tạm trong DB
- */
+// Imports an toàn cho Text Extraction
+import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xssf.extractor.XSSFExcelExtractor;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.xslf.usermodel.XMLSlideShow;
+import org.apache.poi.xslf.usermodel.XSLFSlide;
+import org.apache.poi.xslf.usermodel.XSLFShape;
+import org.apache.poi.xslf.usermodel.XSLFTextShape;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
+
 @WebServlet(name = "UploadController", urlPatterns = {"/UploadController"})
 @MultipartConfig(
-        fileSizeThreshold = 1024 * 1024, // 1 MB — ghi thẳng vào đĩa nếu vượt ngưỡng
-        maxFileSize = 100 * 1024 * 1024, // 100 MB — giới hạn tối đa mỗi file
-        maxRequestSize = 105 * 1024 * 1024 // 105 MB — giới hạn toàn bộ request payload
+        fileSizeThreshold = 1024 * 1024,
+        maxFileSize = 100 * 1024 * 1024,
+        maxRequestSize = 105 * 1024 * 1024
 )
 public class UploadController extends HttpServlet {
 
@@ -84,14 +81,16 @@ public class UploadController extends HttpServlet {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // BƯỚC 1 — Tiếp nhận file → Trích xuất thông tin & định dạng → Lưu DB tạm
-    // ─────────────────────────────────────────────────────────────────────────
     private void handleUpload(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
         try {
-            int userId = (int) request.getSession().getAttribute("userId");
+            HttpSession session = request.getSession();
+            int userId = (int) session.getAttribute("userId");
+            
+            // 🔥 FIX BÓNG MA (GHOST FILE): Dọn dẹp sạch Session trước khi bắt đầu tải lên mới
+            clearPendingSession(session);
+            clearDuplicateSession(session);
 
             Part filePart = request.getPart("file");
             if (filePart == null || filePart.getSize() == 0) {
@@ -101,27 +100,23 @@ public class UploadController extends HttpServlet {
                 return;
             }
 
-            // Trích xuất tên tệp tin gốc
             String originalFileName = filePart.getSubmittedFileName();
             if (originalFileName == null || originalFileName.trim().isEmpty()) {
                 originalFileName = "document_" + System.currentTimeMillis();
             }
 
-            // 🚀 BỔ SUNG: Trích xuất phần mở rộng (File Extension) chuẩn hóa
             String fileExtension = "";
             int dotIndex = originalFileName.lastIndexOf('.');
             if (dotIndex > 0 && dotIndex < originalFileName.length() - 1) {
                 fileExtension = originalFileName.substring(dotIndex + 1).toLowerCase().trim();
             } else {
-                fileExtension = "unknown"; // Trường hợp file không có đuôi mở rộng
+                fileExtension = "unknown";
             }
 
-            // Thiết lập đường dẫn thư mục lưu trữ per-user trên Server
             String realPath = getServletContext().getRealPath("");
             if (realPath == null) {
                 realPath = System.getProperty("java.io.tmpdir");
             }
-            // Tạo thư mục riêng cho mỗi user: uploads/{userId}/
             String uploadPath = realPath + File.separator + UPLOAD_DIR + File.separator + userId;
 
             File uploadDir = new File(uploadPath);
@@ -129,7 +124,6 @@ public class UploadController extends HttpServlet {
                 throw new IOException("Không thể khởi tạo thư mục lưu trữ tại: " + uploadPath);
             }
 
-            // Tạo tên file tạm dùng UUID ngắn (sẽ được rename sau khi xác nhận)
             String uuidPrefix = java.util.UUID.randomUUID().toString().substring(0, 8);
             String savedFileName = "temp_" + uuidPrefix + "_" + sanitizeFileName(originalFileName);
             String savedFilePath = uploadPath + File.separator + savedFileName;
@@ -138,28 +132,25 @@ public class UploadController extends HttpServlet {
             double fileSizeMb = filePart.getSize() / (1024.0 * 1024.0);
             String cloudStorageUrl = request.getContextPath() + "/" + UPLOAD_DIR + "/" + userId + "/" + savedFileName;
 
-            // Xử lý thông tin Folder ID đích chuyển lên từ Form hiển thị
             Integer folderId = null;
             String folderIdParam = request.getParameter("folderId");
             if (folderIdParam != null && !folderIdParam.trim().isEmpty() && !folderIdParam.equals("null")) {
                 try {
                     folderId = Integer.parseInt(folderIdParam);
-                } catch (NumberFormatException ignored) {
-                }
+                } catch (NumberFormatException ignored) {}
             }
 
-            // Đóng gói đối tượng mô hình dữ liệu Document
             Document doc = new Document();
             doc.setUserId(userId);
             doc.setFolderId(folderId);
-            doc.setTitle(stripExtension(originalFileName)); // Chỉ lấy phần tên hiển thị làm Title ban đầu
-            doc.setFileExtension(fileExtension);            // 🔥 Gán giá trị File Extension mới vào đây
+            doc.setTitle(stripExtension(originalFileName));
+            doc.setFileExtension(fileExtension);
             doc.setCloudStorageUrl(cloudStorageUrl);
             doc.setFileSizeMb(Math.round(fileSizeMb * 100.0) / 100.0);
             doc.setAiParsingStatus("PENDING");
             doc.setSharingPermission("PRIVATE");
             doc.setShareLinkToken(java.util.UUID.randomUUID().toString());
-            doc.setFlagged(false);                          // Cập nhật theo JavaBean chuẩn hóa mới
+            doc.setFlagged(false);
             doc.setCreatedAt(LocalDateTime.now());
             doc.setUpdatedAt(LocalDateTime.now());
 
@@ -167,44 +158,33 @@ public class UploadController extends HttpServlet {
             int newDocumentId = dao.insertDocument(doc);
 
             if (newDocumentId == -1) {
-                // Nếu DB Insert lỗi → Tiến hành dọn dẹp xóa file rác vừa ghi trên đĩa tránh tràn ổ cứng
                 new File(savedFilePath).delete();
                 request.setAttribute("errorMessage", "Lỗi lưu cơ sở dữ liệu hệ thống.");
                 request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
                 return;
             }
 
-            // ─── NEW: Extract text from the uploaded file and save to DB ───────────────
-            // This enables the AI chatbot VIEW flow to retrieve actual document content
-            // instead of just metadata. Runs asynchronously so upload speed is unaffected.
+            // 🔥 FIX 500 ERROR: Đổi try-catch(Exception) thành try-catch(Throwable) 
+            // Đảm bảo đứt gãy trong lúc bóc tách Text sẽ KHÔNG làm sập server
             try {
                 String extractedText = extractTextFromFile(savedFilePath, fileExtension);
                 if (extractedText != null && !extractedText.trim().isEmpty()) {
                     DocumentTextDAO documentTextDAO = new DocumentTextDAO();
                     boolean textSaved = documentTextDAO.saveExtractedText(newDocumentId, extractedText);
                     if (textSaved) {
-                        // Update ai_parsing_status to READY since text was extracted successfully
                         DocumentDAO daoForStatus = new DocumentDAO();
                         daoForStatus.updateAiParsingStatus(newDocumentId, "READY");
-                    } else {
-                        System.err.println("[UploadController] Warning: text extracted but failed to save to DB for docId: " + newDocumentId);
                     }
-                } else {
-                    System.err.println("[UploadController] Warning: no text extracted from file: " + savedFilePath);
                 }
-            } catch (Exception e) {
-                // Non-fatal: log the error but don't stop the upload flow
-                System.err.println("[UploadController] Text extraction failed for docId " + newDocumentId + ": " + e.getMessage());
+            } catch (Throwable t) {
+                System.err.println("[UploadController] Text extraction failed for docId " + newDocumentId + " (File vẫn được upload an toàn): " + t.getMessage());
             }
-            // ──────────────────────────────────────────────────────────────────
-            // Lưu thông tin tạm vào Session để quản lý luồng Xác nhận/Hủy ở Bước 2 & 3
-            HttpSession session = request.getSession();
+
             session.setAttribute("pendingDocumentId", newDocumentId);
             session.setAttribute("pendingDocumentPath", savedFilePath);
             session.setAttribute("pendingDocumentTitle", doc.getTitle());
-            session.setAttribute("pendingFileExtension", fileExtension); // Lưu extension để dùng khi rename
+            session.setAttribute("pendingFileExtension", fileExtension);
 
-            // Điều hướng sang Bước 2 (Form Edit/Confirm)
             response.sendRedirect(request.getContextPath() + "/document_upload.jsp?step=edit&docId=" + newDocumentId);
 
         } catch (Exception e) {
@@ -215,9 +195,6 @@ public class UploadController extends HttpServlet {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // BƯỚC 2 — Người dùng xác nhận / chỉnh sửa thông tin tài liệu
-    // ─────────────────────────────────────────────────────────────────────────
     private void handleConfirm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
@@ -243,8 +220,7 @@ public class UploadController extends HttpServlet {
         if (folderIdParam != null && !folderIdParam.trim().isEmpty() && !folderIdParam.equals("null")) {
             try {
                 newFolderId = Integer.parseInt(folderIdParam);
-            } catch (NumberFormatException ignored) {
-            }
+            } catch (NumberFormatException ignored) {}
         }
 
         DocumentDAO dao = new DocumentDAO();
@@ -260,10 +236,7 @@ public class UploadController extends HttpServlet {
             return;
         }
 
-        // Thêm đoạn này để lấy extension từ Session
         String fileExt = (String) session.getAttribute("pendingFileExtension");
-
-        // Cập nhật lời gọi hàm
         String pendingFilePath = (String) session.getAttribute("pendingDocumentPath");
         String newCloudUrl = renameToFinalName(pendingFilePath, userId, newTitle, fileExt, request);
 
@@ -271,7 +244,6 @@ public class UploadController extends HttpServlet {
         clearPendingSession(session);
 
         if (updated) {
-            // Định tuyến phản hồi mượt mà về đúng địa chỉ thư mục chứa file đó
             String redirectTarget = "/FolderController?action=viewFolder";
             if (newFolderId != null) {
                 redirectTarget += "&folderId=" + newFolderId;
@@ -283,9 +255,6 @@ public class UploadController extends HttpServlet {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // XỬ LÝ TRÙNG LẶP FILE — THAY THẾ (Cập nhật bản ghi cũ, giữ metadata gốc)
-    // ─────────────────────────────────────────────────────────────────────────
     private void handleReplace(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
@@ -312,38 +281,27 @@ public class UploadController extends HttpServlet {
         Document pendingDoc = dao.findById(pendingDocId);
 
         if (oldDoc != null && pendingDoc != null) {
-            // 1. Xóa file vật lý CŨ trên đĩa cứng
             deletePhysicalFile(oldDoc.getCloudStorageUrl(), request);
 
-            // 2. Rename file vật lý MỚI → khớp tên hiển thị
             int userId = (int) session.getAttribute("userId");
             String newCloudUrl = renameToFinalName(pendingFilePath, userId, conflictTitle, pendingDoc.getFileExtension(), request);
 
-            // 3. Cập nhật bản ghi CŨ với thông tin file mới
-            //    Giữ nguyên: document_id, created_at, share_link_token, is_flagged
-            //    Trigger trg_documents_updated_at tự cập nhật updated_at
             dao.replaceDocumentFile(duplicateDocId, newCloudUrl, pendingDoc.getFileSizeMb(),
                     pendingDoc.getFileExtension(), conflictTitle, conflictFolderId, conflictSharingPermission);
 
-            // 4. Xóa bản ghi TẠM (pending) trong DB — file vật lý đã rename rồi
             dao.deleteDocument(pendingDocId);
-            // ─── NEW: Re-extract text from the new file and update the extracted text
-            // in DB for the replaced document, since the file content has changed. ───────
+
             try {
                 String newExtractedText = extractTextFromFile(pendingFilePath, pendingDoc.getFileExtension());
                 if (newExtractedText != null && !newExtractedText.trim().isEmpty()) {
                     DocumentTextDAO documentTextDAO = new DocumentTextDAO();
-                    // Delete old extracted text first, then save new one
                     documentTextDAO.deleteExtractedText(duplicateDocId);
                     documentTextDAO.saveExtractedText(duplicateDocId, newExtractedText);
-                    // Mark document as READY
                     dao.updateAiParsingStatus(duplicateDocId, "READY");
                 }
-            } catch (Exception e) {
-                System.err.println("[UploadController] Re-extraction failed on replace for docId "
-                        + duplicateDocId + ": " + e.getMessage());
+            } catch (Throwable t) {
+                System.err.println("[UploadController] Re-extraction failed: " + t.getMessage());
             }
-            // ──────────────────────────────────────────────────────────────────
         }
 
         clearPendingSession(session);
@@ -356,9 +314,6 @@ public class UploadController extends HttpServlet {
         response.sendRedirect(request.getContextPath() + redirectTarget + "&uploadSuccess=1");
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // XỬ LÝ TRÙNG LẶP FILE — GIỮ CẢ HAI (Đổi tên file mới + server khớp web)
-    // ─────────────────────────────────────────────────────────────────────────
     private void handleKeepBoth(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
@@ -376,14 +331,8 @@ public class UploadController extends HttpServlet {
         }
 
         DocumentDAO dao = new DocumentDAO();
-
-        // Lấy extension từ Session
         String fileExt = (String) session.getAttribute("pendingFileExtension");
-
-        // Tạo tên duy nhất (Lúc này hàm này chỉ trả về tên thuần như "BaoCao (1)")
         String uniqueTitle = generateUniqueTitle(dao, userId, conflictTitle, conflictFolderId, pendingDocId);
-
-        // Rename file vật lý (Hàm rename sẽ tự động gắn đuôi fileExt vào)
         String newCloudUrl = renameToFinalName(pendingFilePath, userId, uniqueTitle, fileExt, request);
 
         boolean updated = dao.updateDocumentInfo(pendingDocId, uniqueTitle, conflictFolderId, conflictSharingPermission, newCloudUrl);
@@ -397,9 +346,6 @@ public class UploadController extends HttpServlet {
         response.sendRedirect(request.getContextPath() + redirectTarget + "&uploadSuccess=1");
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // HỦY TÁC VỤ — Xóa file vật lý + DB
-    // ─────────────────────────────────────────────────────────────────────────
     private void handleCancel(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
@@ -426,12 +372,11 @@ public class UploadController extends HttpServlet {
 
         clearPendingSession(session);
         clearDuplicateSession(session);
-
         response.sendRedirect(request.getContextPath() + "/document_upload.jsp?cancelled=1");
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // PHƯƠNG THỨC HỖ TRỢ (HELPERS)
+    // HELPERS
     // ─────────────────────────────────────────────────────────────────────────
     private String sanitizeFileName(String fileName) {
         return fileName.replaceAll("[^a-zA-Z0-9.\\-_]", "_");
@@ -442,21 +387,6 @@ public class UploadController extends HttpServlet {
         return (dotIndex > 0) ? fileName.substring(0, dotIndex) : fileName;
     }
 
-    /**
-     * Rename file vật lý từ tên tạm → tên hiển thị cuối cùng. File được lưu
-     * trong thư mục per-user: uploads/{userId}/
-     *
-     * @param tempFilePath Đường dẫn file tạm hiện tại trên đĩa
-     * @param userId ID người dùng
-     * @param finalTitle Tên hiển thị cuối cùng (bao gồm extension, VD:
-     * "report.pdf")
-     * @param request HttpServletRequest để lấy contextPath
-     * @return Cloud storage URL mới (contextPath-relative)
-     */
-    /**
-     * Tên hiển thị (finalTitle) lúc này KHÔNG có extension. Cần nối
-     * fileExtension vào để lưu đúng định dạng vật lý.
-     */
     private String renameToFinalName(String tempFilePath, int userId, String finalTitle,
             String fileExtension, HttpServletRequest request) {
         String realPath = getServletContext().getRealPath("");
@@ -470,18 +400,13 @@ public class UploadController extends HttpServlet {
             userDir.mkdirs();
         }
 
-        // Sanitize tên file hiển thị
         String sanitizedName = sanitizeFileName(finalTitle);
-
-        // Chuẩn bị đuôi file (đảm bảo có dấu chấm)
         String ext = "";
         if (fileExtension != null && !fileExtension.trim().isEmpty() && !fileExtension.equals("unknown")) {
             ext = fileExtension.startsWith(".") ? fileExtension : "." + fileExtension;
         }
 
-        // Ghép tên và đuôi file lại
         File targetFile = new File(userUploadPath + File.separator + sanitizedName + ext);
-
         int dupCounter = 0;
         while (targetFile.exists()) {
             dupCounter++;
@@ -492,7 +417,6 @@ public class UploadController extends HttpServlet {
                 ? sanitizedName + ext
                 : sanitizedName + "_dup" + dupCounter + ext;
 
-        // Thực hiện rename/move file
         File tempFile = new File(tempFilePath);
         if (tempFile.exists()) {
             tempFile.renameTo(targetFile);
@@ -501,18 +425,10 @@ public class UploadController extends HttpServlet {
         return request.getContextPath() + "/" + UPLOAD_DIR + "/" + userId + "/" + finalFileName;
     }
 
-    /**
-     * Xóa file vật lý trên đĩa dựa vào cloudStorageUrl từ DB.
-     *
-     * @param cloudStorageUrl URL lưu trong DB (VD:
-     * /AIStudyHub/uploads/1/report.pdf)
-     * @param request HttpServletRequest để lấy contextPath và realPath
-     */
     private void deletePhysicalFile(String cloudStorageUrl, HttpServletRequest request) {
         if (cloudStorageUrl == null || cloudStorageUrl.trim().isEmpty()) {
             return;
         }
-
         String relativePath = cloudStorageUrl;
         String contextPath = request.getContextPath();
         if (relativePath.startsWith(contextPath)) {
@@ -545,12 +461,7 @@ public class UploadController extends HttpServlet {
         session.removeAttribute("duplicateDocId");
     }
 
-    /**
-     * Tạo tên duy nhất bằng cách thêm (1), (2),... TRƯỚC đuôi file. VD:
-     * "report.pdf" → "report (1).pdf" → "report (2).pdf"
-     */
     private String generateUniqueTitle(DocumentDAO dao, int userId, String baseTitle, Integer folderId, int excludeDocId) {
-        // baseTitle hiện tại chỉ là tên thuần (VD: "BaoCao")
         int counter = 1;
         String candidate;
         do {
@@ -560,61 +471,62 @@ public class UploadController extends HttpServlet {
         return candidate;
     }
 
-    // ─── NEW METHOD: Extracts text content from uploaded files ─────────────────
-    // Supports: PDF (PDFBox), DOCX/PPTX (Apache POI), TXT/MD (plain Java)
-    // Returns null if the file type is unsupported or extraction fails.
+    // 🔥 FIX: Quét file an toàn tuyệt đối với Throwable Catch
     private String extractTextFromFile(String filePath, String fileExtension) {
         try {
             switch (fileExtension.toLowerCase()) {
-
                 case "pdf": {
-                    // PDF extraction using Apache PDFBox
-                    try ( PDDocument document = Loader.loadPDF(new File(filePath))) {
+                    try (PDDocument document = Loader.loadPDF(new File(filePath))) {
                         PDFTextStripper stripper = new PDFTextStripper();
                         return stripper.getText(document);
                     }
                 }
-
                 case "docx": {
-                    // DOCX extraction using Apache POI
-                    try ( FileInputStream fis = new FileInputStream(filePath);  XWPFDocument docx = new XWPFDocument(fis)) {
-                        StringBuilder sb = new StringBuilder();
-                        docx.getParagraphs().forEach(p -> sb.append(p.getText()).append("\n"));
-                        return sb.toString();
+                    try (FileInputStream fis = new FileInputStream(filePath);
+                         XWPFDocument docx = new XWPFDocument(fis);
+                         XWPFWordExtractor extractor = new XWPFWordExtractor(docx)) {
+                        return extractor.getText();
                     }
                 }
-
+                case "xlsx": {
+                    try (FileInputStream fis = new FileInputStream(filePath);
+                         XSSFWorkbook xlsx = new XSSFWorkbook(fis);
+                         XSSFExcelExtractor extractor = new XSSFExcelExtractor(xlsx)) {
+                        return extractor.getText();
+                    }
+                }
                 case "pptx": {
-                    // PPTX extraction using Apache POI
-                    try ( FileInputStream fis = new FileInputStream(filePath);  XMLSlideShow pptx = new XMLSlideShow(fis)) {
+                    // Chạy quét thủ công an toàn nhất cho mọi version POI
+                    // Bỏ qua các slide/hình ảnh nát mà không làm đứt gãy luồng code
+                    try (FileInputStream fis = new FileInputStream(filePath);
+                         XMLSlideShow pptx = new XMLSlideShow(fis)) {
                         StringBuilder sb = new StringBuilder();
                         for (XSLFSlide slide : pptx.getSlides()) {
                             for (XSLFShape shape : slide.getShapes()) {
-                                if (shape instanceof XSLFTextShape) {
-                                    sb.append(((XSLFTextShape) shape).getText()).append("\n");
+                                try {
+                                    if (shape instanceof XSLFTextShape) {
+                                        sb.append(((XSLFTextShape) shape).getText()).append("\n");
+                                    }
+                                } catch (Throwable innerError) {
+                                    // Bỏ qua rác / media hỏng âm thầm
                                 }
                             }
                         }
                         return sb.toString();
                     }
                 }
-
                 case "txt":
                 case "md": {
-                    // Plain text and Markdown — no library needed, just read the file
                     return new String(Files.readAllBytes(Paths.get(filePath)), "UTF-8");
                 }
-
                 default:
-                    // Unsupported file type (images, java, jsp, html, xlsx, etc.)
                     System.out.println("[UploadController] Unsupported file type for text extraction: " + fileExtension);
                     return null;
             }
-
-        } catch (Exception e) {
-            System.err.println("[UploadController] extractTextFromFile error for " + filePath + ": " + e.getMessage());
-            return null;
+        } catch (Throwable t) {
+            // 🔥 THROWABLE bắt gọn toàn bộ NoClassDefFoundError nếu Server thiếu thư viện
+            System.err.println("[UploadController] extractTextFromFile error for " + filePath + ": " + t.getMessage());
+            return null; 
         }
     }
-    // ───────────────────────────────────────────────────────────
 }

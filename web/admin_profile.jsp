@@ -14,7 +14,6 @@
         return;
     }
 
-    // Thiết lập Safety net hướng riêng về AdminController thay vì MainController của User
     User currentUser = (User) request.getAttribute("currentUser");
     if (currentUser == null) {
         response.sendRedirect(request.getContextPath() + "/AdminController?action=profile");
@@ -22,8 +21,6 @@
     }
 
     String currentUsername = (String) userSession.getAttribute("username");
-
-    // Lấy thông báo trạng thái lỗi/thành công từ URL Parameters
     String error = request.getParameter("error");
     String updateSuccess = request.getParameter("updateSuccess");
 %>
@@ -80,12 +77,16 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
                     <span>Quản lý giao dịch</span>
                 </a>
+                <a href="<%= request.getContextPath()%>/admin/system-config" class="nav-link">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <span>Cấu hình hệ thống</span>
+                </a>
             </nav>
         </div>
 
         <div class="pt-4 border-t border-gray-100 dark:border-gray-700">
             <a href="<%= request.getContextPath()%>/admin_profile.jsp" class="flex items-center space-x-3 px-2 py-2 mb-2 rounded-xl bg-gray-50 dark:bg-gray-700/50 transition-colors cursor-pointer group">
-                <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs uppercase"><%= currentUsername != null ? currentUsername.substring(0, 1) : "A"%></div>
+                <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs uppercase"><%= currentUsername != null && !currentUsername.isEmpty() ? currentUsername.substring(0, 1) : "A"%></div>
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-bold text-red-600 truncate dark:text-red-400"><%= currentUsername != null ? currentUsername : "Admin"%></p>
                     <p class="text-[11px] text-gray-400 font-medium">Hồ sơ cá nhân</p>
@@ -142,7 +143,7 @@
                     </div>
                     <div>
                         <label class="form-label">Email tiếp nhận</label>
-                        <input type="email" name="email" value="<%= currentUser.getEmail()%>" required class="form-input" />
+                        <input type="email" name="email" value="<%= currentUser.getEmail() != null ? currentUser.getEmail() : ""%>" required class="form-input" />
                     </div>
                 </div>
 
