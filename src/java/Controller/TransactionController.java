@@ -1,5 +1,6 @@
 package Controller;
 
+import Model.DAO.SubscriptionDAO;
 import Model.DTO.Transaction;
 import Model.DAO.TransactionDAO;
 import Model.DTO.User;
@@ -206,9 +207,10 @@ public class TransactionController extends HttpServlet {
 
             if ("DEPOSIT".equals(t.getType())) {
                 userDAO.updateBalance(t.getUserId(), Math.abs((int) t.getAmount()));
-            } else if ("WITHDRAW".equals(t.getType())) {
-                userDAO.updateBalance(t.getUserId(), -Math.abs((int) t.getAmount()));
             }
+//            else if ("WITHDRAW".equals(t.getType())) {
+//                userDAO.updateBalance(t.getUserId(), -Math.abs((int) t.getAmount())); //NOTE: WITHDRAW never shows up as not being SUCCESS, so this part is basically useless
+//            }
         }
 
         response.sendRedirect(request.getContextPath()
@@ -225,7 +227,11 @@ public class TransactionController extends HttpServlet {
         }
 
         int userId = (int) session.getAttribute("userId");
-        int premiumCost = 99000;
+        SubscriptionDAO sDao = new SubscriptionDAO();
+        double premiumCost = sDao.getPremiumPrice();
+        if (premiumCost < 0){
+            premiumCost = 99000;
+        }
 
         UserDAO userDAO = new UserDAO();
         TransactionDAO transactionDAO = new TransactionDAO();
@@ -244,14 +250,14 @@ public class TransactionController extends HttpServlet {
 
         Transaction t = new Transaction();
         t.setUserId(userId);
-        t.setAmount(-99000);
+        t.setAmount(-premiumCost);
         t.setType("WITHDRAW"); // FIX: Đổi lại thành WITHDRAW cho an toàn với Database
         t.setStatus("SUCCESS");
 
         boolean txSuccess = transactionDAO.createTransaction(t);
 
         if (txSuccess) {
-            boolean balanceUpdated = userDAO.updateBalance(userId, -99000);
+            boolean balanceUpdated = userDAO.updateBalance(userId, -Math.abs((int) premiumCost));
 
             if (balanceUpdated) {
                 User updatedUser = userDAO.getUserById(userId);

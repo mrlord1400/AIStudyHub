@@ -53,4 +53,18 @@ public class SubscriptionDAO {
         }
         return false;
     }
+    
+    public double getPremiumPrice() {
+        String sql = "SELECT * FROM subscriptions WHERE tier_id = 3";
+
+        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+
+            if (rs.next()) {
+                return rs.getDouble("price");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return -1;
+    }
 }
