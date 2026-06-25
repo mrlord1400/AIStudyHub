@@ -53,6 +53,7 @@
     }
     request.setAttribute("freePlan", freePlan);
     request.setAttribute("premiumPlan", premiumPlan);
+    request.setAttribute("userBalance", userBalance);
 %>
 <!DOCTYPE html>
 <html lang="vi" class="dark">
