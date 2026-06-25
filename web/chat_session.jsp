@@ -45,12 +45,13 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>${currentChat.sessionName} - AI Study Hub</title>
 
-        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
         <script>
             tailwind.config = {
                 darkMode: 'class'
             }
         </script>
+        <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -414,8 +415,8 @@
                                                 <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.886L4.2 10.8 10.088 12.714 12 18.6l1.912-5.886L19.8 10.8l-5.886-1.914Z"/></svg>
                                                 </div>
-                                                <div class="bot-msg-box">
-                                                    <p class="leading-relaxed font-medium">${msg.messageContent}</p>
+                                                <div class="bot-msg-box border rounded-2xl p-4 max-w-[85%] shadow-sm relative transition-colors duration-200">
+                                                    <div class="prose prose-sm prose-invert max-w-none leading-relaxed font-medium markdown-content">${msg.messageContent}</div>
                                                 </div>
                                             </div>
                                         </c:otherwise>
@@ -732,6 +733,11 @@
             }
 
             document.addEventListener("DOMContentLoaded", function () {
+                // Parse tất cả tin nhắn cũ thành HTML
+                document.querySelectorAll('.markdown-content').forEach(el => {
+                    const rawText = el.textContent || el.innerText;
+                    el.innerHTML = marked.parse(rawText);
+                });
                 scrollToBottom();
             });
 
@@ -844,18 +850,20 @@
                             return response.text();
                         })
                         .then(data => {
-                            // 3. Vẽ câu trả lời của AI
-                            const formattedData = data.replace(/\n/g, "<br>");
+                            // Bỏ dòng replace \n đi, dùng marked.parse
+                            const parsedHTML = marked.parse(data);
+
+                            // Thêm class prose prose-sm prose-invert để Tailwind tự động style
                             const botMsgHtml = `
-                        <div class="flex items-start gap-3">
-                            <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.886L4.2 10.8 10.088 12.714 12 18.6l1.912-5.886L19.8 10.8l-5.886-1.914Z"/></svg>
-                            </div>
-                            <div class="bot-msg-box border rounded-2xl p-4 max-w-[85%] text-sm shadow-sm relative transition-colors duration-200">
-                                <p class="leading-relaxed font-medium">` + formattedData + `</p>
-                            </div>
-                        </div>
-                    `;
+                                <div class="flex items-start gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.886L4.2 10.8 10.088 12.714 12 18.6l1.912-5.886L19.8 10.8l-5.886-1.914Z"/></svg>
+                                    </div>
+                                    <div class="bot-msg-box border rounded-2xl p-4 max-w-[85%] shadow-sm relative transition-colors duration-200">
+                                    <div class="prose prose-sm prose-invert max-w-none leading-relaxed font-medium">` + parsedHTML + `</div>
+                                    </div>
+                                </div>
+    `;
                             logsContainer.insertAdjacentHTML('beforeend', botMsgHtml);
                             scrollToBottom();
                         })
@@ -868,7 +876,7 @@
                             } else if (error.message) {
                                 displayError = error.message;
                             }
-                            
+
                             // Tạo box AI màu đỏ báo lỗi
                             const errorMsgHtml = `
                                 <div class="flex items-start gap-3">
