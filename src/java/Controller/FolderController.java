@@ -62,8 +62,18 @@ public class FolderController extends HttpServlet {
                 }
 
                 if (folderName != null && !folderName.trim().isEmpty()) {
+                    String cleanFolderName = folderName.trim();
+
+                    // 🔥 BƯỚC MỚI: KIỂM TRA TRÙNG LẶP
+                    boolean exists = folderDao.isFolderNameExists(userId, cleanFolderName, parentFolderId);
+                    if (exists) {
+                        // Nếu trùng, chuyển hướng về kèm tham số lỗi
+                        response.sendRedirect(redirectUrl + "&error=folder_exists");
+                        return;
+                    }
+
                     // Khởi tạo thực thể Folder truyền đủ tham số parentFolderId
-                    Folder newFolder = new Folder(0, userId, parentFolderId, folderName, "PRIVATE", LocalDateTime.now());
+                    Folder newFolder = new Folder(0, userId, parentFolderId, cleanFolderName, "PRIVATE", LocalDateTime.now());
                     boolean success = folderDao.createFolder(newFolder);
 
                     if (success) {
