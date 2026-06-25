@@ -395,4 +395,36 @@ public class FolderDAO {
             }
         }
     }
+    
+    /**
+     * Kiểm tra xem thư mục có bị trùng tên trong cùng một cấp (parentFolderId) hay không
+     */
+    public boolean isFolderNameExists(int userId, String folderName, Integer parentFolderId) {
+        String sql;
+        // Nếu tạo ở thư mục gốc (parentFolderId IS NULL)
+        if (parentFolderId == null) {
+            sql = "SELECT COUNT(*) FROM folders WHERE user_id = ? AND folder_name = ? AND parent_folder_id IS NULL";
+        } else {
+            sql = "SELECT COUNT(*) FROM folders WHERE user_id = ? AND folder_name = ? AND parent_folder_id = ?";
+        }
+
+        try (java.sql.Connection conn = Utils.DBUtils.getConnection(); 
+             java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, userId);
+            ps.setString(2, folderName);
+            if (parentFolderId != null) {
+                ps.setInt(3, parentFolderId);
+            }
+
+            try (java.sql.ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0; // Trả về true nếu count > 0 (đã tồn tại)
+                }
+            }
+        } catch (java.sql.SQLException e) {
+            System.err.println("[FolderDAO.isFolderNameExists] Lỗi kiểm tra trùng tên: " + e.getMessage());
+        }
+        return false;
+    }
 }

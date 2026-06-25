@@ -656,18 +656,22 @@
                 const toast = document.createElement('div');
                 toast.className = `flex items-center space-x-3 px-5 py-3.5 bg-white dark:bg-gray-800 text-gray-800 dark:text-white rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 pointer-events-auto transition-all duration-300 translate-x-20 opacity-0 min-w-[280px] max-w-md`;
 
-                const icon = type === 'success'
-                        ? `<div class="p-1.5 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-xl"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></div>`
-                        : `<div class="p-1.5 bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rounded-xl"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>`;
+                // Cập nhật logic render Icon hỗ trợ type: 'error' (Màu Đỏ)
+                let iconHtml = '';
+                if (type === 'success') {
+                    iconHtml = `<div class="p-1.5 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-xl"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></div>`;
+                } else if (type === 'error') {
+                    iconHtml = `<div class="p-1.5 bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400 rounded-xl"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></div>`;
+                } else {
+                    iconHtml = `<div class="p-1.5 bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rounded-xl"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>`;
+                }
 
-                toast.innerHTML = icon + '<span class="text-sm font-semibold tracking-tight">' + message + '</span>';
-
+                toast.innerHTML = iconHtml + '<span class="text-sm font-semibold tracking-tight">' + message + '</span>';
                 container.appendChild(toast);
 
                 setTimeout(() => {
                     toast.classList.remove('translate-x-20', 'opacity-0');
                 }, 50);
-
                 setTimeout(() => {
                     toast.classList.add('opacity-0', 'translate-x-10');
                     setTimeout(() => {
@@ -734,7 +738,14 @@
                     showToast("🔑 Đồng bộ số dư ví Coin thành công!", "success");
                 if (urlParams.has('upgradeSuccess'))
                     showToast("👑 Kích hoạt tài khoản Premium thành công!", "success");
-
+                if (urlParams.has('error')) {
+                    const errorType = urlParams.get('error');
+                    if (errorType === 'folder_exists') {
+                        showToast("Tên thư mục đã tồn tại ở vị trí này. Vui lòng chọn tên khác!", "error");
+                    } else if (errorType === 'create_folder_failed') {
+                        showToast("Có lỗi xảy ra khi tạo thư mục hệ thống.", "error");
+                    }
+                }
                 if (<%= storagePercent%> >= 85.0) {
                     showToast("⚠ Cảnh báo: Dung lượng lưu trữ sắp đầy!", "info");
                 }
