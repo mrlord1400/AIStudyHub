@@ -35,6 +35,7 @@ public class ChatMessageDAO {
             + "- Answer the Students queries\n"
             + "- Help Student locate folders or documents location\n"
             + "- Help Student Analyze or summarize the document's content\n"
+            + "- If after 3 times of requesting to see a file's content but the system returns PENDING, tell the user that the file's text failed to be extracted\n"
             + "\n"
             + "If you are missing any Information, use the command list below\n"
             + "NOTE: If you want to use a command, only send the response as the command and nothing else, if you fail to do so, the command will fail. \n"
