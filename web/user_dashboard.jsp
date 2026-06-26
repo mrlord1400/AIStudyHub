@@ -483,7 +483,7 @@
 
                         <form id="uploadForm" action="<%= request.getContextPath()%>/UploadController?action=upload" method="post" enctype="multipart/form-data" class="inline-block">
                             <input type="hidden" name="folderId" value="<%= currentFolderId != null ? currentFolderId : ""%>" />
-                            <input type="file" name="file" id="fileUpload" accept=".pptx,.docx,.xlsx,.pdf,.txt" class="hidden" onchange="handleFileSelect(this)" />
+                            <input type="file" name="file" id="fileUpload" class="hidden" onchange="handleFileSelect(this)" />
                             <button type="button" onclick="document.getElementById('fileUpload').click()" class="btn-primary">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                                 <span>Tải lên tài liệu</span>
@@ -618,7 +618,6 @@
             const USER_ROLE_STR = "<%= tierNameDisplay%>";
             const LIMIT_MB = <%= limitUploadMb%>;
             const CURRENT_USER_ID = "<%= userId%>";
-            const ALLOWED_EXTENSIONS = ['pptx', 'docx', 'xlsx', 'pdf', 'txt'];
 
             const dbItems = [
             <%
@@ -693,11 +692,6 @@
                     return;
 
                 const fileExtension = file.name.split('.').pop().toLowerCase();
-                if (!ALLOWED_EXTENSIONS.includes(fileExtension)) {
-                    alert("Hệ thống không hỗ trợ định dạng này! Chỉ chấp nhận file: .pptx, .docx, .xlsx, .pdf, .txt");
-                    input.value = '';
-                    return;
-                }
 
                 // CHẶN BẰNG DATA ĐỘNG TỪ DATABASE THAY VÌ HARDCODE 50/100
                 if (file.size > MAX_FILE_SIZE_BYTES) {
