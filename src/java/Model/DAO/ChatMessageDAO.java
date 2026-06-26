@@ -55,12 +55,46 @@ public class ChatMessageDAO {
         return context;
     }
 
-    // Hàm 1: Lưu tin nhắn của người dùng
+    /**
+     * Build nội dung "system prompt" khi người dùng vừa đính kèm một tài liệu mới.
+     * Đây là logic được chuyển từ front-end (JS) sang back-end.
+     *
+     * Hàm này CHỈ build chuỗi, không đụng tới DB — để có thể tái sử dụng / test độc lập.
+     *
+     * @param currentAttachment tên file vừa đính kèm (null hoặc rỗng nếu không có)
+     * @param messageText       câu hỏi gốc của user (có thể null hoặc rỗng)
+     * @return chuỗi system prompt hoàn chỉnh, hoặc null nếu không có attachment
+     */
+    public String buildAttachmentSystemMessage(String currentAttachment, String messageText) {
+        if (currentAttachment == null || currentAttachment.trim().isEmpty()) {
+            return null;
+        }
+
+        String cleanAttachment = currentAttachment.trim();
+        boolean hasMessage = messageText != null && !messageText.trim().isEmpty();
+
+        String finalMessage;
+        if (!hasMessage) {
+            finalMessage = "[HỆ THỐNG: Người dùng vừa đính kèm tài liệu mới tên là '"
+                    + cleanAttachment
+                    + "'. BẠN PHẢI DÙNG LỆNH: VIEW/" + cleanAttachment + " để đọc nó.]";
+        } else {
+            finalMessage = "[HỆ THỐNG: Người dùng vừa đính kèm tài liệu mới tên là '"
+                    + cleanAttachment
+                    + "'. BẠN PHẢI DÙNG LỆNH: VIEW/" + cleanAttachment
+                    + " để đọc nội dung tài liệu này TRƯỚC KHI trả lời câu hỏi bên dưới.]\n\n"
+                    + "Câu hỏi của người dùng: " + messageText.trim();
+        }
+
+        return finalMessage;
+    }
+
+    // Hàm 1: Lưu tin nhắn của người dùng (HIỂN THỊ cho user, display = 1 mặc định trong schema)
     public boolean createUserMessage(String userMessage, int sessionId) {
         String sql = "INSERT INTO chat_messages (session_id, sender, message_content) VALUES (?, 'USER', ?)";
 
-        try ( Connection conn = DBUtils.getConnection(); // Thay bằng class lấy connection của bạn
-                  PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DBUtils.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, sessionId);
             ps.setString(2, userMessage);
@@ -78,7 +112,8 @@ public class ChatMessageDAO {
     public boolean createBotMessage(String botMessage, int sessionId) {
         String sql = "INSERT INTO chat_messages (session_id, sender, message_content) VALUES (?, 'BOT', ?)";
 
-        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DBUtils.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, sessionId);
             ps.setString(2, botMessage);
@@ -92,12 +127,13 @@ public class ChatMessageDAO {
         }
     }
 
-    // Hàm 4: Lưu tin nhắn của System
+    // Hàm 4: Lưu tin nhắn của System (ẨN khỏi UI, display = 0). Lưu với sender = 'USER'
+    // để AI đọc lại lịch sử và hiểu đây là input đến từ phía "user/hệ thống".
     public boolean createSystemMessage(String systemMessage, int sessionId) {
         String sql = "INSERT INTO chat_messages (session_id, sender, message_content, display) VALUES (?, 'USER', ?, 0)";
 
-        try ( Connection conn = DBUtils.getConnection(); // Thay bằng class lấy connection của bạn
-                  PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DBUtils.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, sessionId);
             ps.setString(2, systemMessage);
@@ -114,8 +150,8 @@ public class ChatMessageDAO {
     public boolean createNonDisplayBotMessage(String botMessage, int sessionId) {
         String sql = "INSERT INTO chat_messages (session_id, sender, message_content, display) VALUES (?, 'BOT', ?, 0)";
 
-        try ( Connection conn = DBUtils.getConnection(); // Thay bằng class lấy connection của bạn
-                  PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DBUtils.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, sessionId);
             ps.setString(2, botMessage);
@@ -129,17 +165,33 @@ public class ChatMessageDAO {
         }
     }
 
-    // Hàm 3: Lấy toàn bộ lịch sử trò chuyện của một Session (Sắp xếp từ cũ tới mới)
+    /**
+     * Tiện ích gộp: nếu có file đính kèm, build system prompt và lưu nó vào DB
+     * dưới dạng tin nhắn ẨN (display = 0) — không ảnh hưởng đến tin nhắn hiển thị
+     * trên UI mà createUserMessage đã lưu riêng.
+     *
+     * Trả về true nếu có attachment và đã xử lý xong (lưu thành công).
+     * Trả về false nếu không có attachment (không cần xử lý gì) HOẶC lưu thất bại.
+     */
+    public boolean handleAttachmentIfPresent(String currentAttachment, String messageText, int sessionId) {
+        String attachmentPrompt = buildAttachmentSystemMessage(currentAttachment, messageText);
+        if (attachmentPrompt == null) {
+            return false; // Không có đính kèm, không cần làm gì
+        }
+        return createSystemMessage(attachmentPrompt, sessionId);
+    }
+
+    // Hàm: Lấy toàn bộ lịch sử trò chuyện của một Session (bao gồm cả message ẩn) — DÙNG CHO AI
     public List<ChatMessage> getAllMessageFromSession(int sessionId) {
         List<ChatMessage> list = new ArrayList<>();
-        // Quan trọng: Phải ORDER BY message_id ASC để AI đọc đúng luồng thời gian
         String sql = "SELECT * FROM chat_messages WHERE session_id = ? ORDER BY message_id ASC";
 
-        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DBUtils.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, sessionId);
 
-            try ( ResultSet rs = ps.executeQuery()) {
+            try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     ChatMessage msg = new ChatMessage();
                     msg.setMessageId(rs.getInt("message_id"));
@@ -159,7 +211,6 @@ public class ChatMessageDAO {
 
     public List<ChatMessage> getAllDisplayableMessage(int sessionId) {
         List<ChatMessage> list = new ArrayList<>();
-        // Quan trọng: Phải ORDER BY message_id ASC để AI đọc đúng luồng thời gian
         String sql = "SELECT * FROM chat_messages WHERE session_id = ? AND display = 1 ORDER BY message_id ASC";
 
         try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -184,7 +235,7 @@ public class ChatMessageDAO {
         return list;
     }
 
-    // Hàm 4: Lấy một tin nhắn cụ thể dựa trên ID
+    // Hàm: Lấy một tin nhắn cụ thể dựa trên ID
     public ChatMessage getMessageFromId(int messageId) {
         String sql = "SELECT * FROM chat_messages WHERE message_id = ?";
 
@@ -207,6 +258,6 @@ public class ChatMessageDAO {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return null; // Trả về null nếu không tìm thấy ID này trong DB
+        return null;
     }
 }

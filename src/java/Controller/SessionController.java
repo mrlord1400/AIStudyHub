@@ -24,7 +24,6 @@ public class SessionController extends HttpServlet {
         request.setCharacterEncoding("UTF-8");
         String action = request.getParameter("action");
 
-        // Nếu không có action, mặc định load trang chủ chat kèm lịch sử
         if (action == null) {
             action = "chatMain";
         }
@@ -66,9 +65,6 @@ public class SessionController extends HttpServlet {
         }
     }
 
-    /**
-     * Tải trang chủ chat (chat_main.jsp) kèm danh sách lịch sử
-     */
     private void handleChatMain(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         HttpSession session = request.getSession(false);
@@ -80,16 +76,12 @@ public class SessionController extends HttpServlet {
         int userId = (int) session.getAttribute("userId");
         ChatSessionDAO dao = new ChatSessionDAO();
 
-        // Lấy danh sách lịch sử để in ra Drawer
         List<ChatSession> chatHistory = dao.getAllSessionsByUserId(userId);
         request.setAttribute("chatHistory", chatHistory);
 
         request.getRequestDispatcher("/chat_main.jsp").forward(request, response);
     }
 
-    /**
-     * Xem một session cụ thể (chat_session.jsp)
-     */
     private void handleViewSession(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         HttpSession session = request.getSession(false);
@@ -107,7 +99,6 @@ public class SessionController extends HttpServlet {
 
             ChatSession currentChat = dao.getSessionById(sessionId);
 
-            // Bảo mật: Kiểm tra session có tồn tại và đúng của user này không
             if (currentChat == null || currentChat.getUserId() != userId) {
                 response.sendRedirect(request.getContextPath() + "/SessionController?action=chatMain&error=unauthorized");
                 return;
@@ -117,7 +108,16 @@ public class SessionController extends HttpServlet {
             ChatMessageDAO messageDao = new ChatMessageDAO();
             List<ChatMessage> messageList = messageDao.getAllDisplayableMessage(sessionId);
 
-            // Đưa danh sách tin nhắn vào request để JSP hiển thị
+            // BẮT FILE ĐÍNH KÈM NẾU CÓ TỪ UPLOAD CONTROLLER TRẢ VỀ QUA SESSION (Bảo vệ lỗi font)
+            String isAttached = request.getParameter("attached");
+            if ("true".equals(isAttached)) {
+                String attachedDoc = (String) request.getSession().getAttribute("newAttachedDocTitle");
+                if (attachedDoc != null) {
+                    request.setAttribute("attachedDocName", attachedDoc);
+                    request.getSession().removeAttribute("newAttachedDocTitle"); // Dọn dẹp
+                }
+            }
+
             request.setAttribute("messageList", messageList);
             request.setAttribute("currentChat", currentChat);
             request.setAttribute("chatHistory", chatHistory);
@@ -128,9 +128,6 @@ public class SessionController extends HttpServlet {
         }
     }
 
-    /**
-     * Tạo một Chat Session mới
-     */
     private void handleCreateSession(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
@@ -143,7 +140,6 @@ public class SessionController extends HttpServlet {
         int userId = (int) session.getAttribute("userId");
         String sessionName = request.getParameter("sessionName");
 
-        // Đặt tên mặc định nếu user không truyền tên
         if (sessionName == null || sessionName.trim().isEmpty()) {
             sessionName = "Cuộc trò chuyện mới";
         }
@@ -152,17 +148,12 @@ public class SessionController extends HttpServlet {
         ChatSession newChatSession = dao.createSession(sessionName, userId);
 
         if (newChatSession != null) {
-            // Chuyển hướng sang hàm viewSession để load đồng bộ cả chi tiết lẫn lịch sử
             response.sendRedirect(request.getContextPath() + "/SessionController?action=viewSession&sessionId=" + newChatSession.getSessionId());
         } else {
             response.sendRedirect(request.getContextPath() + "/SessionController?action=chatMain&error=create_failed");
         }
     }
 
-    /**
-     * Cập nhật tên của một Session (Trả về JSON để giao diện edit inline không
-     * bị reload trang)
-     */
     private void handleUpdateSessionName(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
 
@@ -204,9 +195,6 @@ public class SessionController extends HttpServlet {
         }
     }
 
-    /**
-     * Xóa hoàn toàn một Chat Session (Trả về JSON)
-     */
     private void handleDeleteSession(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
 
@@ -241,9 +229,6 @@ public class SessionController extends HttpServlet {
         }
     }
 
-    /**
-     * Tìm kiếm Session theo tên (Trả về JSON mảng để JS update list)
-     */
     private void handleFindSessionByName(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
 
@@ -265,7 +250,6 @@ public class SessionController extends HttpServlet {
         ChatSessionDAO dao = new ChatSessionDAO();
         List<ChatSession> searchResults = dao.findSessionByName(searchName);
 
-        // Build chuỗi JSON thủ công để không cần add thêm thư viện ngoài (như Gson)
         StringBuilder jsonBuilder = new StringBuilder("[");
         for (int i = 0; i < searchResults.size(); i++) {
             ChatSession s = searchResults.get(i);

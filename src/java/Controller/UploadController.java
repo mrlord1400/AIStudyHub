@@ -19,7 +19,6 @@ import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
-// Imports an toàn cho Text Extraction
 import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xssf.extractor.XSSFExcelExtractor;
@@ -88,7 +87,12 @@ public class UploadController extends HttpServlet {
             HttpSession session = request.getSession();
             int userId = (int) session.getAttribute("userId");
             
-            // 🔥 FIX BÓNG MA (GHOST FILE): Dọn dẹp sạch Session trước khi bắt đầu tải lên mới
+            // LƯU SESSION ID TỪ CHATBOT (Nếu có)
+            String chatSessionId = request.getParameter("sessionId");
+            if (chatSessionId != null && !chatSessionId.trim().isEmpty()) {
+                session.setAttribute("returnChatSessionId", chatSessionId);
+            }
+
             clearPendingSession(session);
             clearDuplicateSession(session);
 
@@ -164,8 +168,6 @@ public class UploadController extends HttpServlet {
                 return;
             }
 
-            // 🔥 FIX 500 ERROR: Đổi try-catch(Exception) thành try-catch(Throwable) 
-            // Đảm bảo đứt gãy trong lúc bóc tách Text sẽ KHÔNG làm sập server
             try {
                 String extractedText = extractTextFromFile(savedFilePath, fileExtension);
                 if (extractedText != null && !extractedText.trim().isEmpty()) {
@@ -244,6 +246,15 @@ public class UploadController extends HttpServlet {
         clearPendingSession(session);
 
         if (updated) {
+            // KIỂM TRA ĐIỀU HƯỚNG QUAY VỀ CHATBOT
+            String returnChatSessionId = (String) session.getAttribute("returnChatSessionId");
+            if (returnChatSessionId != null) {
+                session.removeAttribute("returnChatSessionId");
+                session.setAttribute("newAttachedDocTitle", newTitle);
+                response.sendRedirect(request.getContextPath() + "/SessionController?action=viewSession&sessionId=" + returnChatSessionId + "&attached=true");
+                return;
+            }
+
             String redirectTarget = "/FolderController?action=viewFolder";
             if (newFolderId != null) {
                 redirectTarget += "&folderId=" + newFolderId;
@@ -307,6 +318,15 @@ public class UploadController extends HttpServlet {
         clearPendingSession(session);
         clearDuplicateSession(session);
 
+        // KIỂM TRA ĐIỀU HƯỚNG QUAY VỀ CHATBOT
+        String returnChatSessionId = (String) session.getAttribute("returnChatSessionId");
+        if (returnChatSessionId != null) {
+            session.removeAttribute("returnChatSessionId");
+            session.setAttribute("newAttachedDocTitle", conflictTitle);
+            response.sendRedirect(request.getContextPath() + "/SessionController?action=viewSession&sessionId=" + returnChatSessionId + "&attached=true");
+            return;
+        }
+
         String redirectTarget = "/FolderController?action=viewFolder";
         if (conflictFolderId != null) {
             redirectTarget += "&folderId=" + conflictFolderId;
@@ -338,6 +358,15 @@ public class UploadController extends HttpServlet {
         boolean updated = dao.updateDocumentInfo(pendingDocId, uniqueTitle, conflictFolderId, conflictSharingPermission, newCloudUrl);
         clearPendingSession(session);
         clearDuplicateSession(session);
+
+        // KIỂM TRA ĐIỀU HƯỚNG QUAY VỀ CHATBOT
+        String returnChatSessionId = (String) session.getAttribute("returnChatSessionId");
+        if (returnChatSessionId != null) {
+            session.removeAttribute("returnChatSessionId");
+            session.setAttribute("newAttachedDocTitle", uniqueTitle);
+            response.sendRedirect(request.getContextPath() + "/SessionController?action=viewSession&sessionId=" + returnChatSessionId + "&attached=true");
+            return;
+        }
 
         String redirectTarget = "/FolderController?action=viewFolder";
         if (conflictFolderId != null) {
@@ -372,6 +401,15 @@ public class UploadController extends HttpServlet {
 
         clearPendingSession(session);
         clearDuplicateSession(session);
+        
+        // KIỂM TRA ĐIỀU HƯỚNG QUAY VỀ CHATBOT KHI HỦY BỎ
+        String returnChatSessionId = (String) session.getAttribute("returnChatSessionId");
+        if (returnChatSessionId != null) {
+            session.removeAttribute("returnChatSessionId");
+            response.sendRedirect(request.getContextPath() + "/SessionController?action=viewSession&sessionId=" + returnChatSessionId);
+            return;
+        }
+
         response.sendRedirect(request.getContextPath() + "/document_upload.jsp?cancelled=1");
     }
 
@@ -471,7 +509,6 @@ public class UploadController extends HttpServlet {
         return candidate;
     }
 
-    // 🔥 FIX: Quét file an toàn tuyệt đối với Throwable Catch
     private String extractTextFromFile(String filePath, String fileExtension) {
         try {
             switch (fileExtension.toLowerCase()) {
@@ -496,8 +533,6 @@ public class UploadController extends HttpServlet {
                     }
                 }
                 case "pptx": {
-                    // Chạy quét thủ công an toàn nhất cho mọi version POI
-                    // Bỏ qua các slide/hình ảnh nát mà không làm đứt gãy luồng code
                     try (FileInputStream fis = new FileInputStream(filePath);
                          XMLSlideShow pptx = new XMLSlideShow(fis)) {
                         StringBuilder sb = new StringBuilder();
@@ -508,7 +543,6 @@ public class UploadController extends HttpServlet {
                                         sb.append(((XSLFTextShape) shape).getText()).append("\n");
                                     }
                                 } catch (Throwable innerError) {
-                                    // Bỏ qua rác / media hỏng âm thầm
                                 }
                             }
                         }
@@ -524,7 +558,6 @@ public class UploadController extends HttpServlet {
                     return null;
             }
         } catch (Throwable t) {
-            // 🔥 THROWABLE bắt gọn toàn bộ NoClassDefFoundError nếu Server thiếu thư viện
             System.err.println("[UploadController] extractTextFromFile error for " + filePath + ": " + t.getMessage());
             return null; 
         }
