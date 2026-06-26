@@ -381,7 +381,6 @@
                 <div class="chat-bg-area" id="chatMessageLogs">
                     <div class="max-w-4xl mx-auto space-y-6" id="chatLogsContainer">
                         <c:choose>
-                            <%-- Nếu danh sách tin nhắn rỗng, hiển thị lời chào mặc định --%>
                             <c:when test="${empty messageList}">
                                 <div class="flex items-start gap-3">
                                     <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
@@ -393,11 +392,9 @@
                                 </div>
                             </c:when>
 
-                            <%-- Nếu có tin nhắn, lặp qua danh sách và in ra --%>
                             <c:otherwise>
                                 <c:forEach var="msg" items="${messageList}">
                                     <c:choose>
-                                        <%-- Tin nhắn của người dùng --%>
                                         <c:when test="${msg.sender == 'USER'}">
                                             <div class="flex items-start gap-3 justify-end">
                                                 <div class="bg-indigo-600 text-white rounded-2xl p-4 max-w-[85%] text-sm shadow-sm relative">
@@ -409,7 +406,6 @@
                                             </div>
                                         </c:when>
 
-                                        <%-- Tin nhắn của AI --%>
                                         <c:otherwise>
                                             <div class="flex items-start gap-3">
                                                 <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
@@ -429,10 +425,24 @@
 
                 <div class="chat-footer-input">
                     <div class="max-w-4xl mx-auto">
-                        <div id="filePreviewContainer" class="hidden mb-2.5 flex flex-wrap gap-2"></div>
+                        <div id="filePreviewContainer" class="mb-2.5 flex flex-wrap gap-2 ${empty attachedDocName ? 'hidden' : ''}">
+                            <c:if test="${not empty attachedDocName}">
+                                <div id="attachment-chip" class="flex items-center space-x-2 bg-indigo-900/50 border border-indigo-500 text-indigo-300 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+                                    <span class="max-w-[200px] truncate">${attachedDocName}</span>
+                                    <button onclick="removeAttachedFile()" class="hover:text-red-400 transition-colors ml-1 p-0.5 rounded-full hover:bg-gray-700">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
+                                    </button>
+                                </div>
+                            </c:if>
+                        </div>
+
+                        <form id="chatUploadForm" action="<%= request.getContextPath()%>/UploadController?action=upload&sessionId=${currentChat.sessionId}" method="POST" enctype="multipart/form-data" class="hidden">
+                            <input type="file" id="chatFileInput" name="file" accept=".docx, .doc, .pptx, .xlsx, .pdf, .txt" onchange="document.getElementById('chatUploadForm').submit();">
+                        </form>
+
                         <div class="flex items-center gap-3">
-                            <input type="file" id="chatFileInput" class="hidden" accept=".docx, .doc, .pptx, .xlsx, .pdf, .txt" onchange="handleChatFileSelect(this)">
-                            <button onclick="document.getElementById('chatFileInput').click()" class="p-2.5 text-gray-400 hover:text-indigo-400 hover:bg-gray-700 rounded-xl transition-all flex-shrink-0" title="Đính kèm tài liệu (.docx, .doc, .pptx, .xlsx, .pdf, .txt)">
+                            <button onclick="document.getElementById('chatFileInput').click()" class="p-2.5 text-gray-400 hover:text-indigo-400 hover:bg-gray-700 rounded-xl transition-all flex-shrink-0" title="Đính kèm tài liệu mới">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                             </button>
 
@@ -668,7 +678,6 @@
                                 document.getElementById('title-text-' + id).textContent = newName;
                                 document.getElementById('display-area-' + id).closest('.session-row').setAttribute('data-name', newName.toLowerCase());
 
-                                // Nếu đang đổi tên chính session hiện tại, cập nhật luôn Header
                                 if (id == "${currentChat.sessionId}") {
                                     document.getElementById('currentSessionTitle').textContent = newName;
                                 }
@@ -699,7 +708,6 @@
                             .then(response => response.json())
                             .then(data => {
                                 if (data.success) {
-                                    // Nếu xóa đúng cái đang xem, đẩy ra trang chủ chat. Ngược lại chỉ reload.
                                     if (id == "${currentChat.sessionId}") {
                                         window.location.href = "<%= request.getContextPath()%>/SessionController?action=chatMain";
                                     } else {
@@ -715,25 +723,23 @@
 
 
             // ==============================================================================
-            // MOCK TIN NHẮN BẰNG LOCAL STORAGE (Dùng tạm cho tới khi có Message DB)
-            // Lấy sessionId thật từ DB truyền qua để làm key lưu trữ
-            // ==============================================================================
-            // Cuộn khung chat xuống cuối cùng mỗi khi load trang
-            // ==============================================================================
             // CÁC HÀM XỬ LÝ GIAO DIỆN VÀ GỬI TIN NHẮN
             // ==============================================================================
 
-            // Biến toàn cục để lưu file đính kèm
-            let attachedFileHolder = null;
+            // Khởi tạo biến từ JSTL để xử lý đính kèm
+            // ==============================================================================
+// CÁC HÀM XỬ LÝ GIAO DIỆN VÀ GỬI TIN NHẮN (ĐÃ CHUYỂN LOGIC ATTACHMENT SANG BACK-END)
+// ==============================================================================
 
-            // Cuộn khung chat xuống cuối cùng mỗi khi load trang
+// Khởi tạo biến từ JSTL để xử lý đính kèm
+            let currentAttachment = "${attachedDocName}";
+
             function scrollToBottom() {
                 const scrollArea = document.getElementById('chatMessageLogs');
                 scrollArea.scrollTop = scrollArea.scrollHeight;
             }
 
             document.addEventListener("DOMContentLoaded", function () {
-                // Parse tất cả tin nhắn cũ thành HTML
                 document.querySelectorAll('.markdown-content').forEach(el => {
                     const rawText = el.textContent || el.innerText;
                     el.innerHTML = marked.parse(rawText);
@@ -741,104 +747,81 @@
                 scrollToBottom();
             });
 
-            // --- XỬ LÝ FILE ĐÍNH KÈM ---
-            function handleChatFileSelect(input) {
-                const file = input.files[0];
-                if (!file)
-                    return;
-
-                const allowedExtensions = /(\.docx|\.doc|\.pptx|\.xlsx|\.pdf|\.txt)$/i;
-                if (!allowedExtensions.exec(file.name)) {
-                    alert("Hệ thống chỉ chấp nhận định dạng: docx, doc, pptx, xlsx, pdf, txt");
-                    input.value = '';
-                    return;
-                }
-                attachedFileHolder = file;
-                renderFilePreview(file.name, (file.size / 1024).toFixed(1));
-            }
-
-            function renderFilePreview(filename, sizeKB) {
-                const container = document.getElementById('filePreviewContainer');
-                container.innerHTML = `
-                    <div class="flex items-center space-x-2 bg-gray-800 border border-gray-700 text-indigo-400 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
-                        <span class="max-w-[200px] truncate">${filename}</span>
-                        <span class="text-[10px] opacity-60">(${sizeKB} KB)</span>
-                        <button onclick="removeAttachedFile()" class="hover:text-red-400 transition-colors ml-1 p-0.5 rounded-full hover:bg-gray-700">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
-                        </button>
-                    </div>
-                `;
-                container.classList.remove('hidden');
-            }
-
+// Xóa đính kèm hiện tại ra khỏi UI và bộ nhớ
             function removeAttachedFile() {
-                attachedFileHolder = null;
-                document.getElementById('chatFileInput').value = '';
+                currentAttachment = "";
                 document.getElementById('filePreviewContainer').classList.add('hidden');
+
+                const chip = document.getElementById('attachment-chip');
+                if (chip) {
+                    chip.style.display = 'none';
+                }
             }
 
-            // --- XỬ LÝ PHÍM ENTER ---
             function handleInputKeyDown(event) {
                 if (event.key === 'Enter') {
-                    event.preventDefault(); // Ngăn hành vi xuống dòng của ô input
+                    event.preventDefault();
                     processSendMessage();
                 }
             }
 
-            // --- XỬ LÝ GỬI TIN NHẮN TỚI MAIN CONTROLLER ---
             function processSendMessage() {
                 const inputElement = document.getElementById('userChatInput');
                 const logsContainer = document.getElementById('chatLogsContainer');
                 const messageText = inputElement.value.trim();
+                const attachmentToSend = currentAttachment; // Lưu lại trước khi xóa chip khỏi UI
 
-                // Nếu không có chữ và không có file thì không làm gì cả
-                if (!messageText && !attachedFileHolder)
+                // Nếu không có chữ và không có đính kèm thì không làm gì cả
+                if (!messageText && !attachmentToSend)
                     return;
 
-                // Chuẩn bị text gửi đi
-                let finalMessage = messageText;
-                if (attachedFileHolder && !messageText) {
-                    finalMessage = "[Gửi tệp: " + attachedFileHolder.name + "]";
-                }
-                if (attachedFileHolder && messageText) {
-                    finalMessage += " [Kèm tệp: " + attachedFileHolder.name + "]";
+                // Hiển thị tin nhắn của user lên UI — CHỈ hiển thị nội dung gốc + ghi chú đính kèm,
+                // KHÔNG còn build chuỗi "[HỆ THỐNG: ...]" ở đây nữa (việc này đã chuyển sang back-end)
+                let displayMessage = messageText;
+                if (attachmentToSend) {
+                    const attachmentNote = '<span class="text-indigo-300 text-xs block mt-1">📎 Đã đính kèm: ' + attachmentToSend + '</span>';
+                    displayMessage = messageText ? (messageText + attachmentNote) : attachmentNote;
                 }
 
-                // 1. Vẽ tin nhắn của User lên giao diện ngay lập tức
                 const userMsgHtml = `
-                    <div class="flex items-start gap-3 justify-end">
-                        <div class="bg-indigo-600 text-white rounded-2xl p-4 max-w-[85%] text-sm shadow-sm relative">
-                            <p class="leading-relaxed font-medium">` + finalMessage + `</p>
-                        </div>
-                        <div class="w-8 h-8 rounded-full bg-indigo-900/60 text-indigo-300 flex items-center justify-center font-bold text-xs uppercase flex-shrink-0 shadow-sm">
+        <div class="flex items-start gap-3 justify-end">
+            <div class="bg-indigo-600 text-white rounded-2xl p-4 max-w-[85%] text-sm shadow-sm relative">
+                <p class="leading-relaxed font-medium">` + displayMessage + `</p>
+            </div>
+            <div class="w-8 h-8 rounded-full bg-indigo-900/60 text-indigo-300 flex items-center justify-center font-bold text-xs uppercase flex-shrink-0 shadow-sm">
             <%= username != null && !username.isEmpty() ? username.substring(0, 1) : "U"%>
-                        </div>
-                    </div>
-                `;
+            </div>
+        </div>
+    `;
                 logsContainer.insertAdjacentHTML('beforeend', userMsgHtml);
                 scrollToBottom();
 
-                // Reset input và khóa lại để tránh spam
                 inputElement.value = "";
-                removeAttachedFile();
                 inputElement.disabled = true;
 
-                // Nếu vùng chat chỉ có lời chào mặc định, ta xóa nó đi cho đẹp
                 if (logsContainer.children.length === 2 && logsContainer.innerHTML.includes("Xin chào! Bạn đang ở chủ đề")) {
                     logsContainer.firstElementChild.remove();
                 }
 
-                // 2. Gửi request POST đến ChatBotController (Đã sửa URL)
+                removeAttachedFile(); // Xóa chip trên UI ngay sau khi gửi
+
+                // Gửi message GỐC (không chèn system prompt) + tên file đính kèm (nếu có) riêng biệt.
+                // Back-end (ChatBotController) sẽ tự build system prompt VIEW/... khi cần.
+                const bodyParams = new URLSearchParams();
+                bodyParams.append('message', messageText);
+                bodyParams.append('sessionId', '${currentChat.sessionId}');
+                if (attachmentToSend) {
+                    bodyParams.append('attachment', attachmentToSend);
+                }
+
                 fetch('<%= request.getContextPath()%>/ChatBotController', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: 'message=' + encodeURIComponent(finalMessage) + '&sessionId=${currentChat.sessionId}'
+                    body: bodyParams.toString()
                 })
                         .then(async response => {
-                            // BẮT LỖI 429 TẠI ĐÂY (Hết lượt chat)
                             if (response.status === 429) {
                                 const errorMsg = await response.text();
                                 throw new Error("RATE_LIMIT:" + errorMsg);
@@ -850,26 +833,23 @@
                             return response.text();
                         })
                         .then(data => {
-                            // Bỏ dòng replace \n đi, dùng marked.parse
                             const parsedHTML = marked.parse(data);
 
-                            // Thêm class prose prose-sm prose-invert để Tailwind tự động style
                             const botMsgHtml = `
-                                <div class="flex items-start gap-3">
-                                    <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.886L4.2 10.8 10.088 12.714 12 18.6l1.912-5.886L19.8 10.8l-5.886-1.914Z"/></svg>
-                                    </div>
-                                    <div class="bot-msg-box border rounded-2xl p-4 max-w-[85%] shadow-sm relative transition-colors duration-200">
-                                    <div class="prose prose-sm prose-invert max-w-none leading-relaxed font-medium">` + parsedHTML + `</div>
-                                    </div>
-                                </div>
-    `;
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.886L4.2 10.8 10.088 12.714 12 18.6l1.912-5.886L19.8 10.8l-5.886-1.914Z"/></svg>
+                        </div>
+                        <div class="bot-msg-box border rounded-2xl p-4 max-w-[85%] shadow-sm relative transition-colors duration-200">
+                        <div class="prose prose-sm prose-invert max-w-none leading-relaxed font-medium">` + parsedHTML + `</div>
+                        </div>
+                    </div>
+`;
                             logsContainer.insertAdjacentHTML('beforeend', botMsgHtml);
                             scrollToBottom();
                         })
                         .catch(error => {
                             console.error('Error:', error);
-                            // XỬ LÝ IN LỖI RA GIAO DIỆN
                             let displayError = "Đã xảy ra lỗi khi kết nối với máy chủ.";
                             if (error.message.startsWith("RATE_LIMIT:")) {
                                 displayError = error.message.replace("RATE_LIMIT:", "").replace(/\n/g, "<br>");
@@ -877,22 +857,20 @@
                                 displayError = error.message;
                             }
 
-                            // Tạo box AI màu đỏ báo lỗi
                             const errorMsgHtml = `
-                                <div class="flex items-start gap-3">
-                                    <div class="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                                    </div>
-                                    <div class="border border-red-500/30 bg-red-500/10 text-red-400 rounded-2xl p-4 max-w-[85%] text-sm shadow-sm relative">
-                                        <p class="leading-relaxed font-semibold">` + displayError + `</p>
-                                    </div>
-                                </div>
-                            `;
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        </div>
+                        <div class="border border-red-500/30 bg-red-500/10 text-red-400 rounded-2xl p-4 max-w-[85%] text-sm shadow-sm relative">
+                            <p class="leading-relaxed font-semibold">` + displayError + `</p>
+                        </div>
+                    </div>
+                `;
                             logsContainer.insertAdjacentHTML('beforeend', errorMsgHtml);
                             scrollToBottom();
                         })
                         .finally(() => {
-                            // Mở khóa input
                             inputElement.disabled = false;
                             inputElement.focus();
                         });
