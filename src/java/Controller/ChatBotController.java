@@ -212,65 +212,65 @@ public class ChatBotController extends HttpServlet {
 
                     // 3a. Lưu response "VIEW/..." của AI vào DB như BOT message
                     chatMessageDAO.createNonDisplayBotMessage(trimmedResponse, sessionId);
-
-                    // 3b. Extract tên document từ response
-                    String docName;
-                    if (trimmedResponse.toUpperCase().startsWith("VIEW/")) {
-                        docName = trimmedResponse.substring("VIEW/".length()).trim();
-                    } else {
-                        docName = trimmedResponse.substring("VIEW /".length()).trim();
-                    }
-
-                    // 3c. Tìm document theo tên trong DB
-                    String systemMessage;
-                    Document foundDoc = documentDAO.findByTitleAndUserId(userId, docName);
-
-                    if (foundDoc == null) {
-                        // Document not found — unchanged from original
-                        systemMessage = "Hệ thống không tìm thấy tài liệu có tên \"" + docName
-                                + "\" trong kho lưu trữ của sinh viên. "
-                                + "Hãy thông báo cho sinh viên biết và hỏi lại tên chính xác.";
-                    } else {
-                        String parsingStatus = foundDoc.getAiParsingStatus();
-
-                        if (!"READY".equalsIgnoreCase(parsingStatus)) {
-                            // Document not ready — unchanged from original
-                            systemMessage = "Tài liệu \"" + foundDoc.getTitle()
-                                    + "\" được tìm thấy nhưng chưa sẵn sàng để phân tích "
-                                    + "(trạng thái hiện tại: " + parsingStatus + "). "
-                                    + "Hãy thông báo cho sinh viên rằng tài liệu đang được xử lý "
-                                    + "và yêu cầu họ thử lại sau.";
+                    try {
+                        // 3b. Extract tên document từ response
+                        String docId = trimmedResponse.substring(trimmedResponse.indexOf("/") + 1).trim();
+                        Integer docIdInt = Integer.parseInt(docId);
+                        // 3c. Tìm document theo id trong DB
+                        String systemMessage;
+                        Document foundDoc = null;
+                        if (docIdInt != null) {
+                            foundDoc = documentDAO.findById(docIdInt);
+                        }
+                        if (foundDoc == null) {
+                            // Document not found — unchanged from original
+                            systemMessage = "Hệ thống không tìm thấy tài liệu có id \"" + docId
+                                    + "\" trong kho lưu trữ của sinh viên. "
+                                    + "Hãy thông báo cho sinh viên biết và hỏi lại tên chính xác.";
                         } else {
-                            // ─── CHANGED: Instead of sending metadata, now retrieve and send
-                            // the actual extracted text content from the document_extracted_text table.
-                            // This allows the AI to properly analyze the document content. ──────────
-                            String extractedText = documentTextDAO.getExtractedText(foundDoc.getDocumentId());
+                            String parsingStatus = foundDoc.getAiParsingStatus();
 
-                            if (extractedText == null || extractedText.trim().isEmpty()) {
-                                // Extracted text not found in DB even though status is READY
+                            if (!"READY".equalsIgnoreCase(parsingStatus)) {
+                                // Document not ready — unchanged from original
                                 systemMessage = "Tài liệu \"" + foundDoc.getTitle()
-                                        + "\" được tìm thấy nhưng nội dung chưa được trích xuất. "
+                                        + "\" được tìm thấy nhưng chưa sẵn sàng để phân tích "
+                                        + "(trạng thái hiện tại: " + parsingStatus + "). "
                                         + "Hãy thông báo cho sinh viên rằng tài liệu đang được xử lý "
                                         + "và yêu cầu họ thử lại sau.";
                             } else {
-                                // Send extracted text to AI for analysis
-                                systemMessage = "Đây là nội dung tài liệu \"" + foundDoc.getTitle()
-                                        + "\" mà sinh viên yêu cầu:\n\n"
-                                        + extractedText
-                                        + "\n\nDựa trên nội dung trên, hãy trả lời câu hỏi của sinh viên.";
-                            }
-                            // ─────────────────────────────────────────────────────────
-                        }
-                    }
-                    // 3d. Lưu system message vào DB như USER message
-                    chatMessageDAO.createSystemMessage(systemMessage, sessionId);
+                                // ─── CHANGED: Instead of sending metadata, now retrieve and send
+                                // the actual extracted text content from the document_extracted_text table.
+                                // This allows the AI to properly analyze the document content. ──────────
+                                String extractedText = documentTextDAO.getExtractedText(foundDoc.getDocumentId());
 
+                                if (extractedText == null || extractedText.trim().isEmpty()) {
+                                    // Extracted text not found in DB even though status is READY
+                                    systemMessage = "Tài liệu \"" + foundDoc.getTitle()
+                                            + "\" được tìm thấy nhưng nội dung chưa được trích xuất. "
+                                            + "Hãy thông báo cho sinh viên rằng tài liệu đang được xử lý "
+                                            + "và yêu cầu họ thử lại sau.";
+                                } else {
+                                    // Send extracted text to AI for analysis
+                                    systemMessage = "Đây là nội dung tài liệu \"" + foundDoc.getTitle()
+                                            + "\" mà sinh viên yêu cầu:\n\n"
+                                            + extractedText
+                                            + "\n\nDựa trên nội dung trên, hãy trả lời câu hỏi của sinh viên.";
+                                }
+                                // ─────────────────────────────────────────────────────────
+                            }
+                        }
+
+                        // 3d. Lưu system message vào DB như USER message
+                        chatMessageDAO.createSystemMessage(systemMessage, sessionId);
+                    } catch (Exception ex) {
+                        chatMessageDAO.createSystemMessage("Lỗi định dạng lệnh: ID tài liệu phải là số. Ví dụ: VIEW/123", sessionId);
+                    }
                     // 3e. Reload lịch sử và gọi Gemini lần tiếp theo
                     chatHistory = chatMessageDAO.getAllMessageFromSession(sessionId);
                     aiResponse = geminiService.getGeminiResponse(chatHistory);
                     // Quay lại đầu while loop để kiểm tra response mới
 
-                } else if (trimmedResponse.toUpperCase().startsWith("TODAY")){
+                } else if (trimmedResponse.toUpperCase().startsWith("TODAY")) {
                     chatMessageDAO.createNonDisplayBotMessage(trimmedResponse, sessionId);
                     DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
                     String today = now.format(formatter);
@@ -278,6 +278,34 @@ public class ChatBotController extends HttpServlet {
 
                     chatMessageDAO.createSystemMessage(timeMessage, sessionId);
 
+                    // 2f. Reload lịch sử và gọi Gemini lần tiếp theo
+                    chatHistory = chatMessageDAO.getAllMessageFromSession(sessionId);
+                    aiResponse = geminiService.getGeminiResponse(chatHistory);
+                } else if (trimmedResponse.toUpperCase().startsWith("GETLINK/") || trimmedResponse.toUpperCase().startsWith("GETLINK /")) {
+                    // Save AI response
+
+                    chatMessageDAO.createNonDisplayBotMessage(trimmedResponse, sessionId);
+                    try {
+                        String folderId = trimmedResponse.substring(trimmedResponse.indexOf("/") + 1).trim();
+
+                        Integer folderIdInt = Integer.parseInt(folderId);
+                        String contextPath = request.getContextPath();
+                        String folderUrl = Utils.LinkUtil.getFolderUrl(contextPath, folderIdInt);
+                        String systemMessage;
+                        if (folderDAO.getFolderById(folderIdInt) != null) {
+                            systemMessage = "Thư mục có id \"" + folderId
+                                    + "\" đã được tìm thấy tại đường link: " + folderUrl
+                                    + "\n Hãy thông báo lại với học sinh và gửi đường link cho học sinh.";
+                        } else {
+                            systemMessage = "Hệ thống không tìm thấy thư mục có id \"" + folderId
+                                    + "\" trong kho lưu trữ của sinh viên. "
+                                    + "Hãy kiểm tra lại cấu trúc folder tree của học sinh hiện tại.";
+                        }
+
+                        chatMessageDAO.createSystemMessage(systemMessage, sessionId);
+                    } catch (Exception ex) {
+                        chatMessageDAO.createSystemMessage("Lỗi định dạng lệnh: ID folder phải là số. Ví dụ: GETLINK/123", sessionId);
+                    }
                     // 2f. Reload lịch sử và gọi Gemini lần tiếp theo
                     chatHistory = chatMessageDAO.getAllMessageFromSession(sessionId);
                     aiResponse = geminiService.getGeminiResponse(chatHistory);
@@ -315,10 +343,10 @@ public class ChatBotController extends HttpServlet {
             out.print("Đã xảy ra lỗi hệ thống từ máy chủ AI: " + e.getMessage());
         }
     }
-
     // ══════════════════════════════════════════════════════════════════════════
     // HELPER: Build cây thư mục dạng string cho luồng SEARCH
     // ══════════════════════════════════════════════════════════════════════════
+
     /**
      * Xây dựng cấu trúc cây thư mục dạng string. VD output: - Folder Gốc 1 --
      * Folder Con A --- [Document] BaiGiang.pdf -- Folder Con B - [Document]

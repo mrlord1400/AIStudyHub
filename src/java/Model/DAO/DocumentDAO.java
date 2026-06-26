@@ -73,8 +73,15 @@ public class DocumentDAO {
 
             try ( ResultSet rs = ps.getGeneratedKeys()) {
                 if (rs.next()) {
-                    return rs.getInt(1); // Trả về document_id vừa sinh ra
+                    int docId = rs.getInt(1); // Trả về document_id vừa sinh ra
+                    if (docId < 0){
+                        return docId;
+                    } else {
+                        doc.setDocumentId(docId);
+                    }
+                    return docId;
                 }
+                
             }
 
         } catch (SQLException e) {
