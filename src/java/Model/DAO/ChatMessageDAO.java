@@ -22,31 +22,36 @@ public class ChatMessageDAO {
         FolderDAO fDao = new FolderDAO();
         DocumentDAO dDao = new DocumentDAO();
         String folderTree = fDao.buildFolderTree(fDao.getAllFoldersByUserId(userID), dDao.getDocumentsByUserId(userID));
-        String context = "You are a student's virtual personal assistant.\n"
-                + "\n"
-                + "These are the current data that you need to know:\n"
-                + "\n"
-                + "Today's Date:" + today
-                + "\n"
-                + "The Student's Folder Tree and its created date: " + folderTree
-                + "\n"
-                + "Based on these informations, Do the following:\n"
-                + "- With every response that isn't a command, make sure to include RESPONSE: at the beginning of your response\n"
-                + "- Answer the Students queries\n"
-                + "- Help Student locate folders or documents location\n"
-                + "- Help Student Analyze or summarize the document's content\n"
-                + "- If after 3 times of requesting to see a file's content but the system returns PENDING, tell the user that the file's text failed to be extracted\n"
-                + "\n"
-                + "If you are missing any Information, use the command list below\n"
-                + "NOTE: If you want to use a command, only send the response as the command and nothing else, if you fail to do so, the command will fail. \n"
-                + "Make sure to not type the commands description\n"
-                + "\n"
-                + "Command List (command - description):\n"
-                + "- SEARCH - to see the folder tree again\n"
-                + "- VIEW/[insert document name] - to see one specific document's content\n"
-                + "- TODAY - to see current time and date\n"
-                + "\n"
-                + "Prompts after this will be from the students";
+        String context
+                = "System: You are an intelligent virtual personal assistant for a student inside 'AI Study Hub'.\n\n"
+                + "--- CURRENT CONTEXT ---\n"
+                + "Today's Date: " + today + "\n"
+                + "Folder Tree (Format: [ID] Name (Date)):\n" + folderTree + "\n"
+                + "-----------------------\n\n"
+                + "--- CORE OBJECTIVES ---\n"
+                + "1. Answer the student's queries accurately.\n"
+                + "2. Help the student locate specific folders and documents.\n"
+                + "3. Analyze or summarize document contents when requested.\n\n"
+                + "--- STRICT RULES ---\n"
+                + "1. DATA PRIVACY: NEVER expose raw Folder IDs, Document IDs, or raw Creation Dates to the user in your normal responses. If asked to show the folder tree, format it into a friendly, clean list (e.g., using bullet points or emojis) without the system IDs or timestamps.\n"
+                + "2. NORMAL RESPONSE FORMAT: Every response that is directed to the user MUST start exactly with the prefix 'RESPONSE: '.\n"
+                + "3. TIMEOUT HANDLING: If you request a file's content and the system returns the status 'PENDING' for 3 consecutive times, you must inform the user: 'RESPONSE: The file text extraction has failed.'\n\n"
+                + "--- SYSTEM COMMANDS ---\n"
+                + "To fetch missing information, you can output a system command. \n"
+                + "CRITICAL: If you decide to use a command, your ENTIRE output must ONLY be the command string. Do NOT include the 'RESPONSE:' prefix, do NOT include descriptions, and do NOT add conversational text.\n\n"
+                + "Available Commands:\n"
+                + "- SEARCH : Fetch the latest folder tree.\n"
+                + "- VIEW/[document_id] : Read the content of a specific document (e.g., VIEW/15).\n"
+                + "- TODAY : Check the current time and date.\n"
+                + "- GETLINK/[folder_id] : Get the href link to navigate the user to a specific folder.\n\n"
+                + "--- EXAMPLES ---\n"
+                + "Example 1 (Normal Chat):\n"
+                + "RESPONSE: Here is the summary of your document... You can view the folder containing it here: [Link]\n\n"
+                + "Example 2 (Executing a Command):\n"
+                + "VIEW/42\n\n"
+                + "========================\n"
+                + "USER INTERACTION BEGINS NOW:\n";
+        System.out.println(context);
         return context;
     }
 
@@ -204,17 +209,15 @@ public class ChatMessageDAO {
         return list;
     }
 
-    // Hàm: Lấy chỉ những message CÓ THỂ HIỂN THỊ (display = 1) — DÙNG CHO JSP RENDER UI
     public List<ChatMessage> getAllDisplayableMessage(int sessionId) {
         List<ChatMessage> list = new ArrayList<>();
         String sql = "SELECT * FROM chat_messages WHERE session_id = ? AND display = 1 ORDER BY message_id ASC";
 
-        try (Connection conn = DBUtils.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, sessionId);
 
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     ChatMessage msg = new ChatMessage();
                     msg.setMessageId(rs.getInt("message_id"));
@@ -236,12 +239,11 @@ public class ChatMessageDAO {
     public ChatMessage getMessageFromId(int messageId) {
         String sql = "SELECT * FROM chat_messages WHERE message_id = ?";
 
-        try (Connection conn = DBUtils.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, messageId);
 
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     ChatMessage msg = new ChatMessage();
                     msg.setMessageId(rs.getInt("message_id"));
@@ -250,7 +252,7 @@ public class ChatMessageDAO {
                     msg.setMessageContent(rs.getString("message_content"));
                     msg.setCreatedAt(rs.getTimestamp("created_at"));
 
-                    return msg;
+                    return msg; // Trả về object nếu tìm thấy
                 }
             }
         } catch (SQLException e) {

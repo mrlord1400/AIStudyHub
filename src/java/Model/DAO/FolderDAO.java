@@ -30,8 +30,16 @@ public class FolderDAO {
 
             ps.setString(3, folder.getFolderName());
             ps.setString(4, folder.getSharingPermission() != null ? folder.getSharingPermission() : "PRIVATE");
-
-            return ps.executeUpdate() > 0;
+            
+            boolean check = ps.executeUpdate() > 0;
+            
+            try ( ResultSet rs = ps.getGeneratedKeys()) {
+                if (rs.next()) {
+                    int folderId = rs.getInt(1);
+                    folder.setFolderId(folderId);
+                }
+            }
+            return check;
 
         } catch (SQLException e) {
             System.err.println("[FolderDAO.createFolder] Lỗi khi tạo thư mục: " + e.getMessage());
@@ -306,10 +314,10 @@ public class FolderDAO {
         }
         return null;
     }
-    
-   public String buildFolderTree(List<Folder> allFolders, List<Document> allDocuments) {
+
+    public String buildFolderTree(List<Folder> allFolders, List<Document> allDocuments) {
         StringBuilder tree = new StringBuilder();
-        
+
         // Khởi tạo Formatter để format ngày giờ
         java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");
 
@@ -329,12 +337,16 @@ public class FolderDAO {
         // 3. Thêm documents ở root (folder_id == null) — không thuộc folder nào
         for (Document doc : allDocuments) {
             if (doc.getFolderId() == null) {
-                // Lấy chuỗi ngày giờ của Document (nếu có)
-                String dateStr = (doc.getCreatedAt() != null) 
-                        ? " (" + doc.getCreatedAt().format(formatter) + ")" 
+                // Lấy chuỗi ngày giờ của Document
+                String docDateStr = (doc.getCreatedAt() != null)
+                        ? " (" + doc.getCreatedAt().format(formatter) + ")"
                         : "";
-                        
-                tree.append("- [Document] ").append(doc.getTitle()).append(dateStr).append("\n");
+
+                // 🔥 THAY ĐỔI TẠI ĐÂY: Đính kèm luôn Document ID cho đồng bộ (tuỳ chọn)
+                tree.append("- [Doc ID: ").append(doc.getDocumentId()).append("] ") // Thêm ID tài liệu
+                        .append(doc.getTitle())
+                        .append(docDateStr)
+                        .append("\n");
             }
         }
 
@@ -354,11 +366,19 @@ public class FolderDAO {
      * @param allFolders Danh sách tất cả folders của user
      * @param allDocuments Danh sách tất cả documents của user
      * @param depth Cấp độ hiện tại (1 = gốc)
+     * @param formatter Bộ định dạng ngày giờ để tối ưu tái sử dụng /** Đệ quy
+     * build cây thư mục. Mỗi cấp tăng thêm 1 dấu "-".
+     *
+     * @param tree StringBuilder đang xây dựng
+     * @param currentFolder Folder hiện tại đang xử lý
+     * @param allFolders Danh sách tất cả folders của user
+     * @param allDocuments Danh sách tất cả documents của user
+     * @param depth Cấp độ hiện tại (1 = gốc)
      * @param formatter Bộ định dạng ngày giờ để tối ưu tái sử dụng
      */
     private void buildFolderTreeRecursive(StringBuilder tree, Folder currentFolder,
             List<Folder> allFolders, List<Document> allDocuments, int depth, java.time.format.DateTimeFormatter formatter) {
-        
+
         // Tạo prefix dấu "-" theo cấp độ
         StringBuilder prefix = new StringBuilder();
         for (int i = 0; i < depth; i++) {
@@ -367,24 +387,32 @@ public class FolderDAO {
         String depthPrefix = prefix.toString();
 
         // Lấy chuỗi ngày giờ của Folder hiện tại
-        String folderDateStr = (currentFolder.getCreatedAt() != null) 
-                ? " (" + currentFolder.getCreatedAt().format(formatter) + ")" 
+        String folderDateStr = (currentFolder.getCreatedAt() != null)
+                ? " (" + currentFolder.getCreatedAt().format(formatter) + ")"
                 : "";
 
-        // Thêm folder hiện tại vào cây (Kèm ngày giờ)
-        tree.append(depthPrefix).append(" ").append(currentFolder.getFolderName()).append(folderDateStr).append("\n");
+        // 🔥 THAY ĐỔI TẠI ĐÂY: Đính kèm Folder ID vào trước Folder Name
+        tree.append(depthPrefix)
+                .append(" [ID: ").append(currentFolder.getFolderId()).append("] ") // Thêm ID
+                .append(currentFolder.getFolderName())
+                .append(folderDateStr)
+                .append("\n");
 
         // Tìm documents thuộc folder này
         for (Document doc : allDocuments) {
             if (doc.getFolderId() != null && doc.getFolderId() == currentFolder.getFolderId()) {
-                
+
                 // Lấy chuỗi ngày giờ của Document
-                String docDateStr = (doc.getCreatedAt() != null) 
-                        ? " (" + doc.getCreatedAt().format(formatter) + ")" 
+                String docDateStr = (doc.getCreatedAt() != null)
+                        ? " (" + doc.getCreatedAt().format(formatter) + ")"
                         : "";
-                        
-                // Document nằm trong folder nên cần thụt lề thêm 1 cấp (depthPrefix + "-")
-                tree.append(depthPrefix).append("- [Document] ").append(doc.getTitle()).append(docDateStr).append("\n");
+
+                // 🔥 THAY ĐỔI TẠI ĐÂY: Đính kèm luôn Document ID cho đồng bộ (tuỳ chọn)
+                tree.append(depthPrefix)
+                        .append("- [Doc ID: ").append(doc.getDocumentId()).append("] ") // Thêm ID tài liệu
+                        .append(doc.getTitle())
+                        .append(docDateStr)
+                        .append("\n");
             }
         }
 
@@ -395,9 +423,10 @@ public class FolderDAO {
             }
         }
     }
-    
+
     /**
-     * Kiểm tra xem thư mục có bị trùng tên trong cùng một cấp (parentFolderId) hay không
+     * Kiểm tra xem thư mục có bị trùng tên trong cùng một cấp (parentFolderId)
+     * hay không
      */
     public boolean isFolderNameExists(int userId, String folderName, Integer parentFolderId) {
         String sql;
@@ -408,8 +437,7 @@ public class FolderDAO {
             sql = "SELECT COUNT(*) FROM folders WHERE user_id = ? AND folder_name = ? AND parent_folder_id = ?";
         }
 
-        try (java.sql.Connection conn = Utils.DBUtils.getConnection(); 
-             java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( java.sql.Connection conn = Utils.DBUtils.getConnection();  java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, userId);
             ps.setString(2, folderName);
@@ -417,7 +445,7 @@ public class FolderDAO {
                 ps.setInt(3, parentFolderId);
             }
 
-            try (java.sql.ResultSet rs = ps.executeQuery()) {
+            try ( java.sql.ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return rs.getInt(1) > 0; // Trả về true nếu count > 0 (đã tồn tại)
                 }
