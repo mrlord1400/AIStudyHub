@@ -537,6 +537,29 @@
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500 mt-0.5 group-hover:text-indigo-400 flex-shrink-0"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                                         <div class="flex-1 min-w-0 pr-2">
                                             <p id="title-text-${sessionItem.sessionId}" class="text-sm font-semibold ${isActive ? 'text-indigo-400' : 'text-gray-200'} truncate mb-0.5">${sessionItem.sessionName}</p>
+                                            <!-- ADDED: Pinned badge — only visible when session is pinned -->
+                                            <c:if test="${sessionItem.pinned}">
+                                                <span id="pin-badge-${sessionItem.sessionId}"
+                                                      class="inline-flex items-center gap-1 text-[9px] font-bold text-yellow-400 mt-0.5">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24"
+                                                         fill="currentColor" stroke="currentColor" stroke-width="2">
+                                                    <line x1="12" y1="17" x2="12" y2="22"/>
+                                                    <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
+                                                    </svg>
+                                                    Đã ghim
+                                                </span>
+                                            </c:if>
+                                            <c:if test="${!sessionItem.pinned}">
+                                                <!-- ADDED: Empty badge placeholder for JS to toggle into -->
+                                                <span id="pin-badge-${sessionItem.sessionId}" class="hidden inline-flex items-center gap-1 text-[9px] font-bold text-yellow-400 mt-0.5">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24"
+                                                         fill="currentColor" stroke="currentColor" stroke-width="2">
+                                                    <line x1="12" y1="17" x2="12" y2="22"/>
+                                                    <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
+                                                    </svg>
+                                                    Đã ghim
+                                                </span>
+                                            </c:if>
                                             <span class="text-[10px] text-gray-500 font-medium">${sessionItem.createdAt}</span>
                                         </div>
                                     </div>
@@ -552,6 +575,18 @@
                                     </div>
 
                                     <div id="action-area-${sessionItem.sessionId}" class="hidden group-hover:flex items-center space-x-1 pl-1">
+                                        <button id="pin-btn-${sessionItem.sessionId}"
+                                                onclick="togglePinSession('${sessionItem.sessionId}', this)"
+                                                class="p-1.5 text-gray-400 hover:text-yellow-400 rounded-md hover:bg-gray-700 transition-colors"
+                                                title="${sessionItem.pinned ? 'Bỏ ghim' : 'Ghim'}">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                                 viewBox="0 0 24 24" fill="${sessionItem.pinned ? 'currentColor' : 'none'}"
+                                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                 class="${sessionItem.pinned ? 'text-yellow-400' : ''}">
+                                            <line x1="12" y1="17" x2="12" y2="22"/>
+                                            <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
+                                            </svg>
+                                        </button>
                                         <button onclick="startEditSession('${sessionItem.sessionId}')" class="p-1.5 text-gray-400 hover:text-blue-400 rounded-md hover:bg-gray-700 transition-colors" title="Đổi tên">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                                         </button>
@@ -874,6 +909,72 @@
                             inputElement.disabled = false;
                             inputElement.focus();
                         });
+            }
+            // ADDED: Toggle pin/unpin a chat session
+            function togglePinSession(id, btnEl) {
+                // Read current pin state from the button's icon fill attribute
+                const svgEl = btnEl.querySelector('svg');
+                const isPinned = svgEl.getAttribute('fill') === 'currentColor'; // currently pinned
+                const newState = !isPinned; // toggle to opposite
+
+                const url = "<%= request.getContextPath()%>/SessionController?action=pinSession";
+                const formData = new URLSearchParams();
+                formData.append('sessionId', id);
+                formData.append('isPinned', newState);
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: formData.toString()
+                })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                // --- Update pin button icon (filled = pinned, outline = unpinned) ---
+                                svgEl.setAttribute('fill', newState ? 'currentColor' : 'none');
+                                btnEl.setAttribute('title', newState ? 'Bỏ ghim' : 'Ghim');
+                                if (newState) {
+                                    svgEl.classList.add('text-yellow-400');
+                                } else {
+                                    svgEl.classList.remove('text-yellow-400');
+                                }
+
+                                // --- Show/hide the "Đã ghim" badge in the title area ---
+                                const badge = document.getElementById('pin-badge-' + id);
+                                if (badge) {
+                                    if (newState) {
+                                        badge.classList.remove('hidden');
+                                    } else {
+                                        badge.classList.add('hidden');
+                                    }
+                                }
+
+                                // --- Move the session row to top (pinned) or re-sort (unpinned) ---
+                                const row = btnEl.closest('.session-row');
+                                const container = document.getElementById('historyItemsContainer');
+                                if (newState) {
+                                    // Pinned: move to the very top of the list
+                                    container.prepend(row);
+                                } else {
+                                    // Unpinned: move below all other pinned rows
+                                    const pinnedRows = container.querySelectorAll(
+                                            '.session-row svg[fill="currentColor"]'
+                                            );
+                                    const lastPinned = pinnedRows.length > 0
+                                            ? pinnedRows[pinnedRows.length - 1].closest('.session-row')
+                                            : null;
+
+                                    if (lastPinned && lastPinned !== row) {
+                                        lastPinned.after(row);
+                                    } else {
+                                        container.prepend(row);
+                                    }
+                                }
+                            } else {
+                                alert("Lỗi: " + (data.message || "Không thể cập nhật trạng thái ghim."));
+                            }
+                        })
+                        .catch(err => console.error("Pin Error:", err));
             }
         </script>
     </body>
