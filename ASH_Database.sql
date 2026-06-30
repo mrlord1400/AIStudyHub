@@ -101,7 +101,7 @@ CREATE TABLE documents (
     ai_parsing_status NVARCHAR(20) DEFAULT 'PENDING' CHECK (ai_parsing_status IN ('PENDING', 'PROCESSING', 'READY', 'FAILED')), 
     sharing_permission NVARCHAR(20) DEFAULT 'PRIVATE' CHECK (sharing_permission IN ('PRIVATE', 'FRIENDS_ONLY', 'PUBLIC')), -- Permission management
     share_link_token NVARCHAR(100) UNIQUE,    -- For sharing via links
-	total_report_score DECIMAL(5,2) DEFAULT 0.0; -- 30/06
+	total_report_score DECIMAL(5,2) DEFAULT 0.0, -- 30/06
     is_flagged BIT DEFAULT 0,   
 	bookmark_count INT DEFAULT 0, -- 30/06
 	download_count INT DEFAULT 0, -- 30/06
