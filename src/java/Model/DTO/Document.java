@@ -24,15 +24,17 @@ public class Document {
     private boolean isFlagged;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;    // Mới: Cập nhật bởi Trigger tự động
+    private Integer bookmarkCount;
+    private Integer downloadCount;
+    private Double totalReportScore;
+    private String authorUsername;
+    private boolean isBookmarked;
 
     // ─── Constructors ────────────────────────────────────────────────────────
 
     public Document() {}
 
-    public Document(int documentId, int userId, Integer folderId, String title, String fileExtension,
-                    String cloudStorageUrl, double fileSizeMb, String aiParsingStatus,
-                    String sharingPermission, String shareLinkToken, boolean isFlagged, 
-                    LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public Document(int documentId, int userId, Integer folderId, String title, String fileExtension, String cloudStorageUrl, double fileSizeMb, String aiParsingStatus, String sharingPermission, String shareLinkToken, boolean isFlagged, LocalDateTime createdAt, LocalDateTime updatedAt, Integer bookmarkCount, Integer downloadCount, Double totalReportScore, String authorUsername, boolean isBookmarked) {
         this.documentId = documentId;
         this.userId = userId;
         this.folderId = folderId;
@@ -46,7 +48,18 @@ public class Document {
         this.isFlagged = isFlagged;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.bookmarkCount = bookmarkCount;
+        this.downloadCount = downloadCount;
+        this.totalReportScore = totalReportScore;
+        this.authorUsername = authorUsername;
+        this.isBookmarked = isBookmarked;
     }
+
+    
+
+   
+
+    
 
     // ─── Getters & Setters ───────────────────────────────────────────────────
 
@@ -140,6 +153,60 @@ public class Document {
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
     }
+
+    public boolean isIsFlagged() {
+        return isFlagged;
+    }
+
+    public void setIsFlagged(boolean isFlagged) {
+        this.isFlagged = isFlagged;
+    }
+
+    public Integer getBookmarkCount() {
+        return bookmarkCount;
+    }
+
+    public void setBookmarkCount(Integer bookmarkCount) {
+        this.bookmarkCount = bookmarkCount;
+    }
+
+    public Integer getDownloadCount() {
+        return downloadCount;
+    }
+
+    public void setDownloadCount(Integer downloadCount) {
+        this.downloadCount = downloadCount;
+    }
+
+    public Double getTotalReportScore() {
+        return totalReportScore;
+    }
+
+    public void setTotalReportScore(Double totalReportScore) {
+        this.totalReportScore = totalReportScore;
+    }
+
+    public String getAuthorUsername() {
+        return authorUsername;
+    }
+
+    public void setAuthorUsername(String authorUsername) {
+        this.authorUsername = authorUsername;
+    }
+
+    public boolean isIsBookmarked() {
+        return isBookmarked;
+    }
+
+    public void setIsBookmarked(boolean isBookmarked) {
+        this.isBookmarked = isBookmarked;
+    }
+    
+    
+    
+    
+    
+    
 
     @Override
     public String toString() {

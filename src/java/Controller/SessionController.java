@@ -1,6 +1,6 @@
 package Controller;
 
-import DAO.ChatMessageDAO;
+import Model.DAO.ChatMessageDAO;
 import Model.DTO.ChatSession;
 import Model.DAO.ChatSessionDAO;
 import Model.DTO.ChatMessage;

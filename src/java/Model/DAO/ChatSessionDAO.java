@@ -2,7 +2,7 @@ package Model.DAO;
 
 import Model.DTO.ChatSession;
 import Utils.DBUtils;
-import DAO.ChatMessageDAO;
+import Model.DAO.ChatMessageDAO;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;

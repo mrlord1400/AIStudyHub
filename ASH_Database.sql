@@ -24,11 +24,11 @@ CREATE TABLE subscriptions (
     max_storage_mb INT NOT NULL,            -- Storage quota
     ai_prompt_limit_per_day INT NOT NULL,   -- Rate limiting for API costs
     price DECIMAL(10, 2) DEFAULT 0.00,
-	total_storage_mb INT NOT NULL DEFAULT 0
+    total_storage_mb INT NOT NULL DEFAULT 0
 );
 GO
 
-INSERT INTO subscriptions (tier_name, max_storage_mb, ai_prompt_limit_per_day, price,total_storage_mb ) 
+INSERT INTO subscriptions (tier_name, max_storage_mb, ai_prompt_limit_per_day, price, total_storage_mb) 
 VALUES 
 ('Guest', 0, 3, 0.00, 0),     -- Very restricted: 0MB storage, 3 AI prompts
 ('Free', 50, 10, 0.00, 5120),
@@ -47,8 +47,8 @@ CREATE TABLE users (
     role NVARCHAR(10) DEFAULT 'STUDENT' CHECK (role IN ('GUEST', 'STUDENT', 'ADMIN')), 
     tier_id INT DEFAULT 2, 
     balance INT DEFAULT 0, 
-	ai_prompts_today INT DEFAULT 0,
-	last_prompt_reset DATETIME DEFAULT GETDATE(),
+    ai_prompts_today INT DEFAULT 0,
+    last_prompt_reset DATETIME DEFAULT GETDATE(),
     status NVARCHAR(10) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'SUSPENDED', 'BANNED')),
     expires_at DATETIME2 NULL,     
     created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
@@ -77,9 +77,9 @@ GO
 CREATE TABLE folders (
     folder_id INT IDENTITY(1,1) PRIMARY KEY,
     user_id INT NOT NULL,
-    parent_folder_id INT DEFAULT NULL, -- ADDED: Enables folder hierarchy (child folders)
+    parent_folder_id INT DEFAULT NULL, -- Enables folder hierarchy (child folders)
     folder_name NVARCHAR(100) NOT NULL,
-    sharing_permission NVARCHAR(20) DEFAULT 'PRIVATE' CHECK (sharing_permission IN ('PRIVATE', 'FRIENDS_ONLY', 'PUBLIC')), -- ADDED: Folder level permissions
+    sharing_permission NVARCHAR(20) DEFAULT 'PRIVATE' CHECK (sharing_permission IN ('PRIVATE', 'FRIENDS_ONLY', 'PUBLIC')),
     created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
     FOREIGN KEY (parent_folder_id) REFERENCES folders(folder_id) -- Self-referencing foreign key
@@ -95,18 +95,18 @@ CREATE TABLE documents (
     user_id INT NOT NULL,
     folder_id INT DEFAULT NULL,
     title NVARCHAR(255) NOT NULL,
-    file_extension NVARCHAR(10) NOT NULL, -- ADDED: Tracks file extension (e.g., 'pdf', 'docx')
-    cloud_storage_url NVARCHAR(500) NOT NULL, -- AWS or similar storage link
+    file_extension NVARCHAR(10) NOT NULL,
+    cloud_storage_url NVARCHAR(500) NOT NULL,
     file_size_mb DECIMAL(5,2) NOT NULL,
     ai_parsing_status NVARCHAR(20) DEFAULT 'PENDING' CHECK (ai_parsing_status IN ('PENDING', 'PROCESSING', 'READY', 'FAILED')), 
-    sharing_permission NVARCHAR(20) DEFAULT 'PRIVATE' CHECK (sharing_permission IN ('PRIVATE', 'FRIENDS_ONLY', 'PUBLIC')), -- Permission management
-    share_link_token NVARCHAR(100) UNIQUE,    -- For sharing via links
-	total_report_score DECIMAL(5,2) DEFAULT 0.0; -- 30/06
+    sharing_permission NVARCHAR(20) DEFAULT 'PRIVATE' CHECK (sharing_permission IN ('PRIVATE', 'FRIENDS_ONLY', 'PUBLIC')),
+    share_link_token NVARCHAR(100) UNIQUE,
+    total_report_score DECIMAL(5,2) DEFAULT 0.0,   -- FIXED: dấu , thay vì ;
     is_flagged BIT DEFAULT 0,   
-	bookmark_count INT DEFAULT 0, -- 30/06
-	download_count INT DEFAULT 0, -- 30/06
+    bookmark_count INT DEFAULT 0,
+    download_count INT DEFAULT 0,
     created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME2 DEFAULT CURRENT_TIMESTAMP, -- ADDED: Tracks the modification day
+    updated_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id), -- Cascade removed to prevent multiple path errors
     FOREIGN KEY (folder_id) REFERENCES folders(folder_id) -- Set Null removed to prevent multiple path errors
 );
@@ -146,7 +146,7 @@ GO
 -- -----------------------------------------------------
 CREATE TABLE chat_sessions (
     session_id INT IDENTITY(1,1) PRIMARY KEY,
-	session_name NVARCHAR(255) NOT NULL,
+    session_name NVARCHAR(255) NOT NULL,
     user_id INT NOT NULL,
     created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
     is_pinned BIT DEFAULT 0,   
@@ -159,7 +159,7 @@ CREATE TABLE chat_messages (
     session_id INT NOT NULL,
     sender NVARCHAR(10) NOT NULL CHECK (sender IN ('USER', 'BOT')),
     message_content NVARCHAR(MAX) NOT NULL,
-	display BIT DEFAULT 1,   
+    display BIT DEFAULT 1,   
     created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (session_id) REFERENCES chat_sessions(session_id) ON DELETE CASCADE
 );
@@ -178,7 +178,6 @@ CREATE TABLE transactions (
     started_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
     completed_at DATETIME2 NULL,
     
-    -- Link to the existing users table
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 GO
@@ -207,10 +206,7 @@ CREATE TABLE friendships (
     FOREIGN KEY (requester_id) REFERENCES users(user_id),
     FOREIGN KEY (addressee_id) REFERENCES users(user_id),
     
-    -- Đảm bảo không có 2 user gửi lời mời/kết bạn trùng lặp
     CONSTRAINT UQ_friendship UNIQUE (requester_id, addressee_id),
-    
-    -- Ngăn chặn việc người dùng tự kết bạn với chính mình
     CONSTRAINT CHK_not_self_friend CHECK (requester_id <> addressee_id)
 );
 GO
@@ -235,17 +231,16 @@ GO
 CREATE TABLE report_reason_configs (
     reason_code NVARCHAR(50) PRIMARY KEY, -- Ví dụ: 'MALWARE', 'COPYRIGHT', 'SPAM'
     severity_level NVARCHAR(20) NOT NULL CHECK (severity_level IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
-    base_score DECIMAL(5,2) NOT NULL,     -- Điểm cơ sở mỗi lần report (VD: Malware = 5.0, Spam = 1.0)
-    auto_flag_threshold DECIMAL(5,2) NOT NULL, -- Ngưỡng điểm để auto-flag tài liệu (VD: 5.0)
+    base_score DECIMAL(5,2) NOT NULL,
+    auto_flag_threshold DECIMAL(5,2) NOT NULL,
     description NVARCHAR(255) NULL
 );
 GO
 
--- Insert dữ liệu mẫu
 INSERT INTO report_reason_configs (reason_code, severity_level, base_score, auto_flag_threshold) VALUES
-('MALWARE', 'CRITICAL', 5.0, 5.0),      -- 1 người report là bay màu (5đ/5đ)
-('COPYRIGHT', 'HIGH', 2.0, 6.0),        -- Cần 3 người bình thường report (3 * 2đ = 6đ)
-('SPAM', 'LOW', 1.0, 5.0),              -- Cần 5 người bình thường report (5 * 1đ = 5đ)
+('MALWARE', 'CRITICAL', 5.0, 5.0),
+('COPYRIGHT', 'HIGH', 2.0, 6.0),
+('SPAM', 'LOW', 1.0, 5.0),
 ('INAPPROPRIATE', 'MEDIUM', 1.5, 6.0);
 GO
 
@@ -256,19 +251,17 @@ GO
 CREATE TABLE document_reports (
     report_id INT IDENTITY(1,1) PRIMARY KEY,
     document_id INT NOT NULL,
-    reporter_id INT NOT NULL,           -- Người gửi report
-    reason_code NVARCHAR(50) NOT NULL, -- Liên kết với bảng config
-    additional_details NVARCHAR(500) NULL, -- Mô tả chi tiết thêm từ người dùng
+    reporter_id INT NOT NULL,
+    reason_code NVARCHAR(50) NOT NULL,
+    additional_details NVARCHAR(500) NULL,
     status NVARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'REVIEWED', 'DISMISSED', 'ACTION_TAKEN')),
     created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
-    resolved_at DATETIME2 NULL,         -- Thời điểm Admin xử lý
-    resolved_by_admin_id INT NULL,      -- ID của Admin xử lý
+    resolved_at DATETIME2 NULL,
+    resolved_by_admin_id INT NULL,
     
     FOREIGN KEY (document_id) REFERENCES documents(document_id) ON DELETE CASCADE,
     FOREIGN KEY (reporter_id) REFERENCES users(user_id),
-	FOREIGN KEY (reason_code) REFERENCES report_reason_configs(reason_code),
+    FOREIGN KEY (reason_code) REFERENCES report_reason_configs(reason_code),
     FOREIGN KEY (resolved_by_admin_id) REFERENCES users(user_id)
 );
 GO
-
-
