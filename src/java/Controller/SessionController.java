@@ -53,7 +53,9 @@ public class SessionController extends HttpServlet {
                 case "findSessionByName":
                     handleFindSessionByName(request, response);
                     break;
-
+                case "pinSession":
+                    handlePinSession(request, response);
+                    break;
                 default:
                     response.sendRedirect(request.getContextPath() + "/SessionController?action=chatMain");
                     break;
@@ -262,6 +264,49 @@ public class SessionController extends HttpServlet {
         }
         jsonBuilder.append("]");
         out.print(jsonBuilder.toString());
+    }
+
+    // ADD this new private method alongside the other handle* methods
+    private void handlePinSession(HttpServletRequest request, HttpServletResponse response)
+            throws IOException {
+
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        PrintWriter out = response.getWriter();
+
+        HttpSession session = request.getSession(false);
+        if (session == null || session.getAttribute("userId") == null) {
+            out.print("{\"success\": false, \"message\": \"Vui lòng đăng nhập\"}");
+            return;
+        }
+
+        String sessionIdStr = request.getParameter("sessionId");
+        String pinnedStr = request.getParameter("isPinned"); // "true" or "false"
+
+        if (sessionIdStr == null || pinnedStr == null) {
+            out.print("{\"success\": false, \"message\": \"Dữ liệu không hợp lệ\"}");
+            return;
+        }
+
+        try {
+            int sessionId = Integer.parseInt(sessionIdStr);
+            boolean isPinned = Boolean.parseBoolean(pinnedStr);
+
+            ChatSession sessionToPin = new ChatSession();
+            sessionToPin.setSessionId(sessionId);
+            sessionToPin.setPinned(isPinned);
+
+            ChatSessionDAO dao = new ChatSessionDAO();
+            boolean success = dao.pinSession(sessionToPin);
+
+            if (success) {
+                out.print("{\"success\": true, \"isPinned\": " + isPinned + "}");
+            } else {
+                out.print("{\"success\": false, \"message\": \"Lỗi cập nhật CSDL\"}");
+            }
+        } catch (NumberFormatException e) {
+            out.print("{\"success\": false, \"message\": \"ID không hợp lệ\"}");
+        }
     }
 
     @Override

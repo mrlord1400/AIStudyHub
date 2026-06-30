@@ -167,7 +167,8 @@ public class ChatSessionDAO {
      */
     public List<ChatSession> getAllSessionsByUserId(int userId) {
         List<ChatSession> list = new ArrayList<>();
-        String sql = "SELECT * FROM chat_sessions WHERE user_id = ? ORDER BY created_at DESC";
+        // NEW — pinned sessions float to the top, then sorted by newest:
+        String sql = "SELECT * FROM chat_sessions WHERE user_id = ? ORDER BY is_pinned DESC, created_at DESC";
 
         try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
 
