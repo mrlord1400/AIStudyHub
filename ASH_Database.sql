@@ -188,3 +188,39 @@ CREATE TABLE document_extracted_text (
     FOREIGN KEY (document_id) REFERENCES documents(document_id) ON DELETE CASCADE
 );
 GO
+
+-- -----------------------------------------------------
+-- 8. FRIENDSHIPS
+-- Quản lý lời mời kết bạn và danh sách bạn bè
+-- -----------------------------------------------------
+CREATE TABLE friendships (
+    friendship_id INT IDENTITY(1,1) PRIMARY KEY,
+    requester_id INT NOT NULL,  -- Người gửi lời mời
+    addressee_id INT NOT NULL,  -- Người nhận lời mời
+    status NVARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'ACCEPTED', 'BLOCKED')),
+    created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (requester_id) REFERENCES users(user_id),
+    FOREIGN KEY (addressee_id) REFERENCES users(user_id),
+    
+    -- Đảm bảo không có 2 user gửi lời mời/kết bạn trùng lặp
+    CONSTRAINT UQ_friendship UNIQUE (requester_id, addressee_id),
+    
+    -- Ngăn chặn việc người dùng tự kết bạn với chính mình
+    CONSTRAINT CHK_not_self_friend CHECK (requester_id <> addressee_id)
+);
+GO
+
+-- Trigger tự động cập nhật updated_at cho bảng friendships
+CREATE TRIGGER trg_friendships_updated_at
+ON friendships
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE friendships
+    SET updated_at = CURRENT_TIMESTAMP
+    WHERE friendship_id IN (SELECT DISTINCT friendship_id FROM Inserted);
+END;
+GO
