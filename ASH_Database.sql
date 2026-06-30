@@ -101,7 +101,8 @@ CREATE TABLE documents (
     ai_parsing_status NVARCHAR(20) DEFAULT 'PENDING' CHECK (ai_parsing_status IN ('PENDING', 'PROCESSING', 'READY', 'FAILED')), 
     sharing_permission NVARCHAR(20) DEFAULT 'PRIVATE' CHECK (sharing_permission IN ('PRIVATE', 'FRIENDS_ONLY', 'PUBLIC')), -- Permission management
     share_link_token NVARCHAR(100) UNIQUE,    -- For sharing via links
-    is_flagged BIT DEFAULT 0,                 -- Content moderation (BIT: 0=False, 1=True)
+    is_flagged BIT DEFAULT 0,   
+	bookmark_count INT DEFAULT 0,
     created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME2 DEFAULT CURRENT_TIMESTAMP, -- ADDED: Tracks the modification day
     FOREIGN KEY (user_id) REFERENCES users(user_id), -- Cascade removed to prevent multiple path errors
@@ -223,4 +224,25 @@ BEGIN
     SET updated_at = CURRENT_TIMESTAMP
     WHERE friendship_id IN (SELECT DISTINCT friendship_id FROM Inserted);
 END;
+GO
+
+-- -----------------------------------------------------
+-- 9. REPORT
+-- Quản lý báo cáo người dùng tạo cho tài liệu
+-- -----------------------------------------------------
+CREATE TABLE document_reports (
+    report_id INT IDENTITY(1,1) PRIMARY KEY,
+    document_id INT NOT NULL,
+    reporter_id INT NOT NULL,           -- Người gửi report
+    report_reason NVARCHAR(50) NOT NULL CHECK (report_reason IN ('SPAM', 'COPYRIGHT', 'INAPPROPRIATE', 'OTHER')),
+    additional_details NVARCHAR(500) NULL, -- Mô tả chi tiết thêm từ người dùng
+    status NVARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'REVIEWED', 'DISMISSED', 'ACTION_TAKEN')),
+    created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
+    resolved_at DATETIME2 NULL,         -- Thời điểm Admin xử lý
+    resolved_by_admin_id INT NULL,      -- ID của Admin xử lý
+    
+    FOREIGN KEY (document_id) REFERENCES documents(document_id) ON DELETE CASCADE,
+    FOREIGN KEY (reporter_id) REFERENCES users(user_id),
+    FOREIGN KEY (resolved_by_admin_id) REFERENCES users(user_id)
+);
 GO
