@@ -103,6 +103,7 @@ CREATE TABLE documents (
     share_link_token NVARCHAR(100) UNIQUE,    -- For sharing via links
     is_flagged BIT DEFAULT 0,   
 	bookmark_count INT DEFAULT 0,
+	download_count INT DEFAULT 0,
     created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME2 DEFAULT CURRENT_TIMESTAMP, -- ADDED: Tracks the modification day
     FOREIGN KEY (user_id) REFERENCES users(user_id), -- Cascade removed to prevent multiple path errors
