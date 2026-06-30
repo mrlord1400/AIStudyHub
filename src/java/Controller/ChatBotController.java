@@ -1,6 +1,6 @@
 package Controller;
 
-import DAO.ChatMessageDAO;
+import Model.DAO.ChatMessageDAO;
 import Model.DAO.UserDAO;
 import Model.DAO.SubscriptionDAO;
 import Model.DAO.FolderDAO;

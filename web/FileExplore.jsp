@@ -2,6 +2,26 @@
 <%@ page import="java.util.List" %>
 <%@ page import="java.util.ArrayList" %>
 <%@ page import="Model.DTO.Document" %>
+<%@ page import="Model.DTO.Folder" %>
+<%
+    // 🔥 ÉP TRÌNH DUYỆT KHÔNG ĐƯỢC CACHE ĐỂ LÚC NÀO CŨNG THẤY FILE MỚI NHẤT
+    response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    response.setHeader("Pragma", "no-cache");
+    response.setDateHeader("Expires", 0);
+%>
+<%!
+    private String escapeJs(String input) {
+        if (input == null) return "";
+        return input
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("'", "\\'")
+            .replace("\r\n", " ")
+            .replace("\n", " ")
+            .replace("\r", " ")
+            .replace("</", "<\\/");
+    }
+%>
 <%
     // 1. Kiểm tra trạng thái đăng nhập của người dùng
     HttpSession userSession = request.getSession(false);
@@ -31,13 +51,21 @@
         userBalance = 0;
     }
 
-    // 2. Lấy danh sách bài đăng thực tế từ Controller gửi xuống
+    // 2. Lấy dữ liệu từ Controller
     List<Document> publicDocuments = (List<Document>) request.getAttribute("publicDocuments");
+    
+    // 🔥 CƠ CHẾ BẢO VỆ: Nếu user lỡ truy cập thẳng vào FileExplore.jsp (bỏ qua Controller),
+    // publicDocuments sẽ bị null. Ta sẽ bắt nó quay ngược lại Controller để fetch data ngay lập tức!
     if (publicDocuments == null) {
-        publicDocuments = new ArrayList<>();
+        response.sendRedirect(request.getContextPath() + "/MainController?action=explore");
+        return;
     }
+    
+    // Check view mode
+    Boolean isFriendsViewObj = (Boolean) request.getAttribute("isFriendsView");
+    boolean isFriendsView = (isFriendsViewObj != null) ? isFriendsViewObj : false;
 
-    // Đọc số liệu thống kê thực tế từ DB
+    // Đọc số liệu thống kê thực tế từ DB (đã đúng theo view)
     Integer totalDocs = (Integer) request.getAttribute("realTotalDocs");
     Integer totalContributors = (Integer) request.getAttribute("realTotalContributors");
     Integer totalDownloads = (Integer) request.getAttribute("realTotalDownloads");
@@ -185,32 +213,40 @@
     <main class="main-content">
         <div class="header-container">
             <div>
-                <h1 class="page-title dark:text-white mb-1">Khám phá tài liệu cộng đồng</h1>
+                <h1 class="page-title dark:text-white mb-1">
+                    <%= isFriendsView ? "Tài liệu bạn bè chia sẻ" : "Khám phá tài liệu cộng đồng" %>
+                </h1>
                 <p class="text-sm text-gray-500 font-medium">Tìm kiếm tài liệu và đề cương ôn tập được đóng góp bởi sinh viên</p>
             </div>
+            
+            <a href="<%= request.getContextPath()%>/MainController?action=explore&view=<%= isFriendsView ? "public" : "friends" %>" 
+               class="btn-primary bg-gradient-to-r <%= isFriendsView ? "from-emerald-500 to-teal-500" : "from-indigo-600 to-purple-600" %>">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+                    <%= isFriendsView ? "<path d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'></path><circle cx='9' cy='7' r='4'></circle><path d='M23 21v-2a4 4 0 0 0-3-3.87'></path><path d='M16 3.13a4 4 0 0 1 0 7.75'></path>" 
+                                     : "<path d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'></path>" %>
+                </svg>
+                <%= isFriendsView ? "Xem tài liệu công khai" : "Xem tài liệu bạn bè chia sẻ" %>
+            </a>
         </div>
 
-        <div class="mb-5">
+        <div class="mb-6">
             <div class="relative">
                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></span>
                 <input type="text" id="search-input" placeholder="Tìm nhanh theo tiêu đề file, môn học hoặc tên người đăng..." class="search-bar w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none shadow-sm transition-all">
             </div>
         </div>
 
-        <div class="mb-2"><span class="text-xs font-bold uppercase tracking-wider text-gray-400">Môn học tiêu điểm</span></div>
-        <div id="categories-container" class="mb-6 flex gap-2 overflow-x-auto pb-1"></div>
-
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div class="stat-card border bg-white rounded-xl p-4 dark:border-gray-700 shadow-sm flex items-center justify-between">
-                <div><p class="text-gray-400 text-xs font-medium">Tổng tài liệu</p><p class="text-2xl font-bold mt-1.5 tracking-tight text-blue-500"><%= totalDocs != null && totalDocs > 0 ? String.format("%,d", totalDocs) : "1,248" %> file</p></div>
+                <div><p class="text-gray-400 text-xs font-medium">Tổng tài liệu</p><p class="text-2xl font-bold mt-1.5 tracking-tight text-blue-500"><%= totalDocs != null ? String.format("%,d", totalDocs) : "0" %> file</p></div>
                 <div class="w-12 h-12 bg-blue-100 dark:bg-blue-950/40 rounded-xl flex items-center justify-center"><svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg></div>
             </div>
             <div class="stat-card border bg-white rounded-xl p-4 dark:border-gray-700 shadow-sm flex items-center justify-between">
-                <div><p class="text-gray-400 text-xs font-medium">Người đóng góp</p><p class="text-2xl font-bold mt-1.5 tracking-tight text-purple-500"><%= totalContributors != null && totalContributors > 0 ? String.format("%,d", totalContributors) : "314" %> thành viên</p></div>
+                <div><p class="text-gray-400 text-xs font-medium">Người đóng góp</p><p class="text-2xl font-bold mt-1.5 tracking-tight text-purple-500"><%= totalContributors != null ? String.format("%,d", totalContributors) : "0" %> thành viên</p></div>
                 <div class="w-12 h-12 bg-purple-100 dark:bg-purple-950/40 rounded-xl flex items-center justify-center"><svg class="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg></div>
             </div>
             <div class="stat-card border bg-white rounded-xl p-4 dark:border-gray-700 shadow-sm flex items-center justify-between">
-                <div><p class="text-gray-400 text-xs font-medium">Lượt tải hệ thống</p><p class="text-2xl font-bold mt-1.5 tracking-tight text-emerald-500"><%= totalDownloads != null && totalDownloads > 0 ? String.format("%,d", totalDownloads) : "8,920" %> lượt</p></div>
+                <div><p class="text-gray-400 text-xs font-medium">Lượt tải hệ thống</p><p id="total-downloads-stat" class="text-2xl font-bold mt-1.5 tracking-tight text-emerald-500"><%= totalDownloads != null ? String.format("%,d", totalDownloads) : "0" %> lượt</p></div>
                 <div class="w-12 h-12 bg-emerald-100 dark:bg-emerald-950/40 rounded-xl flex items-center justify-center"><svg class="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg></div>
             </div>
         </div>
@@ -224,91 +260,83 @@
 
     <script>
         let searchQuery = "";
-        let selectedCategory = "Tất cả";
-        let itemsShown = 4; 
+        let itemsShown = 6; 
 
-        // ĐỒNG BỘ DỮ LIỆU ĐỘNG TỪ ĐỐI TƯỢNG DOCUMENT CỦA DATABASE (Đã xử lý map tên người đăng, môn học, đuôi file)
+        // Khởi tạo mảng dữ liệu với thuộc tính isBookmarked và dateMillis
         const internalDocs = [
             <%
-                if (!publicDocuments.isEmpty()) {
+                if (publicDocuments != null && !publicDocuments.isEmpty()) {
                     for (int i = 0; i < publicDocuments.size(); i++) {
                         Document doc = publicDocuments.get(i);
-                        String title = doc.getTitle().replace("\"", "\\\"");
-                        
-                        // 1. Tự động nhận diện định dạng file dựa trên Storage URL
-                        String fileExt = "PDF";
-                        String url = doc.getCloudStorageUrl();
-                        if (url != null && url.lastIndexOf('.') > 0) {
-                            fileExt = url.substring(url.lastIndexOf('.') + 1).toUpperCase();
-                        }
+                        String title = escapeJs(doc.getTitle());
+                        String fileExt = doc.getFileExtension() != null ? doc.getFileExtension().toUpperCase() : "FILE";
 
-                        // 2. Mock bóc tách môn học dựa trên tiêu đề file nếu DB chưa chia trường môn riêng biệt
+                        String authorName = escapeJs(
+                            (doc.getAuthorUsername() != null && !doc.getAuthorUsername().trim().isEmpty())
+                                ? doc.getAuthorUsername()
+                                : "Người dùng #" + doc.getUserId()
+                        );
+
                         String subjectCode = "Tổng hợp";
-                        String upperTitle = title.toUpperCase();
+                        String upperTitle = doc.getTitle() != null ? doc.getTitle().toUpperCase() : "";
                         if (upperTitle.contains("MAS291")) subjectCode = "MAS291";
                         else if (upperTitle.contains("PRJ301")) subjectCode = "PRJ301";
                         else if (upperTitle.contains("DBI202")) subjectCode = "DBI202";
                         else if (upperTitle.contains("IOT102")) subjectCode = "IoT102";
                         else if (upperTitle.contains("SWP391")) subjectCode = "SWP391";
                         else if (upperTitle.contains("SSG104")) subjectCode = "SSG104";
+
+                        // Ép thời gian về Millis để JavaScript dễ dàng sắp xếp (Sort)
+                        long dateMillis = 0;
+                        if (doc.getUpdatedAt() != null) {
+                            dateMillis = java.sql.Timestamp.valueOf(doc.getUpdatedAt()).getTime();
+                        } else if (doc.getCreatedAt() != null) {
+                            dateMillis = java.sql.Timestamp.valueOf(doc.getCreatedAt()).getTime();
+                        } else {
+                            dateMillis = System.currentTimeMillis();
+                        }
             %>
                 { 
                     id: "<%= doc.getDocumentId() %>", 
                     title: "<%= title %>", 
-                    author: "Sinh viên khóa K20", 
-                    authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=user<%= doc.getDocumentId() %>", 
+                    author: "<%= authorName %>", 
+                    authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=user<%= doc.getUserId() %>", 
                     category: "<%= subjectCode %>", 
                     fileType: "<%= fileExt %>",
-                    downloads: <%= 15 + (doc.getDocumentId() * 3) %>, // Giả lập lượt tải động tăng tiến theo ID file
-                    rating: 4.8, 
+                    downloads: <%= doc.getDownloadCount() != null ? doc.getDownloadCount() : 0 %>, 
+                    bookmarks: <%= doc.getBookmarkCount() != null ? doc.getBookmarkCount() : 0 %>,
+                    isBookmarked: <%= doc.isIsBookmarked() %>, // <-- CHUẨN XÁC
+                    dateMillis: <%= dateMillis %>,           // <-- ĐỂ SẮP XẾP ĐỘNG
                     size: "<%= doc.getFileSizeMb() %> MB", 
-                    description: "Tài liệu học tập thực tế được kiểm duyệt chất lượng cao trên hệ thống AI Study Hub.", 
+                    description: "Tài liệu học tập được chia sẻ bởi cộng đồng sinh viên.", 
                     tags: ["<%= subjectCode %>", "<%= fileExt %>"] 
                 }<%= (i < publicDocuments.size() - 1) ? "," : "" %>
             <%
                     }
-                } else { 
-                    // MẢNG DỰ PHÒNG CHUẨN KHI DATABASE CHƯA TRUYỀN DANH SÁCH XUỐNG (Hiện đầy đủ thông tin Người Đăng, Môn học, Loại file)
+                }
             %>
-                { id: "1", title: "Tổng hợp toàn bộ kiến thức MAS291 - Học kỳ Spring", author: "Phạm Nhật Minh", authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=minh", category: "MAS291", fileType: "PDF", downloads: 142, rating: 4.9, size: "12.4 MB", description: "Bao gồm công thức, bài tập chương 1 đến chương 5 kèm lời giải chi tiết phục vụ thi Final.", tags: ["MAS291", "PDF"] },
-                { id: "2", title: "PRJ301 - Đề cương ôn tập PE và các lỗi Logic Servlet thường gặp", author: "Lê Tuấn", authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=tuan", category: "PRJ301", fileType: "DOCX", downloads: 95, rating: 4.8, size: "4.2 MB", description: "Hướng dẫn cấu trúc thư mục MVC, xử lý Session, Request và Filter tối ưu.", tags: ["PRJ301", "DOCX"] },
-                { id: "3", title: "DBI202 - Tổng hợp 50 câu lệnh SQL nâng cao nâng cấp điểm số", author: "Trần Quân", authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=quan", category: "DBI202", fileType: "XLSX", downloads: 210, rating: 5.0, size: "2.1 MB", description: "Các mẫu câu lệnh Subquery, Join nhiều bảng và tối ưu hóa Index trong SQL Server.", tags: ["DBI202", "XLSX"] },
-                { id: "4", title: "IoT102 - Sơ đồ lắp mạch bảo mật Arduino Uno & Module ESP8266", author: "Phạm Nhật Minh", authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=iot", category: "IoT102", fileType: "PDF", downloads: 78, rating: 4.7, size: "18.5 MB", description: "Tài liệu chi tiết hướng dẫn thiết kế mạch phần cứng kèm code mẫu kết nối wifi.", tags: ["IoT102", "PDF"] }
-            <% } %>
         ];
 
-        // Khởi tạo các danh mục môn học của bạn
-        const categories = ["Tất cả", "MAS291", "PRJ301", "DBI202", "IoT102", "SWP391"];
-
-        function renderCategories() {
-            const container = document.getElementById('categories-container');
-            container.innerHTML = categories.map(cat => {
-                const isActive = cat === selectedCategory;
-                const activeClass = isActive 
-                    ? "bg-indigo-600 text-white border-indigo-600 shadow-sm dark:bg-indigo-700" 
-                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-700";
-                return `<button onclick="selectCategory('${cat}')" class="px-4 py-1.5 border rounded-full text-xs font-semibold whitespace-nowrap transition-all ${activeClass}">${cat}</button>`;
-            }).join('');
-        }
-
-        function selectCategory(category) {
-            selectedCategory = category;
-            renderCategories();
-            renderDocuments();
+        // 🔥 HÀM SẮP XẾP: Bookmarked lên đầu, sau đó đến ngày cập nhật/ngày đăng mới nhất
+        function sortDocumentsArray() {
+            internalDocs.sort((a, b) => {
+                if (a.isBookmarked && !b.isBookmarked) return -1;
+                if (!a.isBookmarked && b.isBookmarked) return 1;
+                return b.dateMillis - a.dateMillis;
+            });
         }
 
         function renderDocuments() {
             const grid = document.getElementById('documents-grid');
             const loadMoreBtn = document.getElementById('load-more-btn');
 
-            // Bộ lọc dữ liệu tìm kiếm
             const filteredDocs = internalDocs.filter(doc => {
-                const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase()) || doc.author.toLowerCase().includes(searchQuery.toLowerCase());
-                const matchesCategory = selectedCategory === "Tất cả" || doc.category === selectedCategory;
-                return matchesSearch && matchesCategory;
+                const t = doc.title ? doc.title.toLowerCase() : "";
+                const a = doc.author ? doc.author.toLowerCase() : "";
+                const q = searchQuery.toLowerCase();
+                return t.includes(q) || a.includes(q);
             });
 
-            // Cắt mảng phục vụ phân trang (Xem thêm tài liệu)
             const slicedDocs = filteredDocs.slice(0, itemsShown);
 
             if (slicedDocs.length === 0) {
@@ -320,7 +348,6 @@
                 return;
             }
 
-            // Quản lý hiển thị nút Xem thêm thông minh
             if (itemsShown >= filteredDocs.length) {
                 loadMoreBtn.classList.add('hidden');
             } else {
@@ -332,26 +359,33 @@
                 <div class="doc-card border shadow-sm transition-all duration-200">
                     <div>
                         <div class="flex items-start justify-between mb-2">
-                            <h3 class="doc-title font-bold text-[15px] leading-snug">${doc.title}</h3>
-                            <span class="ml-2 flex-shrink-0 px-2 py-0.5 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 font-mono text-[10px] font-bold rounded">${doc.fileType}</span>
+                            <h3 class="doc-title font-bold text-[15px] leading-snug">\${doc.title}</h3>
+                            <span class="ml-2 flex-shrink-0 px-2 py-0.5 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 font-mono text-[10px] font-bold rounded">\${doc.fileType}</span>
                         </div>
-                        <p class="doc-desc text-xs font-medium line-clamp-2 leading-relaxed mb-4">${doc.description}</p>
+                        <p class="doc-desc text-xs font-medium line-clamp-2 leading-relaxed mb-4">\${doc.description}</p>
                     </div>
                     <div>
                         <div class="author-box flex items-center mb-3 p-2 rounded-xl border">
-                            <img src="${doc.authorAvatar}" class="w-7 h-7 rounded-full mr-2 border bg-white dark:border-gray-600">
+                            <img src="\${doc.authorAvatar}" class="w-7 h-7 rounded-full mr-2 border bg-white dark:border-gray-600">
                             <div class="flex-1 min-w-0">
-                                <p class="author-name text-xs font-bold truncate">Người đăng: ${doc.author}</p>
+                                <p class="author-name text-xs font-bold truncate">Người đăng: \${doc.author}</p>
                             </div>
-                            <span class="px-2 py-0.5 bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400 text-[10px] font-extrabold rounded-md border border-indigo-100 dark:border-indigo-900/40 uppercase tracking-wide">Môn: ${doc.category}</span>
+                            <span class="px-2 py-0.5 bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400 text-[10px] font-extrabold rounded-md border border-indigo-100 dark:border-indigo-900/40 uppercase tracking-wide">Môn: \${doc.category}</span>
                         </div>
                         <div class="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
-                            <div class="flex items-center space-x-3 text-[11px] font-semibold text-gray-400">
-                                <div class="flex items-center"><span class="text-gray-700 dark:text-gray-300 font-bold mr-1">⭐</span>${doc.rating}</div>
-                                <div><span>${doc.downloads.toLocaleString()} tải</span></div>
-                                <div><span>Dung lượng: ${doc.size}</span></div>
+                            <div class="flex items-center space-x-4 text-[11px] font-semibold text-gray-400">
+                                
+                                <button onclick="toggleBookmark('\${doc.id}')" class="flex items-center space-x-1 \${doc.isBookmarked ? 'text-amber-500' : 'hover:text-amber-500'} transition-all cursor-pointer" title="\${doc.isBookmarked ? 'Bỏ lưu' : 'Lưu tài liệu'}">
+                                    <svg class="w-4 h-4" fill="\${doc.isBookmarked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                                    </svg>
+                                    <span>\${doc.bookmarks}</span>
+                                </button>
+                                
+                                <div class="flex items-center" title="Downloads"><svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>\${doc.downloads}</div>
+                                <div><span>\${doc.size}</span></div>
                             </div>
-                            <button onclick="handleDownload('${doc.id}')" class="flex items-center space-x-2 px-4 py-2 bg-[#5c3cf5] text-white rounded-xl hover:bg-indigo-700 transition-all text-xs font-bold shadow-sm cursor-pointer">
+                            <button onclick="handleDownload('\${doc.id}')" class="flex items-center space-x-2 px-4 py-2 bg-[#5c3cf5] text-white rounded-xl hover:bg-indigo-700 transition-all text-xs font-bold shadow-sm cursor-pointer">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                                 <span>Tải xuống</span>
                             </button>
@@ -361,12 +395,45 @@
             }).join('');
         }
 
+        // 🔥 HÀM GỌI AJAX TOGGLE BOOKMARK
+        function toggleBookmark(docId) {
+            fetch(`<%= request.getContextPath()%>/DocumentController?action=toggleBookmark&docId=\${docId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                const docIndex = internalDocs.findIndex(d => d.id == docId);
+                if (docIndex !== -1) {
+                    // Cập nhật trạng thái
+                    internalDocs[docIndex].isBookmarked = data.isBookmarked;
+                    internalDocs[docIndex].bookmarks = data.newCount;
+                    
+                    // Sắp xếp lại nhảy lên đầu và vẽ lại giao diện
+                    sortDocumentsArray();
+                    renderDocuments();
+                }
+            })
+            .catch(error => console.error('Lỗi toggle bookmark:', error));
+        }
+
         function handleLoadMore() {
-            itemsShown += 4; 
+            itemsShown += 6; 
             renderDocuments();
         }
 
         function handleDownload(docId) {
+            const docIndex = internalDocs.findIndex(d => d.id == docId);
+            if (docIndex !== -1) {
+                internalDocs[docIndex].downloads += 1;
+                renderDocuments(); 
+            }
+            
+            const totalStatEl = document.getElementById('total-downloads-stat');
+            if (totalStatEl) {
+                let currentTotal = parseInt(totalStatEl.innerText.replace(/,/g, '')) || 0;
+                totalStatEl.innerText = (currentTotal + 1).toLocaleString() + " lượt";
+            }
+
             window.location.href = "<%= request.getContextPath()%>/MainController?action=downloadDoc&docId=" + docId;
         }
 
@@ -376,7 +443,7 @@
         });
         
         document.addEventListener("DOMContentLoaded", () => { 
-            renderCategories(); 
+            sortDocumentsArray(); // Chạy sắp xếp ngay khi tải trang xong
             renderDocuments(); 
         });
     </script>

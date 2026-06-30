@@ -2,6 +2,8 @@ package Controller;
 
 import Model.DTO.Document;
 import Model.DAO.DocumentDAO;
+import Model.DTO.Folder;
+import Model.DAO.FolderDAO;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -9,6 +11,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
+import java.util.List;
 
 @WebServlet(name = "DocumentController", urlPatterns = {"/DocumentController"})
 public class DocumentController extends HttpServlet {
@@ -27,7 +30,36 @@ public class DocumentController extends HttpServlet {
         DocumentDAO dao = new DocumentDAO();
         int userId = (int) session.getAttribute("userId");
         try {
-            if ("editDoc".equals(action)) {
+            if ("explore".equals(action)) {
+                // Chặn cache để dữ liệu mới upload luôn hiển thị ngay
+                response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+                response.setHeader("Pragma", "no-cache");
+                response.setDateHeader("Expires", 0);
+
+                FolderDAO folderDao = new FolderDAO();
+                String viewMode = request.getParameter("view");
+                boolean isFriendsView = "friends".equals(viewMode);
+
+                // 1. Lấy danh sách tài liệu
+                List<Document> exploreDocs = dao.getExploreDocuments(userId, isFriendsView);
+                
+                // 2. Lấy thống kê ĐÚNG theo view đang xem
+                int[] stats = dao.getExploreStats(userId, isFriendsView);
+                
+                // 3. Lấy danh sách Folder Public
+                List<Folder> publicFolders = folderDao.getPublicFolders();
+
+                // 4. Set vào Request để gửi xuống JSP
+                request.setAttribute("publicDocuments", exploreDocs);
+                request.setAttribute("publicFolders", publicFolders);
+                request.setAttribute("isFriendsView", isFriendsView);
+                request.setAttribute("realTotalDocs", stats[0]);
+                request.setAttribute("realTotalContributors", stats[1]);
+                request.setAttribute("realTotalDownloads", stats[2]);
+
+                request.getRequestDispatcher("/FileExplore.jsp").forward(request, response);
+                
+            } else if ("editDoc".equals(action)) {
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 Document doc = dao.findById(docId);
 
@@ -134,7 +166,15 @@ public class DocumentController extends HttpServlet {
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 Document doc = dao.findById(docId);
 
-                if (doc != null && doc.getUserId() == userId) {
+                boolean canAccess = false;
+                if (doc != null) {
+                    String permission = doc.getSharingPermission() != null ? doc.getSharingPermission().toUpperCase() : "PRIVATE";
+                    if (doc.getUserId() == userId || "PUBLIC".equals(permission) || "FRIENDS_ONLY".equals(permission)) {
+                        canAccess = true;
+                    }
+                }
+
+                if (canAccess) {
                     String url = doc.getCloudStorageUrl();
                     String relativePath = url;
                     String ctxPath = request.getContextPath();
@@ -159,7 +199,7 @@ public class DocumentController extends HttpServlet {
                         }
 
                         String ext = doc.getFileExtension() != null ? doc.getFileExtension().toLowerCase() : "";
-                        String disposition = "attachment"; // Mặc định là tải về với Office
+                        String disposition = "attachment";
                         
                         if ("pdf".equals(ext) || "txt".equals(ext) || "md".equals(ext)) {
                             disposition = "inline";
@@ -172,10 +212,8 @@ public class DocumentController extends HttpServlet {
                             downloadFileName += "." + ext;
                         }
                         
-                        // 🔥 FIX: Encode chuỗi Tiếng Việt có dấu sang định dạng chuẩn URL UTF-8
                         String encodedFileName = java.net.URLEncoder.encode(downloadFileName, "UTF-8").replaceAll("\\+", "%20");
                         
-                        // Sử dụng cú pháp chuẩn filename*=UTF-8'' để trình duyệt tự giải mã đúng tiếng Việt
                         response.setHeader("Content-Disposition", disposition + "; filename*=UTF-8''" + encodedFileName);
 
                         try ( java.io.FileInputStream inStream = new java.io.FileInputStream(file);  java.io.OutputStream outStream = response.getOutputStream()) {
@@ -195,7 +233,15 @@ public class DocumentController extends HttpServlet {
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 Document doc = dao.findById(docId);
 
-                if (doc != null && doc.getUserId() == userId) {
+                boolean canAccess = false;
+                if (doc != null) {
+                    String permission = doc.getSharingPermission() != null ? doc.getSharingPermission().toUpperCase() : "PRIVATE";
+                    if (doc.getUserId() == userId || "PUBLIC".equals(permission) || "FRIENDS_ONLY".equals(permission)) {
+                        canAccess = true;
+                    }
+                }
+
+                if (canAccess) {
                     String url = doc.getCloudStorageUrl();
                     String relativePath = url;
                     String ctxPath = request.getContextPath();
@@ -215,15 +261,16 @@ public class DocumentController extends HttpServlet {
 
                     java.io.File downloadFile = new java.io.File(filePath);
                     if (downloadFile.exists()) {
+                        
+                        // 🔥 ĐÃ FIX: CHẠY HÀM TĂNG LƯỢT TẢI VÀO CƠ SỞ DỮ LIỆU
+                        dao.incrementDownloadCount(docId);
+                        
                         String ext = "";
                         if (savedFileName.lastIndexOf('.') > 0) {
                             ext = savedFileName.substring(savedFileName.lastIndexOf('.'));
                         }
 
-                        // Lấy tên tải về
                         String downloadFileName = doc.getTitle() + ext;
-                        
-                        // 🔥 FIX: Encode chuỗi Tiếng Việt có dấu tương tự hàm viewDoc bên trên
                         String encodedFileName = java.net.URLEncoder.encode(downloadFileName, "UTF-8").replaceAll("\\+", "%20");
 
                         response.setContentType("application/octet-stream");
@@ -239,7 +286,21 @@ public class DocumentController extends HttpServlet {
                     } else {
                         response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=file_not_found");
                     }
+                } else {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Bạn không có quyền tải tài liệu này.");
                 }
+            } else if ("toggleBookmark".equals(action)) {
+                // 🔥 THÊM ACTION NÀY VÀO ĐỂ NHẬN AJAX TỪ GIAO DIỆN
+                int docId = Integer.parseInt(request.getParameter("docId"));
+                
+                boolean isNowBookmarked = dao.toggleBookmark(userId, docId);
+                int newCount = dao.getBookmarkCount(docId);
+                
+                // Trả về JSON chứa trạng thái mới
+                response.setContentType("application/json");
+                response.setCharacterEncoding("UTF-8");
+                response.getWriter().write("{\"isBookmarked\": " + isNowBookmarked + ", \"newCount\": " + newCount + "}");
+                return; // Ngắt luồng ở đây, không redirect nữa vì đây là Request ngầm
             }
         } catch (Exception e) {
             System.err.println("[DocumentController Error] " + e.getMessage());
