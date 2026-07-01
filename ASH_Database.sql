@@ -99,7 +99,6 @@ CREATE TABLE documents (
     cloud_storage_url NVARCHAR(500) NOT NULL,
     file_size_mb DECIMAL(5,2) NOT NULL,
     ai_parsing_status NVARCHAR(20) DEFAULT 'PENDING' CHECK (ai_parsing_status IN ('PENDING', 'PROCESSING', 'READY', 'FAILED')), 
-
     sharing_permission NVARCHAR(20) DEFAULT 'PRIVATE' CHECK (sharing_permission IN ('PRIVATE', 'FRIENDS_ONLY', 'PUBLIC')),
     share_link_token NVARCHAR(100) UNIQUE,
     total_report_score DECIMAL(5,2) DEFAULT 0.0,   -- FIXED: dấu , thay vì ;
