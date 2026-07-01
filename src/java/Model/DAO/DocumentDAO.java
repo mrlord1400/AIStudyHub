@@ -560,4 +560,69 @@ public class DocumentDAO {
         } catch (SQLException e) { e.printStackTrace(); }
         return 0;
     }
+    
+    public boolean deleteDocumentAndDependencies(int documentId) {
+        boolean isSuccess = false;
+        Connection conn = null;
+        PreparedStatement psDeleteReports = null;
+        PreparedStatement psDeleteBookmarks = null;
+        PreparedStatement psDeleteExtractedText = null;
+        PreparedStatement psDeleteDoc = null;
+
+        try {
+            conn = DBUtils.getConnection();
+            conn.setAutoCommit(false);
+
+            // 1. Dọn dẹp Document Reports
+            String sqlReports = "DELETE FROM document_reports WHERE document_id = ?";
+            psDeleteReports = conn.prepareStatement(sqlReports);
+            psDeleteReports.setInt(1, documentId);
+            psDeleteReports.executeUpdate();
+
+            // 2. Dọn dẹp Bookmarks
+            String sqlBookmarks = "DELETE FROM bookmarks WHERE document_id = ?";
+            psDeleteBookmarks = conn.prepareStatement(sqlBookmarks);
+            psDeleteBookmarks.setInt(1, documentId);
+            psDeleteBookmarks.executeUpdate();
+            
+            // 3. Dọn dẹp Text đã trích xuất
+            String sqlExtract = "DELETE FROM document_extracted_text WHERE document_id = ?";
+            psDeleteExtractedText = conn.prepareStatement(sqlExtract);
+            psDeleteExtractedText.setInt(1, documentId);
+            psDeleteExtractedText.executeUpdate();
+
+            // 4. Xử lí Document
+            String sqlDoc = "DELETE FROM documents WHERE document_id = ?";
+            psDeleteDoc = conn.prepareStatement(sqlDoc);
+            psDeleteDoc.setInt(1, documentId);
+            int rowsAffected = psDeleteDoc.executeUpdate();
+
+            conn.commit(); // Chốt giao dịch
+            isSuccess = (rowsAffected > 0);
+
+        } catch (SQLException e) {
+            if (conn != null) {
+                try {
+                    conn.rollback();
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+            }
+            System.err.println("[DocumentDAO] deleteDocumentAndDependencies failed: " + e.getMessage());
+        } finally {
+            try {
+                if (psDeleteReports != null) psDeleteReports.close();
+                if (psDeleteBookmarks != null) psDeleteBookmarks.close();
+                if (psDeleteExtractedText != null) psDeleteExtractedText.close();
+                if (psDeleteDoc != null) psDeleteDoc.close();
+                if (conn != null) {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+        return isSuccess;
+    }
 }

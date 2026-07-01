@@ -19,6 +19,7 @@ public class MainController extends HttpServlet {
     private static final String ADMIN_CONTROLLER = "AdminController";
     private static final String CHATBOT_CONTROLLER = "ChatBotController";
     private static final String SESSION_CONTROLLER = "SessionController";
+    private static final String REPORT_CONFIG_CONTROLLER = "ReportConfigController";
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -42,7 +43,7 @@ public class MainController extends HttpServlet {
                     case "guest":
                         url = "guest_dashboard.jsp";
                         break;
-                    case "explore": 
+                    case "explore":
                     case "editDoc":
                     case "deleteDoc":
                     case "updateDoc":
@@ -84,6 +85,12 @@ public class MainController extends HttpServlet {
                         break;
                     case "chatMain":
                         url = SESSION_CONTROLLER;
+                        break;
+                    case "reportConfigList":
+                    case "reportConfigAdd":
+                    case "reportConfigUpdate":
+                    case "reportConfigDelete":
+                        url = REPORT_CONFIG_CONTROLLER;
                         break;
                     default:
                         url = LOGIN_PAGE;
