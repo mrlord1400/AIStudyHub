@@ -383,6 +383,15 @@
                                 </button>
                                 
                                 <div class="flex items-center" title="Downloads"><svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>\${doc.downloads}</div>
+                                
+                                <button onclick="handleReport('\${doc.id}')" class="flex items-center text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors cursor-pointer" title="Báo cáo tài liệu này">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                    </svg>
+                                </button>
+                                
                                 <div><span>\${doc.size}</span></div>
                             </div>
                             <button onclick="handleDownload('\${doc.id}')" class="flex items-center space-x-2 px-4 py-2 bg-[#5c3cf5] text-white rounded-xl hover:bg-indigo-700 transition-all text-xs font-bold shadow-sm cursor-pointer">
@@ -393,6 +402,11 @@
                     </div>
                 </div>`;
             }).join('');
+        }
+
+        // 🔥 HÀM XỬ LÝ ĐIỀU HƯỚNG BÁO CÁO SANG MAINCONTROLLER
+        function handleReport(docId) {
+            window.location.href = "<%= request.getContextPath()%>/MainController?action=report&documentId=" + docId;
         }
 
         // 🔥 HÀM GỌI AJAX TOGGLE BOOKMARK

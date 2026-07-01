@@ -560,4 +560,25 @@ public class DocumentDAO {
         } catch (SQLException e) { e.printStackTrace(); }
         return 0;
     }
+    
+    /**
+     * Cập nhật điểm tích lũy báo cáo vi phạm và trạng thái cắm cờ của tài liệu.
+     * Sử dụng trong luồng xử lý createReport khi tính toán lại điểm phạt.
+     */
+    public boolean updateReportMetrics(int documentId, double totalReportScore, boolean isFlagged) {
+        String sql = "UPDATE documents SET total_report_score = ?, is_flagged = ?, updated_at = ? WHERE document_id = ?";
+
+        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDouble(1, totalReportScore);
+            ps.setBoolean(2, isFlagged);
+            ps.setTimestamp(3, java.sql.Timestamp.valueOf(LocalDateTime.now()));
+            ps.setInt(4, documentId);
+
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("[DocumentDAO] updateReportMetrics failed: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return false;
+    }
 }
