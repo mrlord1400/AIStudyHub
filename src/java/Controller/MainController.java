@@ -48,6 +48,7 @@ public class MainController extends HttpServlet {
                     case "updateDoc":
                     case "viewDoc":
                     case "downloadDoc":
+                    case "viewPublicPage":
                         url = DOCUMENT_CONTROLLER;
                         break;
                     case "profile":
