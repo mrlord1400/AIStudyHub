@@ -26,7 +26,7 @@ public class DocumentDAO {
             }
 
             ps.setString(3, doc.getTitle());
-            ps.setString(4, doc.getFileExtension()); 
+            ps.setString(4, doc.getFileExtension());
             ps.setString(5, doc.getCloudStorageUrl());
             ps.setDouble(6, doc.getFileSizeMb());
             ps.setString(7, doc.getAiParsingStatus());
@@ -54,15 +54,15 @@ public class DocumentDAO {
 
             try ( ResultSet rs = ps.getGeneratedKeys()) {
                 if (rs.next()) {
-                    int docId = rs.getInt(1); 
-                    if (docId < 0){
+                    int docId = rs.getInt(1);
+                    if (docId < 0) {
                         return docId;
                     } else {
                         doc.setDocumentId(docId);
                     }
                     return docId;
                 }
-                
+
             }
 
         } catch (SQLException e) {
@@ -193,16 +193,19 @@ public class DocumentDAO {
         doc.setSharingPermission(rs.getString("sharing_permission"));
         doc.setShareLinkToken(rs.getString("share_link_token"));
         doc.setFlagged(rs.getBoolean("is_flagged"));
-        
+
         try {
             doc.setBookmarkCount(rs.getInt("bookmark_count"));
-        } catch (SQLException ignored) {}
+        } catch (SQLException ignored) {
+        }
         try {
             doc.setDownloadCount(rs.getInt("download_count"));
-        } catch (SQLException ignored) {}
+        } catch (SQLException ignored) {
+        }
         try {
             doc.setTotalReportScore(rs.getDouble("total_report_score"));
-        } catch (SQLException ignored) {}
+        } catch (SQLException ignored) {
+        }
 
         Timestamp ts = rs.getTimestamp("created_at");
         if (ts != null) {
@@ -251,7 +254,7 @@ public class DocumentDAO {
             }
             try ( ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    list.add(mapRow(rs)); 
+                    list.add(mapRow(rs));
                 }
             }
         } catch (SQLException e) {
@@ -407,27 +410,27 @@ public class DocumentDAO {
         String sql;
 
         if (isFriendsView) {
-            sql = "SELECT d.*, u.username AS author_username, " +
-                  "CASE WHEN b.bookmark_id IS NOT NULL THEN 1 ELSE 0 END AS is_bookmarked " +
-                  "FROM documents d " +
-                  "INNER JOIN users u ON d.user_id = u.user_id " +
-                  "INNER JOIN friendships f ON (d.user_id = f.addressee_id OR d.user_id = f.requester_id) " +
-                  "LEFT JOIN bookmarks b ON d.document_id = b.document_id AND b.user_id = ? " +
-                  "WHERE d.sharing_permission = 'FRIENDS_ONLY' " + 
-                  "AND (f.requester_id = ? OR f.addressee_id = ?) AND d.user_id != ? " +
-                  "AND f.status = 'ACCEPTED' " +
-                  "ORDER BY is_bookmarked DESC, COALESCE(d.updated_at, d.created_at) DESC";
+            sql = "SELECT d.*, u.username AS author_username, "
+                    + "CASE WHEN b.bookmark_id IS NOT NULL THEN 1 ELSE 0 END AS is_bookmarked "
+                    + "FROM documents d "
+                    + "INNER JOIN users u ON d.user_id = u.user_id "
+                    + "INNER JOIN friendships f ON (d.user_id = f.addressee_id OR d.user_id = f.requester_id) "
+                    + "LEFT JOIN bookmarks b ON d.document_id = b.document_id AND b.user_id = ? "
+                    + "WHERE d.sharing_permission = 'FRIENDS_ONLY' "
+                    + "AND (f.requester_id = ? OR f.addressee_id = ?) AND d.user_id != ? "
+                    + "AND f.status = 'ACCEPTED' "
+                    + "ORDER BY is_bookmarked DESC, COALESCE(d.updated_at, d.created_at) DESC";
         } else {
-            sql = "SELECT d.*, u.username AS author_username, " +
-                  "CASE WHEN b.bookmark_id IS NOT NULL THEN 1 ELSE 0 END AS is_bookmarked " +
-                  "FROM documents d " +
-                  "INNER JOIN users u ON d.user_id = u.user_id " +
-                  "LEFT JOIN bookmarks b ON d.document_id = b.document_id AND b.user_id = ? " +
-                  "WHERE d.sharing_permission = 'PUBLIC' " + 
-                  "ORDER BY is_bookmarked DESC, COALESCE(d.updated_at, d.created_at) DESC";
+            sql = "SELECT d.*, u.username AS author_username, "
+                    + "CASE WHEN b.bookmark_id IS NOT NULL THEN 1 ELSE 0 END AS is_bookmarked "
+                    + "FROM documents d "
+                    + "INNER JOIN users u ON d.user_id = u.user_id "
+                    + "LEFT JOIN bookmarks b ON d.document_id = b.document_id AND b.user_id = ? "
+                    + "WHERE d.sharing_permission = 'PUBLIC' "
+                    + "ORDER BY is_bookmarked DESC, COALESCE(d.updated_at, d.created_at) DESC";
         }
 
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             if (isFriendsView) {
                 ps.setInt(1, currentUserId);
                 ps.setInt(2, currentUserId);
@@ -437,17 +440,19 @@ public class DocumentDAO {
                 ps.setInt(1, currentUserId);
             }
 
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     Document doc = mapRow(rs);
                     try {
                         doc.setAuthorUsername(rs.getString("author_username"));
-                    } catch (SQLException ignored) {}
-                    
+                    } catch (SQLException ignored) {
+                    }
+
                     try {
                         doc.setIsBookmarked(rs.getInt("is_bookmarked") == 1);
-                    } catch (SQLException ignored) {}
-                    
+                    } catch (SQLException ignored) {
+                    }
+
                     list.add(doc);
                 }
             }
@@ -464,28 +469,28 @@ public class DocumentDAO {
         String sql;
 
         if (isFriendsView) {
-            sql = "SELECT COUNT(d.document_id) as total_docs, " +
-                  "COUNT(DISTINCT d.user_id) as total_contributors, " +
-                  "ISNULL(SUM(d.download_count), 0) as total_downloads " +
-                  "FROM documents d " +
-                  "INNER JOIN friendships f ON (d.user_id = f.addressee_id OR d.user_id = f.requester_id) " +
-                  "WHERE d.sharing_permission = 'FRIENDS_ONLY' " + 
-                  "AND (f.requester_id = ? OR f.addressee_id = ?) AND d.user_id != ? " +
-                  "AND f.status = 'ACCEPTED'";
+            sql = "SELECT COUNT(d.document_id) as total_docs, "
+                    + "COUNT(DISTINCT d.user_id) as total_contributors, "
+                    + "ISNULL(SUM(d.download_count), 0) as total_downloads "
+                    + "FROM documents d "
+                    + "INNER JOIN friendships f ON (d.user_id = f.addressee_id OR d.user_id = f.requester_id) "
+                    + "WHERE d.sharing_permission = 'FRIENDS_ONLY' "
+                    + "AND (f.requester_id = ? OR f.addressee_id = ?) AND d.user_id != ? "
+                    + "AND f.status = 'ACCEPTED'";
         } else {
-            sql = "SELECT COUNT(document_id) as total_docs, " +
-                  "COUNT(DISTINCT user_id) as total_contributors, " +
-                  "ISNULL(SUM(download_count), 0) as total_downloads " +
-                  "FROM documents WHERE sharing_permission = 'PUBLIC'"; 
+            sql = "SELECT COUNT(document_id) as total_docs, "
+                    + "COUNT(DISTINCT user_id) as total_contributors, "
+                    + "ISNULL(SUM(download_count), 0) as total_downloads "
+                    + "FROM documents WHERE sharing_permission = 'PUBLIC'";
         }
 
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             if (isFriendsView) {
                 ps.setInt(1, currentUserId);
                 ps.setInt(2, currentUserId);
                 ps.setInt(3, currentUserId);
             }
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     stats[0] = rs.getInt("total_docs");
                     stats[1] = rs.getInt("total_contributors");
@@ -498,26 +503,30 @@ public class DocumentDAO {
         }
         return stats;
     }
-    
+
     // ─── THAO TÁC TOGGLE BOOKMARK ──────────────────────────────────────────
     public boolean toggleBookmark(int userId, int documentId) {
         boolean isNowBookmarked = false;
         String checkSql = "SELECT bookmark_id FROM bookmarks WHERE user_id = ? AND document_id = ?";
         boolean exists = false;
-        
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(checkSql)) {
+
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(checkSql)) {
             ps.setInt(1, userId);
             ps.setInt(2, documentId);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) exists = true;
+            try ( ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    exists = true;
+                }
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
 
-        try (Connection conn = DBUtils.getConnection()) {
+        try ( Connection conn = DBUtils.getConnection()) {
             if (exists) {
                 // Đã bookmark -> Xóa
                 String delSql = "DELETE FROM bookmarks WHERE user_id = ? AND document_id = ?";
-                try (PreparedStatement ps = conn.prepareStatement(delSql)) {
+                try ( PreparedStatement ps = conn.prepareStatement(delSql)) {
                     ps.setInt(1, userId);
                     ps.setInt(2, documentId);
                     ps.executeUpdate();
@@ -527,7 +536,7 @@ public class DocumentDAO {
             } else {
                 // Chưa bookmark -> Thêm
                 String insSql = "INSERT INTO bookmarks (user_id, document_id) VALUES (?, ?)";
-                try (PreparedStatement ps = conn.prepareStatement(insSql)) {
+                try ( PreparedStatement ps = conn.prepareStatement(insSql)) {
                     ps.setInt(1, userId);
                     ps.setInt(2, documentId);
                     ps.executeUpdate();
@@ -535,14 +544,16 @@ public class DocumentDAO {
                 updateDocumentBookmarkCount(conn, documentId, 1);
                 isNowBookmarked = true;
             }
-        } catch (SQLException e) { e.printStackTrace(); }
-        
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
         return isNowBookmarked;
     }
 
     private void updateDocumentBookmarkCount(Connection conn, int documentId, int change) throws SQLException {
         String sql = "UPDATE documents SET bookmark_count = bookmark_count + ? WHERE document_id = ?";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, change);
             ps.setInt(2, documentId);
             ps.executeUpdate();
@@ -551,15 +562,19 @@ public class DocumentDAO {
 
     public int getBookmarkCount(int documentId) {
         String sql = "SELECT bookmark_count FROM documents WHERE document_id = ?";
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, documentId);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt(1);
+            try ( ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
         return 0;
     }
-    
+
     /**
      * Cập nhật điểm tích lũy báo cáo vi phạm và trạng thái cắm cờ của tài liệu.
      * Sử dụng trong luồng xử lý createReport khi tính toán lại điểm phạt.
@@ -567,7 +582,7 @@ public class DocumentDAO {
     public boolean updateReportMetrics(int documentId, double totalReportScore, boolean isFlagged) {
         String sql = "UPDATE documents SET total_report_score = ?, is_flagged = ?, updated_at = ? WHERE document_id = ?";
 
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setDouble(1, totalReportScore);
             ps.setBoolean(2, isFlagged);
             ps.setTimestamp(3, java.sql.Timestamp.valueOf(LocalDateTime.now()));
@@ -579,5 +594,30 @@ public class DocumentDAO {
             e.printStackTrace();
         }
         return false;
+    }
+
+    public List<Document> getPublicDocumentsForAdmin() {
+        List<Document> list = new ArrayList<>();
+        String sql = "SELECT d.*, u.username AS author_username "
+                + "FROM documents d "
+                + "INNER JOIN users u ON d.user_id = u.user_id "
+                + "WHERE d.sharing_permission = 'PUBLIC' "
+                + "ORDER BY d.is_flagged DESC, d.total_report_score DESC";
+
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql);  ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                Document doc = mapRow(rs);
+                try {
+                    doc.setAuthorUsername(rs.getString("author_username"));
+                } catch (SQLException ignored) {
+                }
+                list.add(doc);
+            }
+        } catch (SQLException e) {
+            System.err.println("[DocumentDAO] getPublicDocumentsForAdmin Error: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return list;
     }
 }
