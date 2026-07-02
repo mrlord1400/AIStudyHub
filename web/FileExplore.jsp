@@ -275,15 +275,7 @@
                                 ? doc.getAuthorUsername()
                                 : "Người dùng #" + doc.getUserId()
                         );
-                        String subjectCode = "Tổng hợp";
-                        String upperTitle = doc.getTitle() != null ? doc.getTitle().toUpperCase() : "";
-                        if (upperTitle.contains("MAS291")) subjectCode = "MAS291";
-                        else if (upperTitle.contains("PRJ301")) subjectCode = "PRJ301";
-                        else if (upperTitle.contains("DBI202")) subjectCode = "DBI202";
-                        else if (upperTitle.contains("IOT102")) subjectCode = "IoT102";
-                        else if (upperTitle.contains("SWP391")) subjectCode = "SWP391";
-                        else if (upperTitle.contains("SSG104")) subjectCode = "SSG104";
-
+                        
                         long dateMillis = 0;
                         if (doc.getUpdatedAt() != null) {
                             dateMillis = java.sql.Timestamp.valueOf(doc.getUpdatedAt()).getTime();
@@ -298,7 +290,6 @@
                     title: "<%= title %>", 
                     author: "<%= authorName %>", 
                     authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=user<%= doc.getUserId() %>", 
-                    category: "<%= subjectCode %>", 
                     fileType: "<%= fileExt %>",
                     downloads: <%= doc.getDownloadCount() != null ? doc.getDownloadCount() : 0 %>, 
                     bookmarks: <%= doc.getBookmarkCount() != null ? doc.getBookmarkCount() : 0 %>,
@@ -307,7 +298,7 @@
                     dateMillis: <%= dateMillis %>,           
                     size: "<%= doc.getFileSizeMb() %> MB", 
                     description: "Tài liệu học tập được chia sẻ bởi cộng đồng sinh viên.", 
-                    tags: ["<%= subjectCode %>", "<%= fileExt %>"] 
+                    tags: ["<%= fileExt %>"] 
                 }<%= (i < publicDocuments.size() - 1) ? "," : "" %>
             <%
                     }
@@ -406,7 +397,6 @@
                                 <div class="flex-1 min-w-0">
                                     <p class="author-name text-xs font-bold truncate">Người đăng: \${doc.author}</p>
                                 </div>
-                                <span class="px-2 py-0.5 bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400 text-[10px] font-extrabold rounded-md border border-indigo-100 dark:border-indigo-900/40 uppercase tracking-wide">Môn: \${doc.category}</span>
                             </div>
                             <div class="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
                                 <div class="flex items-center space-x-4 text-[11px] font-semibold text-gray-400">
