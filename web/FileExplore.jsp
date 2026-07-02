@@ -3,8 +3,8 @@
 <%@ page import="java.util.ArrayList" %>
 <%@ page import="Model.DTO.Document" %>
 <%@ page import="Model.DTO.Folder" %>
+<%@ page import="java.time.format.DateTimeFormatter" %>
 <%
-    // 🔥 ÉP TRÌNH DUYỆT KHÔNG ĐƯỢC CACHE ĐỂ LÚC NÀO CŨNG THẤY FILE MỚI NHẤT
     response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     response.setHeader("Pragma", "no-cache");
     response.setDateHeader("Expires", 0);
@@ -23,7 +23,6 @@
     }
 %>
 <%
-    // 1. Kiểm tra trạng thái đăng nhập của người dùng
     HttpSession userSession = request.getSession(false);
     if (userSession == null || userSession.getAttribute("userId") == null) {
         response.sendRedirect(request.getContextPath() + "/login.jsp");
@@ -35,40 +34,29 @@
     String role = (String) userSession.getAttribute("role");
     Integer tierId = (Integer) userSession.getAttribute("tierId");
 
-    if (role == null || !"ADMIN".equalsIgnoreCase(role.trim())) {
-        role = "STUDENT"; 
-    } else {
-        role = "ADMIN";
-    }
-
-    if (tierId == null || tierId < 2) {
-        tierId = 2;
-    }
+    if (role == null || !"ADMIN".equalsIgnoreCase(role.trim())) { role = "STUDENT"; } else { role = "ADMIN"; }
+    if (tierId == null || tierId < 2) { tierId = 2; }
     boolean isPremiumUser = (tierId >= 3);
     
     Integer userBalance = (Integer) userSession.getAttribute("balance");
-    if (userBalance == null) {
-        userBalance = 0;
-    }
+    if (userBalance == null) { userBalance = 0; }
 
-    // 2. Lấy dữ liệu từ Controller
     List<Document> publicDocuments = (List<Document>) request.getAttribute("publicDocuments");
-    
-    // 🔥 CƠ CHẾ BẢO VỆ: Nếu user lỡ truy cập thẳng vào FileExplore.jsp (bỏ qua Controller),
-    // publicDocuments sẽ bị null. Ta sẽ bắt nó quay ngược lại Controller để fetch data ngay lập tức!
     if (publicDocuments == null) {
         response.sendRedirect(request.getContextPath() + "/MainController?action=explore");
         return;
     }
     
-    // Check view mode
     Boolean isFriendsViewObj = (Boolean) request.getAttribute("isFriendsView");
     boolean isFriendsView = (isFriendsViewObj != null) ? isFriendsViewObj : false;
 
-    // Đọc số liệu thống kê thực tế từ DB (đã đúng theo view)
     Integer totalDocs = (Integer) request.getAttribute("realTotalDocs");
     Integer totalContributors = (Integer) request.getAttribute("realTotalContributors");
     Integer totalDownloads = (Integer) request.getAttribute("realTotalDownloads");
+    
+    String currentSearchQuery = (String) request.getAttribute("searchQuery");
+    String currentSortBy = (String) request.getAttribute("sortBy");
+    if (currentSortBy == null) currentSortBy = "date";
 %>
 <!DOCTYPE html>
 <html lang="vi" class="dark">
@@ -78,13 +66,7 @@
     <title>Khám phá tài liệu - AI Study Hub</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class'
-        }
-    </script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <script> tailwind.config = { darkMode: 'class' } </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <style type="text/tailwindcss">
@@ -100,7 +82,6 @@
         html.dark .logout-btn:hover { background-color: rgba(127, 29, 29, 0.3); color: #f87171; }
         html.dark .btn-secondary { background-color: #1f2937; border-color: #374151; color: #e5e7eb; }
         html.dark .btn-secondary:hover { background-color: #374151; }
-        
         html.dark .doc-card { background-color: #1f2937; border-color: #374151; }
         html.dark .doc-title { color: #ffffff; }
         html.dark .doc-desc { color: #9ca3af; }
@@ -134,12 +115,11 @@
             .page-title { @apply text-2xl font-bold text-gray-900 tracking-tight; }
             .btn-primary { @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-[#5c3cf5] text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm shadow-sm shadow-indigo-100 cursor-pointer; }
             .btn-secondary { @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm shadow-sm cursor-pointer; }
-            
             .doc-card { @apply bg-white border border-gray-100 rounded-2xl p-5 hover:shadow-md transition-all flex flex-col justify-between; }
         }
     </style>
 </head>
-<body class="page-body">
+<body class="page-body" onclick="closeMenuOnClickOutside(event)">
 
     <aside class="sidebar">
         <div class="space-y-6 w-full">
@@ -229,11 +209,42 @@
             </a>
         </div>
 
-        <div class="mb-6">
-            <div class="relative">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></span>
-                <input type="text" id="search-input" placeholder="Tìm nhanh theo tiêu đề file, môn học hoặc tên người đăng..." class="search-bar w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none shadow-sm transition-all">
-            </div>
+        <div class="mb-6 relative">
+            <form action="<%= request.getContextPath()%>/MainController" method="GET" class="relative">
+                <input type="hidden" name="action" value="explore">
+                <input type="hidden" name="view" value="<%= isFriendsView ? "friends" : "public" %>">
+                <input type="hidden" name="sort" id="sort-input" value="<%= escapeJs(currentSortBy) %>">
+                
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </span>
+                
+                <input type="text" name="query" value="<%= currentSearchQuery != null ? escapeJs(currentSearchQuery) : "" %>" placeholder="Nhập từ khóa và nhấn Enter để tìm..." class="search-bar w-full pl-9 pr-14 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none shadow-sm transition-all">
+                
+                <button type="button" onclick="toggleSortMenu(event)" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center text-gray-500 transition-colors" title="Sắp xếp tài liệu">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0L17 4m4 4h-14"></path></svg>
+                </button>
+                
+                <div id="sort-menu" class="hidden absolute right-0 top-12 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 overflow-hidden">
+                    <div class="px-4 py-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        Sắp xếp theo
+                    </div>
+                    <ul class="text-sm text-gray-700 dark:text-gray-300">
+                        <li onclick="submitSort('date')" class="px-4 py-2.5 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-gray-700 cursor-pointer flex items-center justify-between transition-colors <%= "date".equals(currentSortBy) ? "bg-indigo-50 text-indigo-600 font-semibold" : "" %>">
+                            <span>Ngày cập nhật</span>
+                            <%= "date".equals(currentSortBy) ? "<svg class='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M5 13l4 4L19 7'></path></svg>" : "" %>
+                        </li>
+                        <li onclick="submitSort('downloads')" class="px-4 py-2.5 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-gray-700 cursor-pointer flex items-center justify-between transition-colors <%= "downloads".equals(currentSortBy) ? "bg-indigo-50 text-indigo-600 font-semibold" : "" %>">
+                            <span>Nhiều lượt tải nhất</span>
+                            <%= "downloads".equals(currentSortBy) ? "<svg class='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M5 13l4 4L19 7'></path></svg>" : "" %>
+                        </li>
+                        <li onclick="submitSort('bookmarks')" class="px-4 py-2.5 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-gray-700 cursor-pointer flex items-center justify-between transition-colors <%= "bookmarks".equals(currentSortBy) ? "bg-indigo-50 text-indigo-600 font-semibold" : "" %>">
+                            <span>Nhiều Bookmark nhất</span>
+                            <%= "bookmarks".equals(currentSortBy) ? "<svg class='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M5 13l4 4L19 7'></path></svg>" : "" %>
+                        </li>
+                    </ul>
+                </div>
+            </form>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -254,17 +265,37 @@
         <div id="documents-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-5"></div>
 
         <div class="mt-8 text-center">
-            <button id="load-more-btn" onclick="handleLoadMore()" class="btn-secondary px-5 py-2.5 mx-auto">Xem thêm tài liệu</button>
+            <button id="load-more-btn" onclick="handleLoadMore()" class="btn-secondary px-5 py-2.5 mx-auto hidden">Xem thêm tài liệu</button>
         </div>
     </main>
 
     <script>
-        let searchQuery = "";
+        // Mở menu Dropdown Sort
+        function toggleSortMenu(event) {
+            event.stopPropagation();
+            document.getElementById('sort-menu').classList.toggle('hidden');
+        }
+
+        // Bấm ra ngoài là tắt Menu Sort
+        function closeMenuOnClickOutside(event) {
+            const menu = document.getElementById('sort-menu');
+            if (!menu.classList.contains('hidden') && !menu.contains(event.target)) {
+                menu.classList.add('hidden');
+            }
+        }
+
+        // Xử lý khi nhấn vô nút đổi tiêu chí Sort
+        function submitSort(sortValue) {
+            document.getElementById('sort-input').value = sortValue;
+            document.getElementById('sort-input').form.submit();
+        }
+
         let itemsShown = 6; 
 
-        // Khởi tạo mảng dữ liệu với thuộc tính isBookmarked, isFlagged và dateMillis
+        // Khởi tạo mảng dữ liệu với thuộc tính isBookmarked, isFlagged, và Ngày Upload
         const internalDocs = [
             <%
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
                 if (publicDocuments != null && !publicDocuments.isEmpty()) {
                     for (int i = 0; i < publicDocuments.size(); i++) {
                         Document doc = publicDocuments.get(i);
@@ -275,39 +306,23 @@
                                 ? doc.getAuthorUsername()
                                 : "Người dùng #" + doc.getUserId()
                         );
-                        String subjectCode = "Tổng hợp";
-                        String upperTitle = doc.getTitle() != null ? doc.getTitle().toUpperCase() : "";
-                        if (upperTitle.contains("MAS291")) subjectCode = "MAS291";
-                        else if (upperTitle.contains("PRJ301")) subjectCode = "PRJ301";
-                        else if (upperTitle.contains("DBI202")) subjectCode = "DBI202";
-                        else if (upperTitle.contains("IOT102")) subjectCode = "IoT102";
-                        else if (upperTitle.contains("SWP391")) subjectCode = "SWP391";
-                        else if (upperTitle.contains("SSG104")) subjectCode = "SSG104";
-
-                        long dateMillis = 0;
-                        if (doc.getUpdatedAt() != null) {
-                            dateMillis = java.sql.Timestamp.valueOf(doc.getUpdatedAt()).getTime();
-                        } else if (doc.getCreatedAt() != null) {
-                            dateMillis = java.sql.Timestamp.valueOf(doc.getCreatedAt()).getTime();
-                        } else {
-                            dateMillis = System.currentTimeMillis();
-                        }
+                        
+                        // Lấy Formatted Date cho Ngày Upload
+                        String uploadDateStr = (doc.getCreatedAt() != null) ? doc.getCreatedAt().format(formatter) : "Gần đây";
             %>
                 { 
                     id: "<%= doc.getDocumentId() %>", 
                     title: "<%= title %>", 
                     author: "<%= authorName %>", 
                     authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=user<%= doc.getUserId() %>", 
-                    category: "<%= subjectCode %>", 
                     fileType: "<%= fileExt %>",
                     downloads: <%= doc.getDownloadCount() != null ? doc.getDownloadCount() : 0 %>, 
                     bookmarks: <%= doc.getBookmarkCount() != null ? doc.getBookmarkCount() : 0 %>,
                     isBookmarked: <%= doc.isIsBookmarked() %>,
-                    isFlagged: <%= doc.isFlagged() %>, // <-- ĐÃ ĐƯỢC THÊM CỜ ĐỎ VÀO ĐÂY
-                    dateMillis: <%= dateMillis %>,           
+                    isFlagged: <%= doc.isFlagged() %>, 
                     size: "<%= doc.getFileSizeMb() %> MB", 
-                    description: "Tài liệu học tập được chia sẻ bởi cộng đồng sinh viên.", 
-                    tags: ["<%= subjectCode %>", "<%= fileExt %>"] 
+                    uploadDate: "<%= uploadDateStr %>", // <-- Dữ liệu Ngày Upload MỚI
+                    description: "Tài liệu học tập được chia sẻ bởi cộng đồng sinh viên." 
                 }<%= (i < publicDocuments.size() - 1) ? "," : "" %>
             <%
                     }
@@ -315,53 +330,29 @@
             %>
         ];
 
-        // 🔥 HÀM SẮP XẾP: Trình tự: Bookmark -> Tài liệu thường -> Tài liệu cắm cờ (Cuối cùng)
-        function sortDocumentsArray() {
-            internalDocs.sort((a, b) => {
-                // 1. Nếu 1 cái bị cắm cờ, 1 cái không -> Cái cắm cờ đẩy xuống cuối cùng
-                if (a.isFlagged && !b.isFlagged) return 1;
-                if (!a.isFlagged && b.isFlagged) return -1;
-
-                // Nếu cả 2 đều bị cắm cờ HOẶC cả 2 đều không bị cắm cờ, xét tiếp Bookmark
-                // 2. Bookmark nhảy lên đầu
-                if (a.isBookmarked && !b.isBookmarked) return -1;
-                if (!a.isBookmarked && b.isBookmarked) return 1;
-
-                // 3. Cuối cùng xếp theo ngày mới nhất
-                return b.dateMillis - a.dateMillis;
-            });
-        }
-
+        // Hàm vẽ HTML UI. Đã lược bỏ logic Filter/Sort vì Backend đã làm xong!
         function renderDocuments() {
             const grid = document.getElementById('documents-grid');
             const loadMoreBtn = document.getElementById('load-more-btn');
 
-            const filteredDocs = internalDocs.filter(doc => {
-                const t = doc.title ? doc.title.toLowerCase() : "";
-                const a = doc.author ? doc.author.toLowerCase() : "";
-                const q = searchQuery.toLowerCase();
-                return t.includes(q) || a.includes(q);
-            });
+            const slicedDocs = internalDocs.slice(0, itemsShown);
 
-            const slicedDocs = filteredDocs.slice(0, itemsShown);
-
-            if (slicedDocs.length === 0) {
+            if (internalDocs.length === 0) {
                 grid.innerHTML = `
                 <div class="col-span-full flex flex-col items-center justify-center py-16 bg-white border border-gray-100 rounded-2xl shadow-sm dark:bg-gray-800 dark:border-gray-700">
-                    <p class="text-gray-500 dark:text-gray-400 font-medium text-sm">Không tìm thấy tài liệu phù hợp.</p>
+                    <p class="text-gray-500 dark:text-gray-400 font-medium text-sm">Không tìm thấy tài liệu nào phù hợp.</p>
                 </div>`;
                 loadMoreBtn.classList.add('hidden');
                 return;
             }
 
-            if (itemsShown >= filteredDocs.length) {
+            if (itemsShown >= internalDocs.length) {
                 loadMoreBtn.classList.add('hidden');
             } else {
                 loadMoreBtn.classList.remove('hidden');
             }
 
             grid.innerHTML = slicedDocs.map(doc => {
-                // 🔥 NẾU TÀI LIỆU BỊ CẮM CỜ ĐỎ
                 if (doc.isFlagged) {
                     return `
                     <div class="doc-card border border-red-200 bg-red-50/40 dark:bg-red-900/10 dark:border-red-900/30 shadow-sm transition-all duration-200 relative opacity-80 cursor-not-allowed">
@@ -371,7 +362,6 @@
                                 <line x1="4" y1="22" x2="4" y2="15"></line>
                             </svg>
                         </div>
-
                         <div>
                             <div class="flex items-start justify-between mb-2 pr-8">
                                 <h3 class="doc-title font-bold text-[15px] leading-snug text-gray-400 dark:text-gray-500 line-through">\${doc.title}</h3>
@@ -387,10 +377,7 @@
                             </div>
                         </div>
                     </div>`;
-                } 
-                
-                // 🔥 NẾU TÀI LIỆU BÌNH THƯỜNG (Giữ nguyên giao diện cũ của bạn)
-                else {
+                } else {
                     return `
                     <div class="doc-card border shadow-sm transition-all duration-200 relative">
                         <div>
@@ -406,10 +393,9 @@
                                 <div class="flex-1 min-w-0">
                                     <p class="author-name text-xs font-bold truncate">Người đăng: \${doc.author}</p>
                                 </div>
-                                <span class="px-2 py-0.5 bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400 text-[10px] font-extrabold rounded-md border border-indigo-100 dark:border-indigo-900/40 uppercase tracking-wide">Môn: \${doc.category}</span>
                             </div>
                             <div class="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
-                                <div class="flex items-center space-x-4 text-[11px] font-semibold text-gray-400">
+                                <div class="flex flex-wrap items-center gap-3 text-[11px] font-semibold text-gray-400">
                                     
                                     <button onclick="toggleBookmark('\${doc.id}')" class="flex items-center space-x-1 \${doc.isBookmarked ? 'text-amber-500' : 'hover:text-amber-500'} transition-all cursor-pointer" title="\${doc.isBookmarked ? 'Bỏ lưu' : 'Lưu tài liệu'}">
                                         <svg class="w-4 h-4" fill="\${doc.isBookmarked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
@@ -418,7 +404,7 @@
                                         <span>\${doc.bookmarks}</span>
                                     </button>
                                     
-                                    <div class="flex items-center" title="Downloads"><svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>\${doc.downloads}</div>
+                                    <div class="flex items-center" title="Lượt tải xuống"><svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>\${doc.downloads}</div>
                                     
                                     <button onclick="handleReport('\${doc.id}')" class="flex items-center text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors cursor-pointer" title="Báo cáo tài liệu này">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
@@ -428,11 +414,15 @@
                                         </svg>
                                     </button>
                                     
-                                    <div><span>\${doc.size}</span></div>
+                                    <div title="Dung lượng"><span>\${doc.size}</span></div>
+                                    <div class="flex items-center text-gray-400 border-l border-gray-200 dark:border-gray-600 pl-3" title="Ngày Upload">
+                                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                        <span>\${doc.uploadDate}</span>
+                                    </div>
                                 </div>
-                                <button onclick="handleDownload('\${doc.id}')" class="flex items-center space-x-2 px-4 py-2 bg-[#5c3cf5] text-white rounded-xl hover:bg-indigo-700 transition-all text-xs font-bold shadow-sm cursor-pointer">
+                                <button onclick="handleDownload('\${doc.id}')" class="flex-shrink-0 flex items-center space-x-2 px-4 py-2 bg-[#5c3cf5] text-white rounded-xl hover:bg-indigo-700 transition-all text-xs font-bold shadow-sm cursor-pointer ml-2">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                    <span>Tải xuống</span>
+                                    <span>Tải</span>
                                 </button>
                             </div>
                         </div>
@@ -446,16 +436,13 @@
         }
 
         function toggleBookmark(docId) {
-            fetch(`<%= request.getContextPath()%>/DocumentController?action=toggleBookmark&docId=\${docId}`, {
-                method: 'POST'
-            })
+            fetch(`<%= request.getContextPath()%>/DocumentController?action=toggleBookmark&docId=\${docId}`, { method: 'POST' })
             .then(response => response.json())
             .then(data => {
                 const docIndex = internalDocs.findIndex(d => d.id == docId);
                 if (docIndex !== -1) {
                     internalDocs[docIndex].isBookmarked = data.isBookmarked;
                     internalDocs[docIndex].bookmarks = data.newCount;
-                    sortDocumentsArray();
                     renderDocuments();
                 }
             })
@@ -482,14 +469,8 @@
 
             window.location.href = "<%= request.getContextPath()%>/MainController?action=downloadDoc&docId=" + docId;
         }
-
-        document.getElementById('search-input').addEventListener('input', e => { 
-            searchQuery = e.target.value; 
-            renderDocuments(); 
-        });
         
         document.addEventListener("DOMContentLoaded", () => { 
-            sortDocumentsArray(); 
             renderDocuments(); 
         });
     </script>
