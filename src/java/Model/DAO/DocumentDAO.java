@@ -413,7 +413,7 @@ public class DocumentDAO {
                   "INNER JOIN users u ON d.user_id = u.user_id " +
                   "INNER JOIN friendships f ON (d.user_id = f.addressee_id OR d.user_id = f.requester_id) " +
                   "LEFT JOIN bookmarks b ON d.document_id = b.document_id AND b.user_id = ? " +
-                  "WHERE d.sharing_permission = 'FRIENDS_ONLY' AND d.is_flagged = 0 " +
+                  "WHERE d.sharing_permission = 'FRIENDS_ONLY' " + 
                   "AND (f.requester_id = ? OR f.addressee_id = ?) AND d.user_id != ? " +
                   "AND f.status = 'ACCEPTED' " +
                   "ORDER BY is_bookmarked DESC, COALESCE(d.updated_at, d.created_at) DESC";
@@ -423,7 +423,7 @@ public class DocumentDAO {
                   "FROM documents d " +
                   "INNER JOIN users u ON d.user_id = u.user_id " +
                   "LEFT JOIN bookmarks b ON d.document_id = b.document_id AND b.user_id = ? " +
-                  "WHERE d.sharing_permission = 'PUBLIC' AND d.is_flagged = 0 " +
+                  "WHERE d.sharing_permission = 'PUBLIC' " + 
                   "ORDER BY is_bookmarked DESC, COALESCE(d.updated_at, d.created_at) DESC";
         }
 
@@ -444,7 +444,6 @@ public class DocumentDAO {
                         doc.setAuthorUsername(rs.getString("author_username"));
                     } catch (SQLException ignored) {}
                     
-                    // 🔥 THÊM ĐOẠN NÀY ĐỂ LẤY TRẠNG THÁI BOOKMARK TỪ SQL
                     try {
                         doc.setIsBookmarked(rs.getInt("is_bookmarked") == 1);
                     } catch (SQLException ignored) {}
@@ -470,14 +469,14 @@ public class DocumentDAO {
                   "ISNULL(SUM(d.download_count), 0) as total_downloads " +
                   "FROM documents d " +
                   "INNER JOIN friendships f ON (d.user_id = f.addressee_id OR d.user_id = f.requester_id) " +
-                  "WHERE d.sharing_permission = 'FRIENDS_ONLY' AND d.is_flagged = 0 " +
+                  "WHERE d.sharing_permission = 'FRIENDS_ONLY' " + 
                   "AND (f.requester_id = ? OR f.addressee_id = ?) AND d.user_id != ? " +
                   "AND f.status = 'ACCEPTED'";
         } else {
             sql = "SELECT COUNT(document_id) as total_docs, " +
                   "COUNT(DISTINCT user_id) as total_contributors, " +
                   "ISNULL(SUM(download_count), 0) as total_downloads " +
-                  "FROM documents WHERE sharing_permission = 'PUBLIC' AND is_flagged = 0";
+                  "FROM documents WHERE sharing_permission = 'PUBLIC'"; 
         }
 
         try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -559,5 +558,26 @@ public class DocumentDAO {
             }
         } catch (SQLException e) { e.printStackTrace(); }
         return 0;
+    }
+    
+    /**
+     * Cập nhật điểm tích lũy báo cáo vi phạm và trạng thái cắm cờ của tài liệu.
+     * Sử dụng trong luồng xử lý createReport khi tính toán lại điểm phạt.
+     */
+    public boolean updateReportMetrics(int documentId, double totalReportScore, boolean isFlagged) {
+        String sql = "UPDATE documents SET total_report_score = ?, is_flagged = ?, updated_at = ? WHERE document_id = ?";
+
+        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDouble(1, totalReportScore);
+            ps.setBoolean(2, isFlagged);
+            ps.setTimestamp(3, java.sql.Timestamp.valueOf(LocalDateTime.now()));
+            ps.setInt(4, documentId);
+
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("[DocumentDAO] updateReportMetrics failed: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return false;
     }
 }
