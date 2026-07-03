@@ -31,7 +31,7 @@ public class DocumentController extends HttpServlet {
         String action = request.getParameter("action");
         DocumentDAO dao = new DocumentDAO();
         int userId = (int) session.getAttribute("userId");
-        
+
         try {
             if ("explore".equals(action)) {
                 // Chặn cache để dữ liệu mới upload luôn hiển thị ngay
@@ -42,7 +42,7 @@ public class DocumentController extends HttpServlet {
                 FolderDAO folderDao = new FolderDAO();
                 String viewMode = request.getParameter("view");
                 boolean isFriendsView = "friends".equals(viewMode);
-                
+
                 // 🔥 LẤY TỪ KHÓA TÌM KIẾM VÀ TIÊU CHÍ SẮP XẾP
                 String searchQuery = request.getParameter("query");
                 String sortBy = request.getParameter("sort");
@@ -52,10 +52,10 @@ public class DocumentController extends HttpServlet {
 
                 // 1. Lấy danh sách tài liệu (Đã chuyển logic search & sort xuống Backend)
                 List<Document> exploreDocs = dao.getExploreDocuments(userId, isFriendsView, searchQuery, sortBy);
-                
+
                 // 2. Lấy thống kê ĐÚNG theo view đang xem
                 int[] stats = dao.getExploreStats(userId, isFriendsView);
-                
+
                 // 3. Lấy danh sách Folder Public
                 List<Folder> publicFolders = folderDao.getPublicFolders();
 
@@ -70,7 +70,7 @@ public class DocumentController extends HttpServlet {
                 request.setAttribute("sortBy", sortBy);
 
                 request.getRequestDispatcher("/FileExplore.jsp").forward(request, response);
-                
+
             } else if ("editDoc".equals(action)) {
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 Document doc = dao.findById(docId);
@@ -143,10 +143,16 @@ public class DocumentController extends HttpServlet {
                     }
 
                     boolean deleted = dao.deleteDocument(docId);
+                    String role = (String) session.getAttribute("role");
+                    boolean isAdmin = "ADMIN".equalsIgnoreCase(role);
+
                     if (deleted) {
-                        response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?deleteSuccess=1");
+                        response.sendRedirect(request.getContextPath() + (isAdmin
+                                ? "/AdminController?action=listPublicDocs&updateSuccess=1"
+                                : "/user_dashboard.jsp?updateSuccess=1"));
                     } else {
-                        response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=delete_failed");
+                        request.setAttribute("errorMessage", "Không thể xóa. Vui lòng thử lại.");
+                        request.getRequestDispatcher("/MainController?action=editDoc&docId=" + docId).forward(request, response);
                     }
                 } else {
                     response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=not_found");
@@ -165,7 +171,8 @@ public class DocumentController extends HttpServlet {
                 if (folderStr != null && !folderStr.trim().isEmpty()) {
                     try {
                         folderId = Integer.parseInt(folderStr);
-                    } catch (NumberFormatException ignored) {}
+                    } catch (NumberFormatException ignored) {
+                    }
                 }
 
                 Document existingDoc = dao.findById(docId);
@@ -173,8 +180,13 @@ public class DocumentController extends HttpServlet {
 
                 boolean updated = dao.updateDocumentInfo(docId, newTitle, folderId, sharingPerm.toUpperCase(), existingCloudUrl);
 
+                String role = (String) session.getAttribute("role");
+                boolean isAdmin = "ADMIN".equalsIgnoreCase(role);
+
                 if (updated) {
-                    response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?updateSuccess=1");
+                    response.sendRedirect(request.getContextPath() + (isAdmin
+                            ? "/AdminController?action=listPublicDocs&updateSuccess=1"
+                            : "/user_dashboard.jsp?updateSuccess=1"));
                 } else {
                     request.setAttribute("errorMessage", "Không thể cập nhật. Vui lòng thử lại.");
                     request.getRequestDispatcher("/MainController?action=editDoc&docId=" + docId).forward(request, response);
@@ -229,12 +241,12 @@ public class DocumentController extends HttpServlet {
 
                     if (file.exists()) {
                         String ext = doc.getFileExtension() != null ? doc.getFileExtension().toLowerCase() : "";
-                        
+
                         // ═══ FILE OFFICE: Convert sang HTML bằng Apache POI ═══
                         if ("docx".equals(ext) || "xlsx".equals(ext) || "pptx".equals(ext)) {
                             response.setContentType("text/html; charset=UTF-8");
                             java.io.PrintWriter pw = response.getWriter();
-                            
+
                             pw.println("<!DOCTYPE html><html><head><meta charset='UTF-8'>");
                             pw.println("<style>");
                             pw.println("body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 24px; background: #1f2937; color: #f3f4f6; line-height: 1.7; }");
@@ -252,11 +264,11 @@ public class DocumentController extends HttpServlet {
                             pw.println(".badge-xlsx { background: #14532d; color: #4ade80; }");
                             pw.println(".badge-pptx { background: #5b2100; color: #fb923c; }");
                             pw.println("</style></head><body><div class='doc-content'>");
-                            
+
                             try {
                                 if ("docx".equals(ext)) {
                                     pw.println("<span class='file-badge badge-docx'>DOCX Document</span>");
-                                    try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
+                                    try ( java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
                                         org.apache.poi.xwpf.usermodel.XWPFDocument document = new org.apache.poi.xwpf.usermodel.XWPFDocument(fis);
                                         for (org.apache.poi.xwpf.usermodel.IBodyElement element : document.getBodyElements()) {
                                             if (element instanceof org.apache.poi.xwpf.usermodel.XWPFParagraph) {
@@ -294,16 +306,16 @@ public class DocumentController extends HttpServlet {
                                         }
                                         document.close();
                                     }
-                                    
+
                                 } else if ("xlsx".equals(ext)) {
                                     pw.println("<span class='file-badge badge-xlsx'>XLSX Spreadsheet</span>");
-                                    try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
+                                    try ( java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
                                         org.apache.poi.xssf.usermodel.XSSFWorkbook workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(fis);
                                         for (int s = 0; s < workbook.getNumberOfSheets(); s++) {
                                             org.apache.poi.ss.usermodel.Sheet sheet = workbook.getSheetAt(s);
                                             pw.println("<h2>" + sheet.getSheetName().replace("&", "&amp;").replace("<", "&lt;") + "</h2>");
                                             pw.println("<table>");
-                                            
+
                                             int lastRow = sheet.getLastRowNum();
                                             int maxCol = 0;
                                             for (int i = 0; i <= Math.min(lastRow, 500); i++) {
@@ -312,7 +324,7 @@ public class DocumentController extends HttpServlet {
                                                     maxCol = row.getLastCellNum();
                                                 }
                                             }
-                                            
+
                                             for (int i = 0; i <= Math.min(lastRow, 500); i++) {
                                                 org.apache.poi.ss.usermodel.Row row = sheet.getRow(i);
                                                 pw.println("<tr>");
@@ -340,11 +352,14 @@ public class DocumentController extends HttpServlet {
                                                                         break;
                                                                     case FORMULA:
                                                                         try {
-                                                                            cellValue = String.valueOf(cell.getNumericCellValue());
-                                                                        } catch (Exception fe) {
-                                                                            try { cellValue = cell.getStringCellValue(); } catch (Exception ignored) {}
+                                                                        cellValue = String.valueOf(cell.getNumericCellValue());
+                                                                    } catch (Exception fe) {
+                                                                        try {
+                                                                            cellValue = cell.getStringCellValue();
+                                                                        } catch (Exception ignored) {
                                                                         }
-                                                                        break;
+                                                                    }
+                                                                    break;
                                                                     default:
                                                                         cellValue = "";
                                                                 }
@@ -365,10 +380,10 @@ public class DocumentController extends HttpServlet {
                                         }
                                         workbook.close();
                                     }
-                                    
+
                                 } else if ("pptx".equals(ext)) {
                                     pw.println("<span class='file-badge badge-pptx'>PPTX Presentation</span>");
-                                    try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
+                                    try ( java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
                                         org.apache.poi.xslf.usermodel.XMLSlideShow ppt = new org.apache.poi.xslf.usermodel.XMLSlideShow(fis);
                                         java.util.List<org.apache.poi.xslf.usermodel.XSLFSlide> slides = ppt.getSlides();
                                         for (int i = 0; i < slides.size(); i++) {
@@ -394,32 +409,32 @@ public class DocumentController extends HttpServlet {
                                 pw.println("<p style='color: #ef4444;'>Lỗi khi đọc file: " + poiEx.getMessage() + "</p>");
                                 System.err.println("[DocumentController] POI Error: " + poiEx.getMessage());
                             }
-                            
+
                             pw.println("</div></body></html>");
                             pw.flush();
-                            
+
                         } else {
                             // ═══ FILE KHÁC (PDF, TXT, MD, ảnh...): Stream bình thường ═══
                             String mimeType = getServletContext().getMimeType(filePath);
                             if (mimeType == null) {
                                 mimeType = "application/octet-stream";
                             }
-                            
+
                             String disposition = "attachment";
                             if ("pdf".equals(ext) || "txt".equals(ext) || "md".equals(ext)
-                                || "png".equals(ext) || "jpg".equals(ext) || "jpeg".equals(ext) || "gif".equals(ext)) {
+                                    || "png".equals(ext) || "jpg".equals(ext) || "jpeg".equals(ext) || "gif".equals(ext)) {
                                 disposition = "inline";
                             }
 
                             response.setContentType(mimeType);
-                            
+
                             String downloadFileName = doc.getTitle();
                             if (!downloadFileName.toLowerCase().endsWith("." + ext)) {
                                 downloadFileName += "." + ext;
                             }
-                            
+
                             String encodedFileName = java.net.URLEncoder.encode(downloadFileName, "UTF-8").replaceAll("\\+", "%20");
-                            
+
                             response.setHeader("Content-Disposition", disposition + "; filename*=UTF-8''" + encodedFileName);
 
                             try ( java.io.FileInputStream inStream = new java.io.FileInputStream(file);  java.io.OutputStream outStream = response.getOutputStream()) {
@@ -468,9 +483,9 @@ public class DocumentController extends HttpServlet {
 
                     java.io.File downloadFile = new java.io.File(filePath);
                     if (downloadFile.exists()) {
-                        
+
                         dao.incrementDownloadCount(docId);
-                        
+
                         String ext = "";
                         if (savedFileName.lastIndexOf('.') > 0) {
                             ext = savedFileName.substring(savedFileName.lastIndexOf('.'));
@@ -497,10 +512,10 @@ public class DocumentController extends HttpServlet {
                 }
             } else if ("toggleBookmark".equals(action)) {
                 int docId = Integer.parseInt(request.getParameter("docId"));
-                
+
                 boolean isNowBookmarked = dao.toggleBookmark(userId, docId);
                 int newCount = dao.getBookmarkCount(docId);
-                
+
                 // Trả về JSON chứa trạng thái mới
                 response.setContentType("application/json");
                 response.setCharacterEncoding("UTF-8");

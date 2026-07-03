@@ -326,7 +326,7 @@
                     </button>
                 </div>
 
-                <form action="<%= request.getContextPath()%>/MainController" method="POST" class="px-5 py-4 space-y-5">
+                <form action="<%= request.getContextPath()%>/DocumentController" method="POST" class="px-5 py-4 space-y-5">
                     <input type="hidden" name="action" value="updateDoc" />
                     <input type="hidden" name="docId" value="<%= doc.getDocumentId()%>" />
 
