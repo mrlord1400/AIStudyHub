@@ -320,6 +320,10 @@
 
             let itemsShown = 6;
 
+            // Biến cờ xác định đang ở view "Bạn bè chia sẻ" hay "Công khai"
+            // dùng để ẩn/hiện số liệu bookmark, lượt tải, icon tải và nút report
+            const isFriendsView = <%= isFriendsView %>;
+
             // Khởi tạo mảng dữ liệu (đã được backend lọc theo query & sắp xếp theo sort)
             const internalDocs = [
             <%
@@ -364,13 +368,17 @@
             %>
             ];
 
-            // Chỉ đẩy tài liệu bị cắm cờ xuống cuối, GIỮ NGUYÊN thứ tự backend đã trả về
-            // (không ép bookmark lên đầu nữa vì sẽ đè mất lựa chọn sort của người dùng)
+            // Sắp xếp lại theo đúng thứ tự ưu tiên: tài liệu đã Bookmark lên đầu,
+            // tài liệu thường ở giữa, tài liệu bị report (flagged) luôn xuống cuối.
+            // Array.filter() vẫn giữ nguyên thứ tự tương đối bên trong từng nhóm
+            // (thứ tự mà backend đã sắp xếp theo sortBy = date/downloads/bookmarks),
+            // nên không làm mất lựa chọn sort hiện tại của người dùng.
             function sortDocumentsArray() {
-                const normal = internalDocs.filter(d => !d.isFlagged);
+                const bookmarkedNormal = internalDocs.filter(d => !d.isFlagged && d.isBookmarked);
+                const normal = internalDocs.filter(d => !d.isFlagged && !d.isBookmarked);
                 const flagged = internalDocs.filter(d => d.isFlagged);
                 internalDocs.length = 0;
-                internalDocs.push(...normal, ...flagged);
+                internalDocs.push(...bookmarkedNormal, ...normal, ...flagged);
             }
 
             function renderDocuments() {
@@ -423,6 +431,22 @@
                     }
 
                     else {
+                        // === Ở view "Bạn bè chia sẻ": ẩn số lượng bookmark, số lượt tải,
+                        //     icon download nhỏ và nút report. Ở view "Công khai" thì vẫn giữ nguyên đầy đủ. ===
+                        const bookmarkCountHtml = isFriendsView ? '' : `<span>\${doc.bookmarks}</span>`;
+
+                        const downloadsBlockHtml = isFriendsView ? '' : `
+                                        <div class="flex items-center" title="Downloads"><svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>\${doc.downloads}</div>`;
+
+                        const reportButtonHtml = isFriendsView ? '' : `
+                                        <button onclick="handleReport('\${doc.id}')" class="flex items-center text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors cursor-pointer" title="Báo cáo tài liệu này">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                                <line x1="12" y1="9" x2="12" y2="13"></line>
+                                                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                            </svg>
+                                        </button>`;
+
                         return `
                         <div class="doc-card border shadow-sm transition-all duration-200 relative">
                             <div>
@@ -441,24 +465,15 @@
                                 </div>
                                 <div class="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
                                     <div class="flex items-center space-x-4 text-[11px] font-semibold text-gray-400">
-                                    
+
                                         <button onclick="toggleBookmark('\${doc.id}')" class="flex items-center space-x-1 \${doc.isBookmarked ? 'text-amber-500' : 'hover:text-amber-500'} transition-all cursor-pointer" title="\${doc.isBookmarked ? 'Bỏ lưu' : 'Lưu tài liệu'}">
                                             <svg class="w-4 h-4" fill="\${doc.isBookmarked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
                                                 <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
                                             </svg>
-                                            <span>\${doc.bookmarks}</span>
+                                            \${bookmarkCountHtml}
                                         </button>
-                                    
-                                        <div class="flex items-center" title="Downloads"><svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>\${doc.downloads}</div>
-                                    
-                                        <button onclick="handleReport('\${doc.id}')" class="flex items-center text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors cursor-pointer" title="Báo cáo tài liệu này">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-                                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                                                <line x1="12" y1="9" x2="12" y2="13"></line>
-                                                <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                                            </svg>
-                                        </button>
-                                    
+                                        \${downloadsBlockHtml}
+                                        \${reportButtonHtml}
                                         <div><span>\${doc.size}</span></div>
                                     </div>
                                                 <div class="flex items-center space-x-2">
