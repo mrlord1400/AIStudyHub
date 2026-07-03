@@ -64,7 +64,6 @@ public class DocumentDAO {
                 }
 
             }
-
         } catch (SQLException e) {
             System.err.println("[DocumentDAO] insertDocument SQL Error: " + e.getMessage());
             e.printStackTrace();
@@ -79,22 +78,18 @@ public class DocumentDAO {
                 + "WHERE document_id = ?";
 
         try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
-
             ps.setString(1, newTitle);
-
             if (newFolderId != null) {
                 ps.setInt(2, newFolderId);
             } else {
                 ps.setNull(2, Types.INTEGER);
             }
-
             ps.setString(3, newSharingPermission);
             ps.setString(4, newCloudStorageUrl);
             ps.setTimestamp(5, java.sql.Timestamp.valueOf(LocalDateTime.now()));
             ps.setInt(6, documentId);
 
             return ps.executeUpdate() > 0;
-
         } catch (SQLException e) {
             System.err.println("[DocumentDAO] updateDocumentInfo failed: " + e.getMessage());
             e.printStackTrace();
@@ -208,14 +203,10 @@ public class DocumentDAO {
         }
 
         Timestamp ts = rs.getTimestamp("created_at");
-        if (ts != null) {
-            doc.setCreatedAt(ts.toLocalDateTime());
-        }
+        if (ts != null) { doc.setCreatedAt(ts.toLocalDateTime()); }
 
         Timestamp tsUpdate = rs.getTimestamp("updated_at");
-        if (tsUpdate != null) {
-            doc.setUpdatedAt(tsUpdate.toLocalDateTime());
-        }
+        if (tsUpdate != null) { doc.setUpdatedAt(tsUpdate.toLocalDateTime()); }
 
         return doc;
     }
@@ -249,9 +240,7 @@ public class DocumentDAO {
 
         try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, userId);
-            if (folderId != null) {
-                ps.setInt(2, folderId);
-            }
+            if (folderId != null) { ps.setInt(2, folderId); }
             try ( ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     list.add(mapRow(rs));
@@ -271,9 +260,7 @@ public class DocumentDAO {
         try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, folderId);
             try ( ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    list.add(mapRow(rs));
-                }
+                while (rs.next()) { list.add(mapRow(rs)); }
             }
         } catch (SQLException e) {
             System.err.println("[DocumentDAO] getDocumentsByFolderId failed: " + e.getMessage());
@@ -305,13 +292,9 @@ public class DocumentDAO {
         try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, userId);
             ps.setString(2, title);
-            if (folderId != null) {
-                ps.setInt(3, folderId);
-            }
+            if (folderId != null) { ps.setInt(3, folderId); }
             try ( ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return mapRow(rs);
-                }
+                if (rs.next()) { return mapRow(rs); }
             }
         } catch (SQLException e) {
             System.err.println("[DocumentDAO] findDuplicateByTitle failed: " + e.getMessage());
@@ -338,9 +321,7 @@ public class DocumentDAO {
                 ps.setInt(4, excludeDocId);
             }
             try ( ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt(1) > 0;
-                }
+                if (rs.next()) { return rs.getInt(1) > 0; }
             }
         } catch (SQLException e) {
             System.err.println("[DocumentDAO] titleExistsAtLocation failed: " + e.getMessage());
@@ -355,26 +336,18 @@ public class DocumentDAO {
             ps.setInt(1, userId);
             ps.setString(2, title);
             try ( ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return mapRow(rs);
-                }
+                if (rs.next()) { return mapRow(rs); }
             }
-        } catch (SQLException e) {
-            System.err.println("[DocumentDAO] findByTitleAndUserId exact failed: " + e.getMessage());
-        }
+        } catch (SQLException e) {}
 
         String sqlLike = "SELECT TOP 1 * FROM documents WHERE user_id = ? AND title LIKE ?";
         try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sqlLike)) {
             ps.setInt(1, userId);
             ps.setString(2, "%" + title + "%");
             try ( ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return mapRow(rs);
-                }
+                if (rs.next()) { return mapRow(rs); }
             }
-        } catch (SQLException e) {
-            System.err.println("[DocumentDAO] findByTitleAndUserId LIKE failed: " + e.getMessage());
-        }
+        } catch (SQLException e) {}
         return null;
     }
 
@@ -391,7 +364,6 @@ public class DocumentDAO {
         return false;
     }
 
-    // ─── TĂNG LƯỢT TẢI ────────────────────────────────────────────────────
     public boolean incrementDownloadCount(int documentId) {
         String sql = "UPDATE documents SET download_count = download_count + 1 WHERE document_id = ?";
         try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -404,40 +376,62 @@ public class DocumentDAO {
         return false;
     }
 
-    // ─── LẤY DANH SÁCH KHÁM PHÁ (PUBLIC & FRIENDS) ──────────────────────────
-    public List<Document> getExploreDocuments(int currentUserId, boolean isFriendsView) {
+    // 🔥 HÀM MỚI: TÍCH HỢP TÌM KIẾM VÀ SẮP XẾP TỪ BACKEND
+    public List<Document> getExploreDocuments(int currentUserId, boolean isFriendsView, String searchQuery, String sortBy) {
         List<Document> list = new ArrayList<>();
         String sql;
 
-        if (isFriendsView) {
-            sql = "SELECT d.*, u.username AS author_username, "
-                    + "CASE WHEN b.bookmark_id IS NOT NULL THEN 1 ELSE 0 END AS is_bookmarked "
-                    + "FROM documents d "
-                    + "INNER JOIN users u ON d.user_id = u.user_id "
-                    + "INNER JOIN friendships f ON (d.user_id = f.addressee_id OR d.user_id = f.requester_id) "
-                    + "LEFT JOIN bookmarks b ON d.document_id = b.document_id AND b.user_id = ? "
-                    + "WHERE d.sharing_permission = 'FRIENDS_ONLY' "
-                    + "AND (f.requester_id = ? OR f.addressee_id = ?) AND d.user_id != ? "
-                    + "AND f.status = 'ACCEPTED' "
-                    + "ORDER BY is_bookmarked DESC, COALESCE(d.updated_at, d.created_at) DESC";
-        } else {
-            sql = "SELECT d.*, u.username AS author_username, "
-                    + "CASE WHEN b.bookmark_id IS NOT NULL THEN 1 ELSE 0 END AS is_bookmarked "
-                    + "FROM documents d "
-                    + "INNER JOIN users u ON d.user_id = u.user_id "
-                    + "LEFT JOIN bookmarks b ON d.document_id = b.document_id AND b.user_id = ? "
-                    + "WHERE d.sharing_permission = 'PUBLIC' "
-                    + "ORDER BY is_bookmarked DESC, COALESCE(d.updated_at, d.created_at) DESC";
+        // Xử lý điều kiện tìm kiếm (Tên file hoặc Tên người đăng)
+        String searchCondition = "";
+        if (searchQuery != null && !searchQuery.trim().isEmpty()) {
+            searchCondition = " AND (d.title LIKE ? OR u.username LIKE ?) ";
         }
 
-        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+        // Xử lý tiêu chí sắp xếp ưu tiên
+        // NGUYÊN TẮC: is_flagged ASC (bình thường lên đầu, cắm cờ xuống chót) -> is_bookmarked DESC (đã lưu lên đầu) -> sortBy DESC
+        String orderBy;
+        if ("downloads".equals(sortBy)) {
+            orderBy = "ORDER BY d.is_flagged ASC, is_bookmarked DESC, ISNULL(d.download_count, 0) DESC";
+        } else if ("bookmarks".equals(sortBy)) {
+            orderBy = "ORDER BY d.is_flagged ASC, is_bookmarked DESC, ISNULL(d.bookmark_count, 0) DESC";
+        } else { 
+            // Default "date"
+            orderBy = "ORDER BY d.is_flagged ASC, is_bookmarked DESC, COALESCE(d.updated_at, d.created_at) DESC";
+        }
+
+        if (isFriendsView) {
+            sql = "SELECT d.*, u.username AS author_username, " +
+                  "CASE WHEN b.bookmark_id IS NOT NULL THEN 1 ELSE 0 END AS is_bookmarked " +
+                  "FROM documents d " +
+                  "INNER JOIN users u ON d.user_id = u.user_id " +
+                  "INNER JOIN friendships f ON (d.user_id = f.addressee_id OR d.user_id = f.requester_id) " +
+                  "LEFT JOIN bookmarks b ON d.document_id = b.document_id AND b.user_id = ? " +
+                  "WHERE d.sharing_permission = 'FRIENDS_ONLY' " + 
+                  "AND (f.requester_id = ? OR f.addressee_id = ?) AND d.user_id != ? " +
+                  "AND f.status = 'ACCEPTED' " + searchCondition + orderBy;
+        } else {
+            sql = "SELECT d.*, u.username AS author_username, " +
+                  "CASE WHEN b.bookmark_id IS NOT NULL THEN 1 ELSE 0 END AS is_bookmarked " +
+                  "FROM documents d " +
+                  "INNER JOIN users u ON d.user_id = u.user_id " +
+                  "LEFT JOIN bookmarks b ON d.document_id = b.document_id AND b.user_id = ? " +
+                  "WHERE d.sharing_permission = 'PUBLIC' " + searchCondition + orderBy;
+        }
+
+        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            int paramIndex = 1;
+            ps.setInt(paramIndex++, currentUserId);
+            
             if (isFriendsView) {
-                ps.setInt(1, currentUserId);
-                ps.setInt(2, currentUserId);
-                ps.setInt(3, currentUserId);
-                ps.setInt(4, currentUserId);
-            } else {
-                ps.setInt(1, currentUserId);
+                ps.setInt(paramIndex++, currentUserId);
+                ps.setInt(paramIndex++, currentUserId);
+                ps.setInt(paramIndex++, currentUserId);
+            }
+
+            if (searchQuery != null && !searchQuery.trim().isEmpty()) {
+                String likeParam = "%" + searchQuery.trim() + "%";
+                ps.setString(paramIndex++, likeParam); // cho d.title
+                ps.setString(paramIndex++, likeParam); // cho u.username
             }
 
             try ( ResultSet rs = ps.executeQuery()) {
@@ -463,7 +457,6 @@ public class DocumentDAO {
         return list;
     }
 
-    // ─── LẤY THỐNG KÊ (TOTAL DOCS, CONTRIBUTORS, DOWNLOADS) — theo đúng view ──
     public int[] getExploreStats(int currentUserId, boolean isFriendsView) {
         int[] stats = new int[3];
         String sql;
@@ -524,7 +517,6 @@ public class DocumentDAO {
 
         try ( Connection conn = DBUtils.getConnection()) {
             if (exists) {
-                // Đã bookmark -> Xóa
                 String delSql = "DELETE FROM bookmarks WHERE user_id = ? AND document_id = ?";
                 try ( PreparedStatement ps = conn.prepareStatement(delSql)) {
                     ps.setInt(1, userId);
@@ -534,7 +526,6 @@ public class DocumentDAO {
                 updateDocumentBookmarkCount(conn, documentId, -1);
                 isNowBookmarked = false;
             } else {
-                // Chưa bookmark -> Thêm
                 String insSql = "INSERT INTO bookmarks (user_id, document_id) VALUES (?, ?)";
                 try ( PreparedStatement ps = conn.prepareStatement(insSql)) {
                     ps.setInt(1, userId);
