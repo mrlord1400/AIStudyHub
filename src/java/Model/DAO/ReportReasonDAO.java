@@ -1,7 +1,5 @@
 package Model.DAO;
 
-import Model.DTO.ReportReasonConfig;
-import Utils.DBUtils;
 import java.sql.*;
 import Model.DTO.ReportReason;
 import Utils.DBUtils;

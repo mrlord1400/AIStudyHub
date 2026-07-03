@@ -1,7 +1,7 @@
 package Controller;
 
 import Model.DAO.ReportReasonDAO;
-import Model.DTO.ReportReasonConfig;
+import Model.DTO.ReportReason; // Thay đổi import sang Object của team
 import java.io.IOException;
 import java.util.List;
 import javax.servlet.ServletException;
@@ -25,7 +25,8 @@ public class ReportConfigController extends HttpServlet {
 
         switch (action) {
             case "reportConfigList":
-                List<ReportReasonConfig> reasonList = reasonDAO.getAllReasons();
+                // Đổi thành getAllReportReason() theo code của team
+                List<ReportReason> reasonList = reasonDAO.getAllReportReason();
                 request.setAttribute("reasonList", reasonList);
                 request.getRequestDispatcher("admin_report_config.jsp").forward(request, response);
                 break;
@@ -33,7 +34,10 @@ public class ReportConfigController extends HttpServlet {
             case "reportConfigDelete":
                 String codeToDelete = request.getParameter("reasonCode");
                 if (codeToDelete != null) {
-                    reasonDAO.deleteReason(codeToDelete);
+                    // Hàm xóa của team yêu cầu truyền vào nguyên 1 object, nên mình khởi tạo và set ID cho nó
+                    ReportReason deleteTarget = new ReportReason();
+                    deleteTarget.setReasonCode(codeToDelete);
+                    reasonDAO.deleteReportReason(deleteTarget);
                 }
                 response.sendRedirect(request.getContextPath() + "/MainController?action=reportConfigList");
                 break;
@@ -56,7 +60,6 @@ public class ReportConfigController extends HttpServlet {
         double autoFlagThreshold = 0;
         
         try {
-            // Thay thế dấu phẩy thành dấu chấm đề phòng người dùng nhập sai format
             baseScore = Double.parseDouble(request.getParameter("baseScore").replace(",", "."));
             autoFlagThreshold = Double.parseDouble(request.getParameter("autoFlagThreshold").replace(",", "."));
         } catch (NumberFormatException | NullPointerException e) {
@@ -64,15 +67,20 @@ public class ReportConfigController extends HttpServlet {
         }
         String description = request.getParameter("description");
 
-        ReportReasonConfig config = new ReportReasonConfig(reasonCode, severityLevel, baseScore, autoFlagThreshold, description);
+        // Dùng Object ReportReason của team để đóng gói dữ liệu
+        ReportReason config = new ReportReason();
+        config.setReasonCode(reasonCode);
+        config.setSeverityLevel(severityLevel);
+        config.setBaseScore(baseScore);
+        config.setAutoFlagThreshold(autoFlagThreshold);
+        config.setDescription(description);
 
         if ("reportConfigAdd".equals(action)) {
-            reasonDAO.addReason(config);
+            reasonDAO.createReportReason(config); // Đổi thành createReportReason() của team
         } else if ("reportConfigUpdate".equals(action)) {
-            reasonDAO.updateReason(config);
+            reasonDAO.updateReportReason(config); // Đổi thành updateReportReason() của team
         }
 
-        // Xử lý xong chuyển hướng về lại danh sách
         response.sendRedirect(request.getContextPath() + "/MainController?action=reportConfigList");
     }
 }
