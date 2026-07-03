@@ -1,6 +1,9 @@
 package Controller;
 
+import Model.DAO.DocumentDAO;
+import Model.DTO.Document;
 import java.io.IOException;
+import java.util.List;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -42,6 +45,21 @@ public class MainController extends HttpServlet {
                         url = AUTH_CONTROLLER;
                         break;
                     case "guest":
+                        // Gọi DAO để lấy dữ liệu cho trang Guest (Tương tự FileExplore nhưng không cần userId)
+                        DocumentDAO dao = new DocumentDAO();
+                        
+                        // Lấy danh sách tài liệu PUBLIC (truyền 0 vì Guest không có userId)
+                        List<Document> publicDocs = dao.getExploreDocuments(0, false, null, "date");
+                        
+                        // Lấy thống kê hệ thống
+                        int[] stats = dao.getExploreStats(0, false);
+
+                        // Set attribute để JSP hiển thị
+                        request.setAttribute("publicDocuments", publicDocs);
+                        request.setAttribute("realTotalDocs", stats[0]);
+                        request.setAttribute("realTotalContributors", stats[1]);
+                        request.setAttribute("realTotalDownloads", stats[2]);
+
                         url = "guest_dashboard.jsp";
                         break;
                     case "explore":
