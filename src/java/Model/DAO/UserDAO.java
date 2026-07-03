@@ -12,6 +12,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import Utils.PasswordUtil;
+import java.util.ArrayList;
+import java.util.List;
 
 public class UserDAO {
 
@@ -75,7 +77,7 @@ public class UserDAO {
                     user.setRole(rs.getString("role"));
                     user.setTierId(rs.getInt("tier_id"));
                     user.setStatus(rs.getString("status"));
-                    
+
                     // --- MAP THÊM 2 CỘT QUẢN LÝ AI PROMPT ---
                     user.setAiPromptsToday(rs.getInt("ai_prompts_today"));
                     user.setLastPromptReset(rs.getTimestamp("last_prompt_reset"));
@@ -174,7 +176,7 @@ public class UserDAO {
                 user.setTierId(rs.getInt("tier_id"));
                 user.setStatus(rs.getString("status"));
                 user.setBalance(rs.getInt("balance"));
-                
+
                 // --- MAP THÊM 2 CỘT QUẢN LÝ AI PROMPT ---
                 user.setAiPromptsToday(rs.getInt("ai_prompts_today"));
                 user.setLastPromptReset(rs.getTimestamp("last_prompt_reset"));
@@ -219,7 +221,7 @@ public class UserDAO {
             conn.setAutoCommit(false);
 
             try (
-                     PreparedStatement psBookmarks = conn.prepareStatement(deleteBookmarksSql);  PreparedStatement psChat = conn.prepareStatement(deleteChatSessionsSql);  PreparedStatement psDocs = conn.prepareStatement(deleteDocsSql);  PreparedStatement psFolder = conn.prepareStatement(deleteFolderSql);  PreparedStatement psUser = conn.prepareStatement(deleteUserSql); PreparedStatement psTrans = conn.prepareStatement(deleteTransactionSql)) {
+                     PreparedStatement psBookmarks = conn.prepareStatement(deleteBookmarksSql);  PreparedStatement psChat = conn.prepareStatement(deleteChatSessionsSql);  PreparedStatement psDocs = conn.prepareStatement(deleteDocsSql);  PreparedStatement psFolder = conn.prepareStatement(deleteFolderSql);  PreparedStatement psUser = conn.prepareStatement(deleteUserSql);  PreparedStatement psTrans = conn.prepareStatement(deleteTransactionSql)) {
                 // Step A: Delete lowest-level dependencies (Bookmarks & Chat History)
                 psBookmarks.setInt(1, userId);
                 psBookmarks.executeUpdate();
@@ -238,7 +240,7 @@ public class UserDAO {
                 // Step D: Finally, delete the User
                 psTrans.setInt(1, userId);
                 psTrans.executeUpdate();
-                
+
                 // Step D: Finally, delete the User
                 psUser.setInt(1, userId);
                 int userDeleted = psUser.executeUpdate();
@@ -328,7 +330,7 @@ public class UserDAO {
                         rs.getString("status"));
                 user.setBalance(
                         rs.getInt("balance"));
-                        
+
                 // --- MAP THÊM 2 CỘT QUẢN LÝ AI PROMPT ---
                 user.setAiPromptsToday(rs.getInt("ai_prompts_today"));
                 user.setLastPromptReset(rs.getTimestamp("last_prompt_reset"));
@@ -375,17 +377,16 @@ public class UserDAO {
 
         return false;
     }
-    
+
     // --- HÀM MỚI: DÙNG ĐỂ CẬP NHẬT HOẶC RESET LƯỢT HỎI AI ---
     public boolean updateAiUsage(int userId, int promptsToday, java.sql.Timestamp lastReset) {
         String sql = "UPDATE users SET ai_prompts_today = ?, last_prompt_reset = ? WHERE user_id = ?";
-        try (Connection conn = DBUtils.getConnection(); 
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+
             ps.setInt(1, promptsToday);
             ps.setTimestamp(2, lastReset);
             ps.setInt(3, userId);
-            
+
             return ps.executeUpdate() > 0;
         } catch (Exception e) {
             System.out.println("[UserDAO.updateAiUsage] " + e.getMessage());
@@ -431,5 +432,154 @@ public class UserDAO {
         }
 
         return false;
+    }
+
+    public List<User> getAcceptedFriends(int myUserId) {
+
+        List<User> friendList = new ArrayList<>();
+
+        String sql = "SELECT u.* FROM users u "
+                + "JOIN friendships f ON (u.user_id = f.requester_id OR u.user_id = f.addressee_id) "
+                + "WHERE f.status = 'ACCEPTED' "
+                + "AND (f.requester_id = ? OR f.addressee_id = ?) "
+                + "AND u.user_id <> ?";
+
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, myUserId);
+            ps.setInt(2, myUserId);
+            ps.setInt(3, myUserId); // Prevents the user from showing up in their own friend list
+
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                User user = new User();
+                user.setUserId(rs.getInt("user_id"));
+                user.setUsername(rs.getString("username"));
+                user.setEmail(rs.getString("email"));
+                user.setPasswordHash(rs.getString("password_hash"));
+                user.setRole(rs.getString("role"));
+                user.setTierId(rs.getInt("tier_id"));
+                user.setStatus(rs.getString("status"));
+                user.setBalance(rs.getInt("balance"));
+
+                // --- MAP THÊM 2 CỘT QUẢN LÝ AI PROMPT ---
+                user.setAiPromptsToday(rs.getInt("ai_prompts_today"));
+                user.setLastPromptReset(rs.getTimestamp("last_prompt_reset"));
+
+                // Backwards-compatible DATETIME2 parsing
+                Timestamp expiresTs = rs.getTimestamp("expires_at");
+                if (expiresTs != null) {
+                    user.setExpiresAt(expiresTs.toLocalDateTime());
+                }
+
+                Timestamp createdTs = rs.getTimestamp("created_at");
+                if (createdTs != null) {
+                    user.setCreatedAt(createdTs.toLocalDateTime());
+                }
+
+                Timestamp updatedTs = rs.getTimestamp("updated_at");
+                if (updatedTs != null) {
+                    user.setUpdatedAt(updatedTs.toLocalDateTime());
+                }
+
+                friendList.add(user);
+            }
+
+        } catch (SQLException e) {
+            System.out.println("[UserDAO.getAcceptedFriends] " + e.getMessage());
+        }
+
+        return friendList;
+    }
+
+    public List<User> getPendingRequests(int myUserId) {
+
+        List<User> pendingList = new ArrayList<>();
+
+        String sql = "SELECT u.* FROM users u "
+                + "JOIN friendships f ON u.user_id = f.requester_id "
+                + "WHERE f.addressee_id = ? AND f.status = 'PENDING'";
+
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, myUserId);
+
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                User user = new User();
+                user.setUserId(rs.getInt("user_id"));
+                user.setUsername(rs.getString("username"));
+                user.setEmail(rs.getString("email"));
+                user.setPasswordHash(rs.getString("password_hash"));
+                user.setRole(rs.getString("role"));
+                user.setTierId(rs.getInt("tier_id"));
+                user.setStatus(rs.getString("status"));
+                user.setBalance(rs.getInt("balance"));
+
+                // --- MAP THÊM 2 CỘT QUẢN LÝ AI PROMPT ---
+                user.setAiPromptsToday(rs.getInt("ai_prompts_today"));
+                user.setLastPromptReset(rs.getTimestamp("last_prompt_reset"));
+
+                // Backwards-compatible DATETIME2 parsing
+                Timestamp expiresTs = rs.getTimestamp("expires_at");
+                if (expiresTs != null) {
+                    user.setExpiresAt(expiresTs.toLocalDateTime());
+                }
+
+                Timestamp createdTs = rs.getTimestamp("created_at");
+                if (createdTs != null) {
+                    user.setCreatedAt(createdTs.toLocalDateTime());
+                }
+
+                Timestamp updatedTs = rs.getTimestamp("updated_at");
+                if (updatedTs != null) {
+                    user.setUpdatedAt(updatedTs.toLocalDateTime());
+                }
+
+                pendingList.add(user);
+            }
+
+        } catch (SQLException e) {
+            System.out.println("[UserDAO.getPendingRequests] " + e.getMessage());
+        }
+
+        return pendingList;
+    }
+
+    public List<User> getBlockedUsers(int myUserId) {
+        List<User> blockedList = new ArrayList<>();
+
+        // Chỉ lấy friendship mà CHÍNH myUserId là người bấm nút Chặn (blocker_id)
+        String sql = "SELECT u.* FROM users u "
+                + "JOIN friendships f ON (u.user_id = f.requester_id OR u.user_id = f.addressee_id) "
+                + "WHERE f.status = 'BLOCKED' "
+                + "AND f.blocker_id = ? "
+                + "AND u.user_id <> ?";
+
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, myUserId);
+            ps.setInt(2, myUserId);
+
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                User user = new User();
+                user.setUserId(rs.getInt("user_id"));
+                user.setUsername(rs.getString("username"));
+                user.setEmail(rs.getString("email"));
+                user.setPasswordHash(rs.getString("password_hash"));
+                user.setRole(rs.getString("role"));
+                user.setTierId(rs.getInt("tier_id"));
+                user.setStatus(rs.getString("status"));
+                user.setBalance(rs.getInt("balance"));
+                user.setAiPromptsToday(rs.getInt("ai_prompts_today"));
+                user.setLastPromptReset(rs.getTimestamp("last_prompt_reset"));
+                blockedList.add(user);
+            }
+        } catch (SQLException e) {
+            System.out.println("[UserDAO.getBlockedUsers] " + e.getMessage());
+        }
+        return blockedList;
     }
 }
