@@ -24,6 +24,8 @@ public class MainController extends HttpServlet {
     private static final String SESSION_CONTROLLER = "SessionController";
     private static final String REPORT_CONTROLLER = "ReportController";
     private static final String FRIEND_CONTROLLER = "FriendController";
+    private static final String REPORT_CONFIG_CONTROLLER = "ReportConfigController";
+    private static final String ADMIN_REPORT_CONTROLLER = "AdminReportController";
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -106,10 +108,17 @@ public class MainController extends HttpServlet {
                     case "chatMain":
                         url = SESSION_CONTROLLER;
                         break;
-                    case "report":
-                    case "createReport":
-                    case "updateReport":
-                        url = REPORT_CONTROLLER;
+                    case "reportConfigList":
+                    case "reportConfigAdd":
+                    case "reportConfigUpdate":
+                    case "reportConfigDelete":
+                        url = REPORT_CONFIG_CONTROLLER;
+                        break;
+                    case "adminReportList":
+                    case "adminUpdateReportStatus":
+                    case "adminDeleteReport":
+                    case "adminDeleteDocument":
+                        url = ADMIN_REPORT_CONTROLLER;
                         break;
                     case "friendList":
                     case "pendingList":
