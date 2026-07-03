@@ -175,7 +175,7 @@ public class AdminController extends HttpServlet {
                 break;
 
             case "deleteUser":
-                adminDAO.deleteUser(Integer.parseInt(request.getParameter("user_id")));
+                userDAO.deleteUserAndAssociatedData(Integer.parseInt(request.getParameter("user_id")));
                 break;
         }
 
