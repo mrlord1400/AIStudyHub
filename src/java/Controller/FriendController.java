@@ -38,21 +38,21 @@ public class FriendController extends HttpServlet {
 
         FriendshipDAO friendshipDao = new FriendshipDAO();
         UserDAO userDao = new UserDAO();
-
+        
         try {
+            // ====================================================================================
+            // NHÓM 1: CÁC ACTION XỬ LÝ DỮ LIỆU (CREATE, UPDATE, DELETE) - SẼ REDIRECT SAU KHI XONG
+            // ====================================================================================
             if ("createFriendship".equals(action)) {
                 String addresseeIdParam = request.getParameter("addresseeId");
-
                 if (addresseeIdParam != null && !addresseeIdParam.trim().isEmpty()) {
                     int addresseeId = Integer.parseInt(addresseeIdParam);
 
-                    // Kiểm tra không cho phép tự kết bạn với chính mình
                     if (userId == addresseeId) {
                         response.sendRedirect(request.getContextPath() + "/FriendController?action=findUserByEmail&error=self_request");
                         return;
                     }
 
-                    // Kiểm tra xem đã có quan hệ bạn bè/block nào tồn tại chưa để tránh duplicate
                     String currentStatus = friendshipDao.getFriendshipStatus(userId, addresseeId);
                     if (!"NONE".equals(currentStatus)) {
                         response.sendRedirect(request.getContextPath() + "/FriendController?action=findUserByEmail&error=already_exists");
@@ -69,68 +69,12 @@ public class FriendController extends HttpServlet {
                 }
                 response.sendRedirect(request.getContextPath() + "/FriendController?action=friendList&error=create_failed");
 
-            } else if ("friendList".equals(action)) {
-                List<User> friends = userDao.getAcceptedFriends(userId);
-                request.setAttribute("friends", friends);
-
-                // Thực hiện cơ chế Forward nội bộ giữ nguyên luồng để truyền Attribute sang JSP
-                request.getRequestDispatcher("/friendMain.jsp").forward(request, response);
-
-            } else if ("pendingList".equals(action)) {
-                List<User> pendingRequests = userDao.getPendingRequests(userId);
-                request.setAttribute("pendingRequests", pendingRequests);
-
-                request.getRequestDispatcher("/friendMain.jsp").forward(request, response);
-
-            } else if ("blockedList".equals(action)) {
-                List<User> blockedUsers = userDao.getBlockedUsers(userId);
-                request.setAttribute("blockedUsers", blockedUsers);
-
-                request.getRequestDispatcher("/friendMain.jsp").forward(request, response);
-
-            } else if ("findUserByEmail".equals(action)) {
-                String searchEmail = request.getParameter("email");
-
-                if (searchEmail != null && !searchEmail.trim().isEmpty()) {
-                    User searchedUser = userDao.getUserByEmail(searchEmail.trim());
-
-                    if (searchedUser != null) {
-                        request.setAttribute("searchedUser", searchedUser);
-
-                        if (searchedUser.getUserId() == userId) {
-                            request.setAttribute("friendshipStatus", "SELF");
-                        } else {
-                            Friendship rel = friendshipDao.getFriendshipDetail(userId, searchedUser.getUserId());
-                            String viewStatus;
-
-                            if (rel == null) {
-                                viewStatus = "NONE";
-                            } else if ("PENDING".equalsIgnoreCase(rel.getStatus())) {
-                                // Ai gửi thì đang chờ, ai nhận thì cần phản hồi
-                                viewStatus = (rel.getRequesterId() == userId) ? "PENDING_SENT" : "PENDING_RECEIVED";
-                            } else if ("BLOCKED".equalsIgnoreCase(rel.getStatus())) {
-                                viewStatus = (rel.getBlockerId() != null && rel.getBlockerId() == userId)
-                                        ? "BLOCKED_BY_ME" : "BLOCKED_BY_THEM";
-                            } else {
-                                viewStatus = rel.getStatus(); // ACCEPTED
-                            }
-                            request.setAttribute("friendshipStatus", viewStatus);
-                        }
-                    } else {
-                        request.setAttribute("searchError", "Không tìm thấy người dùng với email này.");
-                    }
-                }
-
-                request.getRequestDispatcher("/friendMain.jsp").forward(request, response);
             } else if ("updateFriendshipStatus".equals(action)) {
-                // Đổi từ friendshipId sang targetUserId
                 int targetUserId = Integer.parseInt(request.getParameter("targetUserId"));
-                String status = request.getParameter("status"); // "ACCEPTED" hoặc "BLOCKED"
+                String status = request.getParameter("status"); 
 
                 if (status != null && (status.equalsIgnoreCase("ACCEPTED") || status.equalsIgnoreCase("BLOCKED"))) {
-                    // Dùng hàm DAO mới
                     boolean success = friendshipDao.updateFriendStatusByUsers(userId, targetUserId, status.toUpperCase());
-
                     if (success) {
                         String redirectAction = status.equalsIgnoreCase("ACCEPTED") ? "friendList" : "blockedList";
                         response.sendRedirect(request.getContextPath() + "/FriendController?action=" + redirectAction + "&success=status_updated");
@@ -146,7 +90,6 @@ public class FriendController extends HttpServlet {
                     returnPath = "friendList";
                 }
 
-                // Bảo vệ: nếu quan hệ đang BLOCKED, chỉ người đã chặn (blocker) mới được xoá/bỏ chặn
                 Friendship existing = friendshipDao.getFriendshipDetail(userId, targetUserId);
                 if (existing != null && "BLOCKED".equalsIgnoreCase(existing.getStatus())
                         && (existing.getBlockerId() == null || existing.getBlockerId() != userId)) {
@@ -160,6 +103,64 @@ public class FriendController extends HttpServlet {
                 } else {
                     response.sendRedirect(request.getContextPath() + "/FriendController?action=" + returnPath + "&error=delete_failed");
                 }
+            } 
+            // ====================================================================================
+            // NHÓM 2: CÁC ACTION HIỂN THỊ GIAO DIỆN (READ) - SẼ FORWARD SANG friendMain.jsp
+            // ====================================================================================
+            else {
+                // 1. CHUẨN BỊ SẴN CÁC CON SỐ CHO 3 TAB (Dùng luôn List có sẵn để an toàn, không cần viết DAO mới)
+                List<User> acceptedList = userDao.getAcceptedFriends(userId);
+                List<User> pendingList = userDao.getPendingRequests(userId);
+                List<User> blockedList = userDao.getBlockedUsers(userId);
+
+                request.setAttribute("friendCount", acceptedList != null ? acceptedList.size() : 0);
+                request.setAttribute("pendingCount", pendingList != null ? pendingList.size() : 0);
+                request.setAttribute("blockedCount", blockedList != null ? blockedList.size() : 0);
+
+                // 2. XỬ LÝ LOGIC RIÊNG CHO TỪNG TAB ĐƯỢC CHỌN
+                if ("friendList".equals(action)) {
+                    request.setAttribute("friends", acceptedList);
+                } 
+                else if ("pendingList".equals(action)) {
+                    request.setAttribute("pendingRequests", pendingList);
+                } 
+                else if ("blockedList".equals(action)) {
+                    request.setAttribute("blockedUsers", blockedList);
+                } 
+                else if ("findUserByEmail".equals(action)) {
+                    String searchEmail = request.getParameter("email");
+                    if (searchEmail != null && !searchEmail.trim().isEmpty()) {
+                        User searchedUser = userDao.getUserByEmail(searchEmail.trim());
+
+                        if (searchedUser != null) {
+                            request.setAttribute("searchedUser", searchedUser);
+
+                            if (searchedUser.getUserId() == userId) {
+                                request.setAttribute("friendshipStatus", "SELF");
+                            } else {
+                                Friendship rel = friendshipDao.getFriendshipDetail(userId, searchedUser.getUserId());
+                                String viewStatus;
+
+                                if (rel == null) {
+                                    viewStatus = "NONE";
+                                } else if ("PENDING".equalsIgnoreCase(rel.getStatus())) {
+                                    viewStatus = (rel.getRequesterId() == userId) ? "PENDING_SENT" : "PENDING_RECEIVED";
+                                } else if ("BLOCKED".equalsIgnoreCase(rel.getStatus())) {
+                                    viewStatus = (rel.getBlockerId() != null && rel.getBlockerId() == userId)
+                                            ? "BLOCKED_BY_ME" : "BLOCKED_BY_THEM";
+                                } else {
+                                    viewStatus = rel.getStatus(); // ACCEPTED
+                                }
+                                request.setAttribute("friendshipStatus", viewStatus);
+                            }
+                        } else {
+                            request.setAttribute("searchError", "Không tìm thấy người dùng với email này.");
+                        }
+                    }
+                }
+
+                // 3. ĐẨY DATA SANG JSP (Chỉ cần gọi 1 lần duy nhất ở đây)
+                request.getRequestDispatcher("/friendMain.jsp").forward(request, response);
             }
 
         } catch (Exception e) {
