@@ -1,16 +1,16 @@
 package Controller;
 
+import Model.DTO.Document;
+import Model.DAO.DocumentDAO;
 import Model.DAO.AdminDAO;
 import Model.DTO.Transaction;
 import Model.DAO.TransactionDAO;
 import Model.DTO.User;
 import Model.DAO.UserDAO;
 import Utils.PasswordUtil;
-
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.*;
-
 import java.io.IOException;
 import java.util.List;
 
@@ -74,6 +74,28 @@ public class AdminController extends HttpServlet {
                 }
             } else {
                 response.sendRedirect(request.getContextPath() + "/login.jsp");
+            }
+            return;
+        }
+
+        if ("listPublicDocs".equals(action)) {
+            DocumentDAO docDAO = new DocumentDAO();
+            List<Document> docList = docDAO.getPublicDocumentsForAdmin();
+            request.setAttribute("doc_list", docList);
+            request.getRequestDispatcher("/admin_manageDocument.jsp").forward(request, response);
+            return;
+        }
+
+        if ("adminViewDoc".equals(action)) {
+            int docId = Integer.parseInt(request.getParameter("docId"));
+            DocumentDAO docDAO = new DocumentDAO();
+            Document doc = docDAO.findById(docId);
+
+            if (doc != null) {
+                request.setAttribute("document", doc);
+                request.getRequestDispatcher("/document_view.jsp").forward(request, response);
+            } else {
+                response.sendRedirect(request.getContextPath() + "/AdminController?action=listPublicDocs&error=not_found");
             }
             return;
         }
