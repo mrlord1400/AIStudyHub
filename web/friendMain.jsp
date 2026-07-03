@@ -50,6 +50,12 @@
     User searchedUser = (User) request.getAttribute("searchedUser");
     String friendshipStatus = (String) request.getAttribute("friendshipStatus");
     String searchError = (String) request.getAttribute("searchError");
+
+    // [THÊM MỚI] - Logic đếm số lượng thông minh: Ưu tiên đếm từ List có sẵn, nếu List null thì lấy Count do Controller gửi sang
+    int friendCount = friends != null ? friends.size() : (request.getAttribute("friendCount") != null ? (Integer) request.getAttribute("friendCount") : 0);
+    int pendingCount = pendingRequests != null ? pendingRequests.size() : (request.getAttribute("pendingCount") != null ? (Integer) request.getAttribute("pendingCount") : 0);
+    int blockedCount = blockedUsers != null ? blockedUsers.size() : (request.getAttribute("blockedCount") != null ? (Integer) request.getAttribute("blockedCount") : 0);
+
 %>
 <!DOCTYPE html>
 <html lang="vi" class="dark">
@@ -107,10 +113,10 @@
 
         <div id="toastContainer" class="fixed top-5 right-5 z-[200] flex flex-col gap-3 pointer-events-none"></div>
 
-        <aside class="sidebar">
+<aside class="sidebar">
             <div class="space-y-6 w-full">
                 <div class="flex items-center space-x-3 px-2 py-1">
-                    <div class="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-sm">
+                    <div class="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-sm shadow-indigo-600/20">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M6 18.8V13.5"/><path d="M18 13.5v5.3a2.1 2.1 0 0 1-2 2h-8a2.1 2.1 0 0 1-2-2v-5.3"/></svg>
                     </div>
                     <span class="font-bold text-gray-900 dark:text-white text-base tracking-tight">AI Study Hub</span>
@@ -121,13 +127,17 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
                         <span>Tài liệu của tôi</span>
                     </a>
-                    <a href="<%= request.getContextPath()%>/FriendController?action=friendList" class="nav-link-active">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                        <span>Bạn bè & Kết nối</span>
+                    <a href="FileExplore.jsp" class="nav-link">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                        <span>Khám phá tài liệu</span>
                     </a>
                     <a href="<%= request.getContextPath()%>/MainController?action=chatMain" class="nav-link">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
                         <span>AI Chatbot</span>
+                    </a>
+                    <a href="MainController?action=listTransactions" class="nav-link">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><path d="M16 14h2"/></svg>
+                        <span>Ví cá nhân</span>
                     </a>
                     <a href="Membership.jsp" class="nav-link text-amber-600 !text-amber-600 hover:bg-amber-50 dark:!text-amber-500 dark:hover:bg-amber-950/30">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z"/><path d="M5 20h14"/></svg>
@@ -137,23 +147,48 @@
             </div>
 
             <div class="w-full space-y-4">
-                <div class="w-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white p-4 rounded-2xl shadow-md">
-                    <div class="flex justify-between items-center opacity-85"><span class="text-xs font-medium tracking-wide">Số dư ví</span></div>
+                <div class="w-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white p-4 rounded-2xl shadow-md shadow-indigo-600/10 relative overflow-hidden">
+                    <div class="flex justify-between items-center opacity-85">
+                        <span class="text-xs font-medium tracking-wide">Số dư ví</span>
+                    </div>
                     <div class="text-xl font-bold mt-2 tracking-tight"><%= String.format("%,d", userBalance)%> Coin</div>
                 </div>
 
                 <div class="pt-2 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-1">
-                    <div class="flex items-center justify-between w-full">
+                    <div class="flex items-center justify-between w-full gap-1">
+                        
                         <a href="<%= request.getContextPath()%>/MainController?action=profile" class="flex items-center space-x-3 px-2 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex-1 min-w-0">
                             <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 flex-shrink-0 font-bold text-xs uppercase"><%= username != null && !username.trim().isEmpty() ? username.trim().substring(0, 1) : "U"%></div>
+                            
                             <div class="user-info truncate">
-                                <p class="text-sm font-bold text-gray-900 dark:text-white truncate"><%= username != null ? username : "Học viên"%></p>
+                                <!-- Đã bổ sung thẻ Tier PRO/FREE -->
+                                <div class="flex items-center gap-1.5 min-w-0">
+                                    <p class="text-sm font-bold text-gray-900 dark:text-white truncate"><%= username != null ? username : "Học viên"%></p>
+                                    <% if (isPremiumUser) { %>
+                                    <span class="flex-shrink-0 px-1.5 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-[9px] rounded-full shadow-sm scale-90 origin-left">PRO</span>
+                                    <% } else { %>
+                                    <span class="flex-shrink-0 px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-400 dark:border-emerald-700 font-bold text-[10px] rounded-full shadow-sm scale-90 origin-left tracking-wide">FREE</span>
+                                    <% }%>
+                                </div>
                                 <p class="text-[11px] text-gray-400 font-medium">Quyền: <%= role%></p>
                             </div>
                         </a>
+
+                        <a href="<%= request.getContextPath()%>/FriendController?action=friendList" 
+                           class="p-2 bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400 rounded-xl transition-colors flex-shrink-0 shadow-sm" 
+                           title="Danh sách bạn bè">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                                <circle cx="9" cy="7" r="4"/>
+                                <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                        </a>
                     </div>
-                    <a href="<%= request.getContextPath()%>/MainController?action=logout" class="w-full flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+
+                    <!-- Nút Đăng xuất đã được điều chỉnh class Tailwind để khớp màu với trang gốc -->
+                    <a href="<%= request.getContextPath()%>/MainController?action=logout" class="w-full flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 dark:text-gray-400 dark:hover:bg-red-900/30 dark:hover:text-red-400 transition-colors text-left">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
                         <span>Đăng xuất</span>
                     </a>
                 </div>
@@ -169,15 +204,21 @@
                 </button>
             </div>
 
+            <!-- KHU VỰC TAB ĐÃ ĐƯỢC CHỈNH SỬA -->
             <div class="flex space-x-6 border-b border-gray-200 dark:border-gray-700 mb-8 flex-shrink-0">
                 <a href="<%= request.getContextPath()%>/FriendController?action=friendList" class="tab-link <%= currentAction.equals("friendList") ? "tab-active" : "tab-inactive"%>">
-                    Bạn bè của tôi <%= friends != null ? "(" + friends.size() + ")" : ""%>
+                    Bạn bè của tôi <%= friendCount > 0 ? "(" + friendCount + ")" : "" %>
                 </a>
+                
                 <a href="<%= request.getContextPath()%>/FriendController?action=pendingList" class="tab-link <%= currentAction.equals("pendingList") ? "tab-active" : "tab-inactive"%>">
-                    Lời mời kết bạn <%= pendingRequests != null && !pendingRequests.isEmpty() ? "<span class='ml-1 px-2 py-0.5 bg-red-500 text-white rounded-full text-xs'>" + pendingRequests.size() + "</span>" : ""%>
+                    Lời mời kết bạn 
+                    <% if (pendingCount > 0) { %>
+                        <span class="ml-1 px-1.5 py-0.5 bg-red-500 text-white rounded-full text-[11px] font-bold shadow-sm"><%= pendingCount %></span>
+                    <% } %>
                 </a>
+                
                 <a href="<%= request.getContextPath()%>/FriendController?action=blockedList" class="tab-link <%= currentAction.equals("blockedList") ? "tab-active" : "tab-inactive"%>">
-                    Người dùng đã chặn
+                    Người dùng đã chặn <%= blockedCount > 0 ? "(" + blockedCount + ")" : "" %>
                 </a>
             </div>
             <div class="mb-6 relative flex-shrink-0">
@@ -329,7 +370,7 @@
                        class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors text-center">Chấp nhận</a>
                     <div class="flex space-x-2">
                         <a href="<%= request.getContextPath()%>/FriendController?action=deleteFriendship&targetUserId=<%= searchedUser.getUserId()%>&returnPath=pendingList"
-   class="flex-1 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm font-semibold rounded-xl transition-colors text-center">Từ chối</a>
+                           class="flex-1 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm font-semibold rounded-xl transition-colors text-center">Từ chối</a>
                         <a href="<%= request.getContextPath()%>/FriendController?action=updateFriendshipStatus&status=BLOCKED&targetUserId=<%= searchedUser.getUserId()%>"
                            onclick="return confirm('Xác nhận chặn người dùng này?');"
                            class="flex-1 py-2 border border-red-200 dark:border-red-900/50 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm font-semibold rounded-xl transition-colors text-center">Chặn</a>
