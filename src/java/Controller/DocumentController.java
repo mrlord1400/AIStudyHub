@@ -29,6 +29,7 @@ public class DocumentController extends HttpServlet {
         String action = request.getParameter("action");
         DocumentDAO dao = new DocumentDAO();
         int userId = (int) session.getAttribute("userId");
+        
         try {
             if ("explore".equals(action)) {
                 // Chặn cache để dữ liệu mới upload luôn hiển thị ngay
@@ -39,9 +40,16 @@ public class DocumentController extends HttpServlet {
                 FolderDAO folderDao = new FolderDAO();
                 String viewMode = request.getParameter("view");
                 boolean isFriendsView = "friends".equals(viewMode);
+                
+                // 🔥 LẤY TỪ KHÓA TÌM KIẾM VÀ TIÊU CHÍ SẮP XẾP
+                String searchQuery = request.getParameter("query");
+                String sortBy = request.getParameter("sort");
+                if (sortBy == null || sortBy.trim().isEmpty()) {
+                    sortBy = "date"; // Mặc định sắp xếp theo ngày
+                }
 
-                // 1. Lấy danh sách tài liệu
-                List<Document> exploreDocs = dao.getExploreDocuments(userId, isFriendsView);
+                // 1. Lấy danh sách tài liệu (Đã chuyển logic search & sort xuống Backend)
+                List<Document> exploreDocs = dao.getExploreDocuments(userId, isFriendsView, searchQuery, sortBy);
                 
                 // 2. Lấy thống kê ĐÚNG theo view đang xem
                 int[] stats = dao.getExploreStats(userId, isFriendsView);
@@ -56,6 +64,8 @@ public class DocumentController extends HttpServlet {
                 request.setAttribute("realTotalDocs", stats[0]);
                 request.setAttribute("realTotalContributors", stats[1]);
                 request.setAttribute("realTotalDownloads", stats[2]);
+                request.setAttribute("searchQuery", searchQuery != null ? searchQuery : "");
+                request.setAttribute("sortBy", sortBy);
 
                 request.getRequestDispatcher("/FileExplore.jsp").forward(request, response);
                 
@@ -262,7 +272,6 @@ public class DocumentController extends HttpServlet {
                     java.io.File downloadFile = new java.io.File(filePath);
                     if (downloadFile.exists()) {
                         
-                        // 🔥 ĐÃ FIX: CHẠY HÀM TĂNG LƯỢT TẢI VÀO CƠ SỞ DỮ LIỆU
                         dao.incrementDownloadCount(docId);
                         
                         String ext = "";
@@ -290,7 +299,6 @@ public class DocumentController extends HttpServlet {
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "Bạn không có quyền tải tài liệu này.");
                 }
             } else if ("toggleBookmark".equals(action)) {
-                // 🔥 THÊM ACTION NÀY VÀO ĐỂ NHẬN AJAX TỪ GIAO DIỆN
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 
                 boolean isNowBookmarked = dao.toggleBookmark(userId, docId);
