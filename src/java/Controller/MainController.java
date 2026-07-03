@@ -108,6 +108,11 @@ public class MainController extends HttpServlet {
                     case "chatMain":
                         url = SESSION_CONTROLLER;
                         break;
+                    case "report":
+                    case "createReport":
+                    case "updateReport":
+                        url = REPORT_CONTROLLER;
+                        break;
                     case "reportConfigList":
                     case "reportConfigAdd":
                     case "reportConfigUpdate":
