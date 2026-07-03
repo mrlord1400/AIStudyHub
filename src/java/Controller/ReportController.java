@@ -52,7 +52,7 @@ public class ReportController extends HttpServlet {
                 boolean isValid = reportDao.checkValid(userId, documentId);
 
                 if (isValid) {
-                    // Chuyển hướng nội bộ (hoặc sendRedirect tùy thuộc logic luồng của bạn) sang trang tạo mới kèm thông tin
+                    // Chuyển hướng nội bộ sang trang tạo mới kèm thông tin
                     request.setAttribute("userId", userId);
                     request.setAttribute("documentId", documentId);
                     request.getRequestDispatcher("/report_create.jsp").forward(request, response);
@@ -95,12 +95,15 @@ public class ReportController extends HttpServlet {
                         double currentTotalScore = doc.getTotalReportScore();
                         double updatedScore = currentTotalScore + reasonBaseScore;
                         doc.setTotalReportScore(updatedScore);
+                        
+                        // 🔥 ĐÃ FIX LỖI Ở ĐÂY: Dùng updatedScore (điểm sau khi cộng) và thêm dấu =
                         // 5. Tính toán & cập nhật trạng thái cờ cảnh báo (Flag Check)
-                        if (currentTotalScore > autoFlagThreshold) {
+                        if (updatedScore >= autoFlagThreshold) {
                             doc.setIsFlagged(true);
                         } else {
                             doc.setIsFlagged(false);
                         }
+                        
                         boolean isDocUpdated = docDao.updateReportMetrics(doc.getDocumentId(), doc.getTotalReportScore(), doc.isFlagged());
                         System.out.println("[ReportController] Cập nhật điểm tài liệu thành công? " + isDocUpdated
                                 + " | Điểm mới: " + doc.getTotalReportScore() + " | Bị ẩn/cắm cờ: " + doc.isFlagged());

@@ -1,6 +1,9 @@
 package Controller;
 
+import Model.DAO.DocumentDAO;
+import Model.DTO.Document;
 import java.io.IOException;
+import java.util.List;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -19,6 +22,8 @@ public class MainController extends HttpServlet {
     private static final String ADMIN_CONTROLLER = "AdminController";
     private static final String CHATBOT_CONTROLLER = "ChatBotController";
     private static final String SESSION_CONTROLLER = "SessionController";
+    private static final String REPORT_CONTROLLER = "ReportController";
+    private static final String FRIEND_CONTROLLER = "FriendController";
     private static final String REPORT_CONFIG_CONTROLLER = "ReportConfigController";
     private static final String ADMIN_REPORT_CONTROLLER = "AdminReportController";
 
@@ -42,6 +47,21 @@ public class MainController extends HttpServlet {
                         url = AUTH_CONTROLLER;
                         break;
                     case "guest":
+                        // Gọi DAO để lấy dữ liệu cho trang Guest (Tương tự FileExplore nhưng không cần userId)
+                        DocumentDAO dao = new DocumentDAO();
+                        
+                        // Lấy danh sách tài liệu PUBLIC (truyền 0 vì Guest không có userId)
+                        List<Document> publicDocs = dao.getExploreDocuments(0, false, null, "date");
+                        
+                        // Lấy thống kê hệ thống
+                        int[] stats = dao.getExploreStats(0, false);
+
+                        // Set attribute để JSP hiển thị
+                        request.setAttribute("publicDocuments", publicDocs);
+                        request.setAttribute("realTotalDocs", stats[0]);
+                        request.setAttribute("realTotalContributors", stats[1]);
+                        request.setAttribute("realTotalDownloads", stats[2]);
+
                         url = "guest_dashboard.jsp";
                         break;
                     case "explore":
@@ -50,6 +70,7 @@ public class MainController extends HttpServlet {
                     case "updateDoc":
                     case "viewDoc":
                     case "downloadDoc":
+                    case "viewPublicPage":
                         url = DOCUMENT_CONTROLLER;
                         break;
                     case "profile":
@@ -98,6 +119,14 @@ public class MainController extends HttpServlet {
                     case "adminDeleteReport":
                     case "adminDeleteDocument":
                         url = ADMIN_REPORT_CONTROLLER;
+                        break;
+                    case "friendList":
+                    case "pendingList":
+                    case "blockedList":
+                    case "findUserByEmail":
+                    case "updateFriendshipStatus":
+                    case "deleteFriendship":
+                        url = FRIEND_CONTROLLER;
                         break;
                     default:
                         url = LOGIN_PAGE;

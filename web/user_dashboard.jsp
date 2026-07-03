@@ -82,6 +82,54 @@
             }
         }
     }
+
+// Lấy toàn bộ ID của thư mục con, cháu, chắt...
+    public List<Integer> getAllSubFolderIds(Integer parentId, List<Folder> allFolders) {
+        List<Integer> ids = new ArrayList<>();
+        if (parentId == null) {
+            return ids;
+        }
+        ids.add(parentId);
+
+        if (allFolders != null) {
+            for (Folder f : allFolders) {
+                if (f.getParentFolderId() != null && f.getParentFolderId().equals(parentId)) {
+                    ids.addAll(getAllSubFolderIds(f.getFolderId(), allFolders));
+                }
+            }
+        }
+        return ids;
+    }
+
+    // Đếm đệ quy tổng số Document bên trong nhánh thư mục
+    public int getRecursiveDocCount(Integer folderId, List<Folder> allFolders, List<Document> allDocs) {
+        if (allDocs == null || allDocs.isEmpty()) {
+            return 0;
+        }
+        List<Integer> familyIds = getAllSubFolderIds(folderId, allFolders);
+        int count = 0;
+        for (Document doc : allDocs) {
+            if (doc.getFolderId() != null && familyIds.contains(doc.getFolderId())) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    // Tính đệ quy tổng dung lượng (MB) bên trong nhánh thư mục
+    public double getRecursiveSizeMb(Integer folderId, List<Folder> allFolders, List<Document> allDocs) {
+        if (allDocs == null || allDocs.isEmpty()) {
+            return 0.0;
+        }
+        List<Integer> familyIds = getAllSubFolderIds(folderId, allFolders);
+        double totalSize = 0.0;
+        for (Document doc : allDocs) {
+            if (doc.getFolderId() != null && familyIds.contains(doc.getFolderId())) {
+                totalSize += doc.getFileSizeMb();
+            }
+        }
+        return totalSize;
+    }
 %>
 <%
     // 1. Kiểm tra trạng thái đăng nhập của người dùng
@@ -434,7 +482,8 @@
                 </div>
 
                 <div class="user-area">
-                    <div class="flex items-center justify-between w-full">
+                    <div class="flex items-center justify-between w-full gap-1">
+
                         <a href="<%= request.getContextPath()%>/MainController?action=profile" class="user-profile-link flex-1 min-w-0">
                             <div class="user-avatar">
                                 <%= username != null && !username.trim().isEmpty() ? username.trim().substring(0, 1).toUpperCase() : "U"%>
@@ -451,6 +500,18 @@
                                 <p class="user-role">Quyền: <%= role%></p>
                             </div>
                         </a>
+
+                        <a href="<%= request.getContextPath()%>/MainController?action=friendList" 
+                           class="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors dark:hover:text-indigo-400 dark:hover:bg-indigo-950/40 flex-shrink-0" 
+                           title="Danh sách bạn bè">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                        </a>
+
                     </div>
 
                     <a href="<%= request.getContextPath()%>/MainController?action=logout" class="logout-btn">
@@ -627,9 +688,13 @@
                         Folder f = childFolders.get(i);
                         String safeName = f.getFolderName().replace("\\", "\\\\").replace("\"", "\\\"");
                         String safeDate = f.getCreatedAt() != null ? f.getCreatedAt().format(formatter) : "N/A";
-                        int fileCount = docDao.getDocumentsByFolder(userId, f.getFolderId()).size();
+
+                        // SỬ DỤNG HÀM ĐỆ QUY TÍNH TOÁN DATA
+                        int fileCount = getRecursiveDocCount(f.getFolderId(), allFolders, allDocs);
+                        double sizeMb = getRecursiveSizeMb(f.getFolderId(), allFolders, allDocs);
+                        String sizeDisplay = sizeMb > 0 ? String.format("%.2f MB", sizeMb) : "--";
             %>
-            { id: "<%= f.getFolderId()%>", name: "<%= safeName%>", type: "folder", size: "--", uploadDate: "<%= safeDate%>", isFolder: true, fileCount: <%= fileCount%> },
+            { id: "<%= f.getFolderId()%>", name: "<%= safeName%>", type: "folder", size: "<%= sizeDisplay%>", uploadDate: "<%= safeDate%>", isFolder: true, fileCount: <%= fileCount%> },
             <%      }
                 }
 
@@ -797,7 +862,8 @@
                     <div onclick="window.location.href='<%= request.getContextPath()%>/FolderController?action=viewFolder&folderId=\${item.id}'" class="file-card group">
                         <div class="file-icon-box \${style.bg}">\${style.icon}</div>
                         <h3 class="file-title dark:text-gray-200" title="\${item.name}">\${item.name}</h3>
-                        <p class="text-[11px] font-bold text-indigo-500 dark:text-indigo-400">\${item.fileCount} tài liệu</p>
+                        <p class="text-[11px] font-bold text-indigo-500 dark:text-indigo-400">\${item.fileCount} tài liệu \${item.size !== '--' ? ' • ' + item.size : ''}</p>
+                        
                         <p class="file-date">\${item.uploadDate}</p>
                         
                         <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150">

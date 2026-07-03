@@ -110,6 +110,8 @@
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                             </button>
                         </div>
+                        <%-- Password Error Message --%>
+                        <p id="password-error" class="hidden text-red-500 dark:text-red-400 text-xs mt-1.5 ml-1 font-medium">Mật khẩu phải từ 8 ký tự, có ít nhất 1 chữ in hoa và 1 chữ số.</p>
                     </div>
 
                     <div id="remember-row" class="flex items-center justify-between text-sm py-1">
@@ -198,6 +200,10 @@
         
         const usernameBlock = document.getElementById('username-block');
         const usernameInput = document.getElementById('input-username');
+        
+        const authForm = document.getElementById('auth-form');
+        const passwordInput = document.getElementById('input-password');
+        const passwordError = document.getElementById('password-error');
 
         function switchTab(mode) {
             currentActiveMode = mode;
@@ -207,7 +213,6 @@
             const tabRegister = document.getElementById('tab-register');
 
             if (mode === "login") {
-                // Đổi class đồng bộ màu tối khi bật login tab
                 tabLogin.className = "flex-1 py-2.5 text-sm font-semibold rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm transition-all";
                 tabRegister.className = "flex-1 py-2.5 text-sm font-medium rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all";
                 
@@ -220,8 +225,10 @@
                 usernameBlock.classList.add('hidden');
                 usernameInput.removeAttribute('required');
                 
+                // Ẩn cảnh báo lỗi mật khẩu nếu đang có khi chuyển lại login
+                passwordError.classList.add('hidden');
+                
             } else {
-                // Đổi class đồng bộ màu tối khi bật register tab
                 tabLogin.className = "flex-1 py-2.5 text-sm font-medium rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all";
                 tabRegister.className = "flex-1 py-2.5 text-sm font-semibold rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm transition-all";
                 
@@ -235,6 +242,30 @@
                 usernameInput.setAttribute('required', 'required');
             }
         }
+
+        // Bắt sự kiện form submit để validate mật khẩu
+        authForm.addEventListener('submit', function(e) {
+            if (currentActiveMode === 'register') {
+                const password = passwordInput.value;
+                // Regex: ít nhất 8 ký tự (.{8,}), ít nhất 1 in hoa (?=.*[A-Z]), ít nhất 1 số (?=.*\d)
+                const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+                
+                if (!passwordRegex.test(password)) {
+                    e.preventDefault(); // Ngăn chặn form submit
+                    passwordError.classList.remove('hidden'); // Hiển thị lỗi
+                }
+            }
+        });
+
+        // Ẩn lỗi ngay khi người dùng gõ lại mật khẩu hợp lệ (Real-time feedback)
+        passwordInput.addEventListener('input', function() {
+            if (currentActiveMode === 'register' && !passwordError.classList.contains('hidden')) {
+                const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+                if (passwordRegex.test(this.value)) {
+                    passwordError.classList.add('hidden');
+                }
+            }
+        });
 
         const guestButtonElement = document.getElementById('btn-guest');
         if (guestButtonElement) {
