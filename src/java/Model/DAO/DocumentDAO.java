@@ -65,7 +65,6 @@ public class DocumentDAO {
 
             }
 
-            }
         } catch (SQLException e) {
             System.err.println("[DocumentDAO] insertDocument SQL Error: " + e.getMessage());
             e.printStackTrace();
@@ -206,10 +205,14 @@ public class DocumentDAO {
         }
 
         Timestamp ts = rs.getTimestamp("created_at");
-        if (ts != null) { doc.setCreatedAt(ts.toLocalDateTime()); }
+        if (ts != null) {
+            doc.setCreatedAt(ts.toLocalDateTime());
+        }
 
         Timestamp tsUpdate = rs.getTimestamp("updated_at");
-        if (tsUpdate != null) { doc.setUpdatedAt(tsUpdate.toLocalDateTime()); }
+        if (tsUpdate != null) {
+            doc.setUpdatedAt(tsUpdate.toLocalDateTime());
+        }
 
         return doc;
     }
@@ -353,7 +356,8 @@ public class DocumentDAO {
                     return mapRow(rs);
                 }
             }
-        } catch (SQLException e) {}
+        } catch (SQLException e) {
+        }
 
         String sqlLike = "SELECT TOP 1 * FROM documents WHERE user_id = ? AND title LIKE ?";
         try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sqlLike)) {
@@ -364,7 +368,8 @@ public class DocumentDAO {
                     return mapRow(rs);
                 }
             }
-        } catch (SQLException e) {}
+        } catch (SQLException e) {
+        }
         return null;
     }
 
@@ -411,7 +416,7 @@ public class DocumentDAO {
             orderBy = "ORDER BY d.is_flagged ASC, is_bookmarked DESC, ISNULL(d.download_count, 0) DESC";
         } else if ("bookmarks".equals(sortBy)) {
             orderBy = "ORDER BY d.is_flagged ASC, is_bookmarked DESC, ISNULL(d.bookmark_count, 0) DESC";
-        } else { 
+        } else {
             // Default "date"
             orderBy = "ORDER BY d.is_flagged ASC, is_bookmarked DESC, COALESCE(d.updated_at, d.created_at) DESC";
         }
@@ -440,7 +445,7 @@ public class DocumentDAO {
         try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             int paramIndex = 1;
             ps.setInt(paramIndex++, currentUserId);
-            
+
             if (isFriendsView) {
                 ps.setInt(paramIndex++, currentUserId);
                 ps.setInt(paramIndex++, currentUserId);
@@ -453,7 +458,7 @@ public class DocumentDAO {
                 ps.setString(paramIndex++, likeParam); // cho u.username
             }
 
-            try ( ResultSet rs = ps.executeQuery()) {
+            try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     Document doc = mapRow(rs);
                     try {
@@ -496,13 +501,13 @@ public class DocumentDAO {
                     + "FROM documents WHERE sharing_permission = 'PUBLIC' AND is_flagged = 0";
         }
 
-        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             if (isFriendsView) {
                 ps.setInt(1, currentUserId);
                 ps.setInt(2, currentUserId);
                 ps.setInt(3, currentUserId);
             }
-            try ( ResultSet rs = ps.executeQuery()) {
+            try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     stats[0] = rs.getInt("total_docs");
                     stats[1] = rs.getInt("total_contributors");
@@ -534,10 +539,10 @@ public class DocumentDAO {
             e.printStackTrace();
         }
 
-        try ( Connection conn = DBUtils.getConnection()) {
+        try (Connection conn = DBUtils.getConnection()) {
             if (exists) {
                 String delSql = "DELETE FROM bookmarks WHERE user_id = ? AND document_id = ?";
-                try ( PreparedStatement ps = conn.prepareStatement(delSql)) {
+                try (PreparedStatement ps = conn.prepareStatement(delSql)) {
                     ps.setInt(1, userId);
                     ps.setInt(2, documentId);
                     ps.executeUpdate();
@@ -546,7 +551,7 @@ public class DocumentDAO {
                 isNowBookmarked = false;
             } else {
                 String insSql = "INSERT INTO bookmarks (user_id, document_id) VALUES (?, ?)";
-                try ( PreparedStatement ps = conn.prepareStatement(insSql)) {
+                try (PreparedStatement ps = conn.prepareStatement(insSql)) {
                     ps.setInt(1, userId);
                     ps.setInt(2, documentId);
                     ps.executeUpdate();
@@ -563,7 +568,7 @@ public class DocumentDAO {
 
     private void updateDocumentBookmarkCount(Connection conn, int documentId, int change) throws SQLException {
         String sql = "UPDATE documents SET bookmark_count = bookmark_count + ? WHERE document_id = ?";
-        try ( PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, change);
             ps.setInt(2, documentId);
             ps.executeUpdate();
@@ -572,7 +577,7 @@ public class DocumentDAO {
 
     public int getBookmarkCount(int documentId) {
         String sql = "SELECT bookmark_count FROM documents WHERE document_id = ?";
-        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, documentId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -592,7 +597,7 @@ public class DocumentDAO {
     public boolean updateReportMetrics(int documentId, double totalReportScore, boolean isFlagged) {
         String sql = "UPDATE documents SET total_report_score = ?, is_flagged = ?, updated_at = ? WHERE document_id = ?";
 
-        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setDouble(1, totalReportScore);
             ps.setBoolean(2, isFlagged);
             ps.setTimestamp(3, java.sql.Timestamp.valueOf(LocalDateTime.now()));
@@ -614,7 +619,7 @@ public class DocumentDAO {
                 + "WHERE d.sharing_permission = 'PUBLIC' "
                 + "ORDER BY d.is_flagged DESC, d.total_report_score DESC";
 
-        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql);  ResultSet rs = ps.executeQuery()) {
+        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
                 Document doc = mapRow(rs);
@@ -629,6 +634,8 @@ public class DocumentDAO {
             e.printStackTrace();
         }
         return list;
+    }
+
     public boolean deleteDocumentAndDependencies(int documentId) {
         boolean isSuccess = false;
         Connection conn = null;
