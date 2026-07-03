@@ -210,7 +210,7 @@ CREATE TABLE friendships (
     
     CONSTRAINT UQ_friendship UNIQUE (requester_id, addressee_id),
     CONSTRAINT CHK_not_self_friend CHECK (requester_id <> addressee_id),
-	CONSTRAINT FK_friendships_blocker
+	CONSTRAINT FK_friendships_blocker FOREIGN KEY (blocker_id) REFERENCES users(user_id)
 );
 GO
 
