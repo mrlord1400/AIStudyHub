@@ -20,6 +20,7 @@ public class MainController extends HttpServlet {
     private static final String CHATBOT_CONTROLLER = "ChatBotController";
     private static final String SESSION_CONTROLLER = "SessionController";
     private static final String REPORT_CONTROLLER = "ReportController";
+    private static final String FRIEND_CONTROLLER = "FriendController";
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -90,6 +91,14 @@ public class MainController extends HttpServlet {
                     case "createReport":
                     case "updateReport":
                         url = REPORT_CONTROLLER;
+                        break;
+                    case "friendList":
+                    case "pendingList":
+                    case "blockedList":
+                    case "findUserByEmail":
+                    case "updateFriendshipStatus":
+                    case "deleteFriendship":
+                        url = FRIEND_CONTROLLER;
                         break;
                     default:
                         url = LOGIN_PAGE;

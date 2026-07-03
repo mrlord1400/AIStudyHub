@@ -200,14 +200,17 @@ CREATE TABLE friendships (
     requester_id INT NOT NULL,  -- Người gửi lời mời
     addressee_id INT NOT NULL,  -- Người nhận lời mời
     status NVARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'ACCEPTED', 'BLOCKED')),
+	blocker_id INT NULL,
     created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
     
+	FOREIGN KEY (blocker_id) REFERENCES users(user_id),
     FOREIGN KEY (requester_id) REFERENCES users(user_id),
     FOREIGN KEY (addressee_id) REFERENCES users(user_id),
     
     CONSTRAINT UQ_friendship UNIQUE (requester_id, addressee_id),
-    CONSTRAINT CHK_not_self_friend CHECK (requester_id <> addressee_id)
+    CONSTRAINT CHK_not_self_friend CHECK (requester_id <> addressee_id),
+	CONSTRAINT FK_friendships_blocker
 );
 GO
 
