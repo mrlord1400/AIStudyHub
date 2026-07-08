@@ -86,7 +86,7 @@ public class UploadController extends HttpServlet {
         try {
             HttpSession session = request.getSession();
             int userId = (int) session.getAttribute("userId");
-            
+
             // LƯU SESSION ID TỪ CHATBOT (Nếu có)
             String chatSessionId = request.getParameter("sessionId");
             if (chatSessionId != null && !chatSessionId.trim().isEmpty()) {
@@ -100,6 +100,27 @@ public class UploadController extends HttpServlet {
             if (filePart == null || filePart.getSize() == 0) {
                 System.err.println("[UploadController] Tải lên thất bại: File trống hoặc null.");
                 request.setAttribute("errorMessage", "Vui lòng chọn một file hợp lệ.");
+                request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
+                return;
+            }
+
+            double newFileSizeMb = filePart.getSize() / (1024.0 * 1024.0);
+            DocumentDAO capacityDao = new DocumentDAO();
+
+            double currentStorageMb = capacityDao.getTotalStorageUsed(userId);
+            double maxStorageMb = 5 * 1024.0; // 5GB = 5120 MB
+            //double maxStorageMb = 5.0; //
+
+            // Nếu là tài khoản FREE (tierId < 3), kiểm tra quota
+            // (Này tui check thêm cho chuẩn, lỡ User mua Premium dung lượng vô hạn thì sao)
+            Integer tierId = (Integer) session.getAttribute("tierId");
+            if (tierId == null) {
+                tierId = 2; // Mặc định là Free
+            }
+            if (tierId < 3 && (currentStorageMb + newFileSizeMb) > maxStorageMb) {
+                System.err.println("[UploadController] Chặn: File làm vượt mức 5GB. (Đã dùng: " + currentStorageMb + "MB)");
+                request.setAttribute("errorMessage", "Không đủ dung lượng trống! File của bạn ("
+                        + String.format("%.2f", newFileSizeMb) + " MB) sẽ làm vượt quá giới hạn 5GB của tài khoản miễn phí.");
                 request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
                 return;
             }
@@ -141,7 +162,8 @@ public class UploadController extends HttpServlet {
             if (folderIdParam != null && !folderIdParam.trim().isEmpty() && !folderIdParam.equals("null")) {
                 try {
                     folderId = Integer.parseInt(folderIdParam);
-                } catch (NumberFormatException ignored) {}
+                } catch (NumberFormatException ignored) {
+                }
             }
 
             Document doc = new Document();
@@ -222,7 +244,8 @@ public class UploadController extends HttpServlet {
         if (folderIdParam != null && !folderIdParam.trim().isEmpty() && !folderIdParam.equals("null")) {
             try {
                 newFolderId = Integer.parseInt(folderIdParam);
-            } catch (NumberFormatException ignored) {}
+            } catch (NumberFormatException ignored) {
+            }
         }
 
         DocumentDAO dao = new DocumentDAO();
@@ -401,7 +424,7 @@ public class UploadController extends HttpServlet {
 
         clearPendingSession(session);
         clearDuplicateSession(session);
-        
+
         // KIỂM TRA ĐIỀU HƯỚNG QUAY VỀ CHATBOT KHI HỦY BỎ
         String returnChatSessionId = (String) session.getAttribute("returnChatSessionId");
         if (returnChatSessionId != null) {
@@ -519,22 +542,17 @@ public class UploadController extends HttpServlet {
                     }
                 }
                 case "docx": {
-                    try (FileInputStream fis = new FileInputStream(filePath);
-                         XWPFDocument docx = new XWPFDocument(fis);
-                         XWPFWordExtractor extractor = new XWPFWordExtractor(docx)) {
+                    try (FileInputStream fis = new FileInputStream(filePath); XWPFDocument docx = new XWPFDocument(fis); XWPFWordExtractor extractor = new XWPFWordExtractor(docx)) {
                         return extractor.getText();
                     }
                 }
                 case "xlsx": {
-                    try (FileInputStream fis = new FileInputStream(filePath);
-                         XSSFWorkbook xlsx = new XSSFWorkbook(fis);
-                         XSSFExcelExtractor extractor = new XSSFExcelExtractor(xlsx)) {
+                    try (FileInputStream fis = new FileInputStream(filePath); XSSFWorkbook xlsx = new XSSFWorkbook(fis); XSSFExcelExtractor extractor = new XSSFExcelExtractor(xlsx)) {
                         return extractor.getText();
                     }
                 }
                 case "pptx": {
-                    try (FileInputStream fis = new FileInputStream(filePath);
-                         XMLSlideShow pptx = new XMLSlideShow(fis)) {
+                    try (FileInputStream fis = new FileInputStream(filePath); XMLSlideShow pptx = new XMLSlideShow(fis)) {
                         StringBuilder sb = new StringBuilder();
                         for (XSLFSlide slide : pptx.getSlides()) {
                             for (XSLFShape shape : slide.getShapes()) {
@@ -559,7 +577,7 @@ public class UploadController extends HttpServlet {
             }
         } catch (Throwable t) {
             System.err.println("[UploadController] extractTextFromFile error for " + filePath + ": " + t.getMessage());
-            return null; 
+            return null;
         }
     }
 }
