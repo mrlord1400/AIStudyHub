@@ -708,4 +708,19 @@ public class DocumentDAO {
         }
         return isSuccess;
     }
+    
+    public double getTotalStorageUsed(int userId) {
+        String sql = "SELECT SUM(file_size_mb) FROM documents WHERE user_id = ?";
+        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDouble(1); // Trả về tổng số MB
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[DocumentDAO] getTotalStorageUsed failed: " + e.getMessage());
+        }
+        return 0.0;
+    }
 }
