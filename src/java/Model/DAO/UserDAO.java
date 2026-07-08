@@ -156,6 +156,36 @@ public class UserDAO {
         return false;
     }
 
+    /**
+     * Cập nhật mật khẩu mới cho user theo email, dùng cho luồng Quên mật khẩu.
+     * newPasswordHash phải là mật khẩu ĐÃ được hash bằng PasswordUtil.hashPassword()
+     * trước khi truyền vào đây, để đồng bộ với cách lưu mật khẩu lúc register.
+     */
+    public boolean updatePassword(String email, String newPasswordHash) {
+
+        String sql = "UPDATE users SET password_hash = ? WHERE email = ?";
+
+        Connection conn = null;
+
+        try {
+            conn = DBUtils.getConnection();
+
+            PreparedStatement ps = conn.prepareStatement(sql);
+
+            ps.setString(1, newPasswordHash);
+            ps.setString(2, email);
+
+            return ps.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+            System.out.println("[UserDAO.updatePassword] " + e.getMessage());
+        } finally {
+            DBUtils.closeConnection(conn);
+        }
+
+        return false;
+    }
+
     public User getUserById(int userId) {
 
         String sql = "SELECT * FROM users WHERE user_id = ?";
