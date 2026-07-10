@@ -26,6 +26,7 @@ public class MainController extends HttpServlet {
     private static final String FRIEND_CONTROLLER = "FriendController";
     private static final String REPORT_CONFIG_CONTROLLER = "ReportConfigController";
     private static final String ADMIN_REPORT_CONTROLLER = "AdminReportController";
+    private static final String FORGOT_PASSWORD_CONTROLLER = "ForgotPasswordController";
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
