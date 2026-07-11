@@ -25,9 +25,9 @@ public class FolderDAO {
             }
             ps.setString(3, folder.getFolderName());
             ps.setString(4, folder.getSharingPermission() != null ? folder.getSharingPermission() : "PRIVATE");
-            
+
             boolean check = ps.executeUpdate() > 0;
-            
+
             try ( ResultSet rs = ps.getGeneratedKeys()) {
                 if (rs.next()) {
                     int folderId = rs.getInt(1);
@@ -281,7 +281,7 @@ public class FolderDAO {
                 String docDateStr = (doc.getCreatedAt() != null)
                         ? " (" + doc.getCreatedAt().format(formatter) + ")"
                         : "";
-                tree.append("- [Doc ID: ").append(doc.getDocumentId()).append("] ") 
+                tree.append("- [Doc ID: ").append(doc.getDocumentId()).append("] ")
                         .append(doc.getTitle())
                         .append(docDateStr)
                         .append("\n");
@@ -320,7 +320,7 @@ public class FolderDAO {
                         ? " (" + doc.getCreatedAt().format(formatter) + ")"
                         : "";
                 tree.append(depthPrefix)
-                        .append("- [Doc ID: ").append(doc.getDocumentId()).append("] ") 
+                        .append("- [Doc ID: ").append(doc.getDocumentId()).append("] ")
                         .append(doc.getTitle())
                         .append(docDateStr)
                         .append("\n");
@@ -363,11 +363,9 @@ public class FolderDAO {
     public List<Folder> getPublicFolders() {
         List<Folder> list = new ArrayList<>();
         String sql = "SELECT * FROM folders WHERE sharing_permission = 'PUBLIC' ORDER BY created_at DESC";
-        
-        try (Connection conn = Utils.DBUtils.getConnection(); 
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-             
+
+        try ( Connection conn = Utils.DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql);  ResultSet rs = ps.executeQuery()) {
+
             while (rs.next()) {
                 Folder f = new Folder();
                 f.setFolderId(rs.getInt("folder_id"));
@@ -378,6 +376,43 @@ public class FolderDAO {
             }
         } catch (SQLException e) {
             System.err.println("[FolderDAO] getPublicFolders Error: " + e.getMessage());
+        }
+        return list;
+    }
+
+    private Folder mapRow(ResultSet rs) throws SQLException {
+        Folder f = new Folder();
+        f.setFolderId(rs.getInt("folder_id"));
+        f.setUserId(rs.getInt("user_id"));
+
+        int parentId = rs.getInt("parent_folder_id");
+        f.setParentFolderId(rs.wasNull() ? null : parentId);
+
+        f.setFolderName(rs.getString("folder_name"));
+        f.setSharingPermission(rs.getString("sharing_permission"));
+
+        Timestamp ts = rs.getTimestamp("created_at");
+        if (ts != null) {
+            f.setCreatedAt(ts.toLocalDateTime());
+        }
+        return f;
+    }
+
+    public List<Folder> searchFoldersByUserId(int userId, String keyword) {
+        List<Folder> list = new ArrayList<>();
+        String sql = "SELECT * FROM folders WHERE user_id = ? AND folder_name LIKE ? ORDER BY created_at DESC";
+
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            ps.setString(2, "%" + keyword.trim() + "%");
+            try ( ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapRow(rs));
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[FolderDAO.searchFoldersByUserId] " + e.getMessage());
+            e.printStackTrace();
         }
         return list;
     }
