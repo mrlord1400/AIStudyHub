@@ -22,20 +22,28 @@ public class DocumentController extends HttpServlet {
             throws ServletException, IOException {
 
         String action = request.getParameter("action");
-        
-        // 1. Security check - Bỏ chặn Guest nếu họ đang xem tài liệu Public (viewPublicPage hoặc viewDoc)
+
+        // 1. Xử lý Session an toàn để không bị NullPointerException
         HttpSession session = request.getSession(false);
-        Integer sessionUserId = (session != null && session.getAttribute("userId") != null) ? (Integer) session.getAttribute("userId") : null;
-        
+        Integer sessionUserId = null;
+
+        if (session != null && session.getAttribute("userId") != null) {
+            sessionUserId = (Integer) session.getAttribute("userId");
+        }
+
+        // 2. Phân quyền: Nếu là Khách (chưa đăng nhập), CHỈ cho phép xem trước tài liệu
         if (sessionUserId == null) {
             if (!"viewPublicPage".equals(action) && !"viewDoc".equals(action)) {
+                // Nếu làm hành động khác, đá về trang login
                 response.sendRedirect(request.getContextPath() + "/login.jsp");
                 return;
             }
         }
 
         DocumentDAO dao = new DocumentDAO();
-        int userId = (int) session.getAttribute("userId");
+
+        // 3. Gán userId = 0 cho Khách để tránh lỗi dòng 38 của bạn
+        int userId = (sessionUserId != null) ? sessionUserId : 0;
 
         try {
             if ("explore".equals(action)) {
@@ -47,7 +55,7 @@ public class DocumentController extends HttpServlet {
                 FolderDAO folderDao = new FolderDAO();
                 String viewMode = request.getParameter("view");
                 boolean isFriendsView = "friends".equals(viewMode);
-                
+
                 // LẤY TỪ KHÓA TÌM KIẾM VÀ TIÊU CHÍ SẮP XẾP
                 String searchQuery = request.getParameter("query");
                 String sortBy = request.getParameter("sort");
@@ -57,7 +65,7 @@ public class DocumentController extends HttpServlet {
 
                 // 1. Lấy danh sách tài liệu
                 List<Document> exploreDocs = dao.getExploreDocuments(userId, isFriendsView, searchQuery, sortBy);
-                
+
                 // 2. Lấy thống kê
                 int[] stats = dao.getExploreStats(userId, isFriendsView);
 
@@ -104,10 +112,10 @@ public class DocumentController extends HttpServlet {
 
                 if (doc != null) {
                     String permission = doc.getSharingPermission() != null ? doc.getSharingPermission().toUpperCase() : "PRIVATE";
-                    
+
                     // Cho phép xem nếu tài liệu là PUBLIC. Nếu đã đăng nhập thì xem thêm FRIENDS_ONLY và tài liệu chính mình
-                    boolean canAccess = "PUBLIC".equals(permission) || 
-                                        (sessionUserId != null && ("FRIENDS_ONLY".equals(permission) || doc.getUserId() == userId));
+                    boolean canAccess = "PUBLIC".equals(permission)
+                            || (sessionUserId != null && ("FRIENDS_ONLY".equals(permission) || doc.getUserId() == userId));
 
                     if (canAccess) {
                         UserDAO userDao = new UserDAO();
@@ -165,7 +173,7 @@ public class DocumentController extends HttpServlet {
                 } else {
                     response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=not_found");
                 }
-                
+
             } else if ("updateDoc".equals(action)) {
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 String newTitle = request.getParameter("title");
@@ -200,7 +208,7 @@ public class DocumentController extends HttpServlet {
                     request.setAttribute("errorMessage", "Không thể cập nhật. Vui lòng thử lại.");
                     request.getRequestDispatcher("/MainController?action=editDoc&docId=" + docId).forward(request, response);
                 }
-                
+
             } else if ("updatePermission".equals(action)) {
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 String sharingPerm = request.getParameter("sharingPermission");
@@ -219,7 +227,7 @@ public class DocumentController extends HttpServlet {
                 } else {
                     response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=not_found");
                 }
-                
+
             } else if ("viewDoc".equals(action)) {
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 Document doc = dao.findById(docId);
@@ -227,7 +235,7 @@ public class DocumentController extends HttpServlet {
                 boolean canAccess = false;
                 if (doc != null) {
                     String permission = doc.getSharingPermission() != null ? doc.getSharingPermission().toUpperCase() : "PRIVATE";
-                    
+
                     if ("PUBLIC".equals(permission)) {
                         canAccess = true;
                     } else if (sessionUserId != null && (doc.getUserId() == userId || "FRIENDS_ONLY".equals(permission))) {
@@ -255,7 +263,7 @@ public class DocumentController extends HttpServlet {
 
                     if (file.exists()) {
                         String ext = doc.getFileExtension() != null ? doc.getFileExtension().toLowerCase() : "";
-                        
+
                         // FILE OFFICE: Convert sang HTML bằng Apache POI
                         if ("docx".equals(ext) || "xlsx".equals(ext) || "pptx".equals(ext)) {
                             response.setContentType("text/html; charset=UTF-8");
@@ -465,7 +473,7 @@ public class DocumentController extends HttpServlet {
                 } else {
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "Bạn không có quyền truy cập tài liệu này.");
                 }
-                
+
             } else if ("downloadDoc".equals(action)) {
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 Document doc = dao.findById(docId);
@@ -525,7 +533,7 @@ public class DocumentController extends HttpServlet {
                 } else {
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "Bạn không có quyền tải tài liệu này.");
                 }
-                
+
             } else if ("toggleBookmark".equals(action)) {
                 int docId = Integer.parseInt(request.getParameter("docId"));
 
@@ -536,7 +544,7 @@ public class DocumentController extends HttpServlet {
                 response.setContentType("application/json");
                 response.setCharacterEncoding("UTF-8");
                 response.getWriter().write("{\"isBookmarked\": " + isNowBookmarked + ", \"newCount\": " + newCount + "}");
-                return; 
+                return;
             }
         } catch (Exception e) {
             System.err.println("[DocumentController Error] " + e.getMessage());
