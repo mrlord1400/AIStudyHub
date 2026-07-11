@@ -15,7 +15,7 @@ public class DocumentDAO {
                 + " ai_parsing_status, sharing_permission, share_link_token, is_flagged, created_at, updated_at) "
                 + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-        try (Connection conn = Utils.DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql, new String[]{"document_id"})) {
+        try ( Connection conn = Utils.DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql, new String[]{"document_id"})) {
 
             ps.setInt(1, doc.getUserId());
 
@@ -52,7 +52,7 @@ public class DocumentDAO {
                 return -1;
             }
 
-            try (ResultSet rs = ps.getGeneratedKeys()) {
+            try ( ResultSet rs = ps.getGeneratedKeys()) {
                 if (rs.next()) {
                     int docId = rs.getInt(1);
                     if (docId < 0) {
@@ -78,7 +78,7 @@ public class DocumentDAO {
                 + "SET title = ?, folder_id = ?, sharing_permission = ?, cloud_storage_url = ?, updated_at = ? "
                 + "WHERE document_id = ?";
 
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, newTitle);
             if (newFolderId != null) {
@@ -102,7 +102,7 @@ public class DocumentDAO {
     public boolean updateSharingPermission(int documentId, String newSharingPermission) {
         String sql = "UPDATE documents SET sharing_permission = ?, updated_at = ? WHERE document_id = ?";
 
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, newSharingPermission);
             ps.setTimestamp(2, java.sql.Timestamp.valueOf(LocalDateTime.now()));
             ps.setInt(3, documentId);
@@ -122,7 +122,7 @@ public class DocumentDAO {
                 + "    title = ?, folder_id = ?, sharing_permission = ?, updated_at = ? "
                 + "WHERE document_id = ?";
 
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, newCloudUrl);
             ps.setDouble(2, newFileSizeMb);
             ps.setString(3, newFileExtension);
@@ -148,7 +148,7 @@ public class DocumentDAO {
 
     public boolean deleteDocument(int documentId) {
         String sql = "DELETE FROM documents WHERE document_id = ?";
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, documentId);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -160,9 +160,9 @@ public class DocumentDAO {
 
     public Document findById(int documentId) {
         String sql = "SELECT * FROM documents WHERE document_id = ?";
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, documentId);
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return mapRow(rs);
                 }
@@ -221,9 +221,9 @@ public class DocumentDAO {
         java.util.List<Document> list = new java.util.ArrayList<>();
         String sql = "SELECT * FROM documents WHERE user_id = ? ORDER BY created_at DESC";
 
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, userId);
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     list.add(mapRow(rs));
                 }
@@ -244,12 +244,12 @@ public class DocumentDAO {
             sql = "SELECT * FROM documents WHERE user_id = ? AND folder_id = ? ORDER BY created_at DESC";
         }
 
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, userId);
             if (folderId != null) {
                 ps.setInt(2, folderId);
             }
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     list.add(mapRow(rs));
                 }
@@ -265,9 +265,9 @@ public class DocumentDAO {
         java.util.List<Document> list = new java.util.ArrayList<>();
         String sql = "SELECT * FROM documents WHERE folder_id = ?";
 
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, folderId);
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     list.add(mapRow(rs));
                 }
@@ -281,7 +281,7 @@ public class DocumentDAO {
 
     public int deleteDocumentsByFolderId(int folderId) {
         String sql = "DELETE FROM documents WHERE folder_id = ?";
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, folderId);
             return ps.executeUpdate();
         } catch (SQLException e) {
@@ -299,13 +299,13 @@ public class DocumentDAO {
             sql = "SELECT * FROM documents WHERE user_id = ? AND title = ? AND folder_id = ?";
         }
 
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, userId);
             ps.setString(2, title);
             if (folderId != null) {
                 ps.setInt(3, folderId);
             }
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return mapRow(rs);
                 }
@@ -325,7 +325,7 @@ public class DocumentDAO {
             sql = "SELECT COUNT(*) FROM documents WHERE user_id = ? AND title = ? AND folder_id = ? AND document_id != ?";
         }
 
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, userId);
             ps.setString(2, title);
             if (folderId == null) {
@@ -334,7 +334,7 @@ public class DocumentDAO {
                 ps.setInt(3, folderId);
                 ps.setInt(4, excludeDocId);
             }
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return rs.getInt(1) > 0;
                 }
@@ -348,10 +348,10 @@ public class DocumentDAO {
 
     public Document findByTitleAndUserId(int userId, String title) {
         String sql = "SELECT * FROM documents WHERE user_id = ? AND title = ?";
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, userId);
             ps.setString(2, title);
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return mapRow(rs);
                 }
@@ -360,10 +360,10 @@ public class DocumentDAO {
         }
 
         String sqlLike = "SELECT TOP 1 * FROM documents WHERE user_id = ? AND title LIKE ?";
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sqlLike)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sqlLike)) {
             ps.setInt(1, userId);
             ps.setString(2, "%" + title + "%");
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return mapRow(rs);
                 }
@@ -375,7 +375,7 @@ public class DocumentDAO {
 
     public boolean updateAiParsingStatus(int documentId, String status) {
         String sql = "UPDATE documents SET ai_parsing_status = ? WHERE document_id = ?";
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, status);
             ps.setInt(2, documentId);
             return ps.executeUpdate() > 0;
@@ -388,7 +388,7 @@ public class DocumentDAO {
 
     public boolean incrementDownloadCount(int documentId) {
         String sql = "UPDATE documents SET download_count = download_count + 1 WHERE document_id = ?";
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, documentId);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -442,7 +442,7 @@ public class DocumentDAO {
                     + "ORDER BY is_bookmarked DESC, COALESCE(d.updated_at, d.created_at) DESC";
         }
 
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             int paramIndex = 1;
             ps.setInt(paramIndex++, currentUserId);
 
@@ -458,7 +458,7 @@ public class DocumentDAO {
                 ps.setString(paramIndex++, likeParam); // cho u.username
             }
 
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     Document doc = mapRow(rs);
                     try {
@@ -501,13 +501,13 @@ public class DocumentDAO {
                     + "FROM documents WHERE sharing_permission = 'PUBLIC' AND is_flagged = 0";
         }
 
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             if (isFriendsView) {
                 ps.setInt(1, currentUserId);
                 ps.setInt(2, currentUserId);
                 ps.setInt(3, currentUserId);
             }
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     stats[0] = rs.getInt("total_docs");
                     stats[1] = rs.getInt("total_contributors");
@@ -527,10 +527,10 @@ public class DocumentDAO {
         String checkSql = "SELECT bookmark_id FROM bookmarks WHERE user_id = ? AND document_id = ?";
         boolean exists = false;
 
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(checkSql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(checkSql)) {
             ps.setInt(1, userId);
             ps.setInt(2, documentId);
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     exists = true;
                 }
@@ -539,10 +539,10 @@ public class DocumentDAO {
             e.printStackTrace();
         }
 
-        try (Connection conn = DBUtils.getConnection()) {
+        try ( Connection conn = DBUtils.getConnection()) {
             if (exists) {
                 String delSql = "DELETE FROM bookmarks WHERE user_id = ? AND document_id = ?";
-                try (PreparedStatement ps = conn.prepareStatement(delSql)) {
+                try ( PreparedStatement ps = conn.prepareStatement(delSql)) {
                     ps.setInt(1, userId);
                     ps.setInt(2, documentId);
                     ps.executeUpdate();
@@ -551,7 +551,7 @@ public class DocumentDAO {
                 isNowBookmarked = false;
             } else {
                 String insSql = "INSERT INTO bookmarks (user_id, document_id) VALUES (?, ?)";
-                try (PreparedStatement ps = conn.prepareStatement(insSql)) {
+                try ( PreparedStatement ps = conn.prepareStatement(insSql)) {
                     ps.setInt(1, userId);
                     ps.setInt(2, documentId);
                     ps.executeUpdate();
@@ -568,7 +568,7 @@ public class DocumentDAO {
 
     private void updateDocumentBookmarkCount(Connection conn, int documentId, int change) throws SQLException {
         String sql = "UPDATE documents SET bookmark_count = bookmark_count + ? WHERE document_id = ?";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, change);
             ps.setInt(2, documentId);
             ps.executeUpdate();
@@ -577,9 +577,9 @@ public class DocumentDAO {
 
     public int getBookmarkCount(int documentId) {
         String sql = "SELECT bookmark_count FROM documents WHERE document_id = ?";
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, documentId);
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return rs.getInt(1);
                 }
@@ -597,7 +597,7 @@ public class DocumentDAO {
     public boolean updateReportMetrics(int documentId, double totalReportScore, boolean isFlagged) {
         String sql = "UPDATE documents SET total_report_score = ?, is_flagged = ?, updated_at = ? WHERE document_id = ?";
 
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setDouble(1, totalReportScore);
             ps.setBoolean(2, isFlagged);
             ps.setTimestamp(3, java.sql.Timestamp.valueOf(LocalDateTime.now()));
@@ -619,7 +619,7 @@ public class DocumentDAO {
                 + "WHERE d.sharing_permission = 'PUBLIC' "
                 + "ORDER BY d.is_flagged DESC, d.total_report_score DESC";
 
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql);  ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
                 Document doc = mapRow(rs);
@@ -708,12 +708,12 @@ public class DocumentDAO {
         }
         return isSuccess;
     }
-    
+
     public double getTotalStorageUsed(int userId) {
         String sql = "SELECT SUM(file_size_mb) FROM documents WHERE user_id = ?";
-        try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, userId);
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return rs.getDouble(1); // Trả về tổng số MB
                 }
@@ -722,5 +722,24 @@ public class DocumentDAO {
             System.err.println("[DocumentDAO] getTotalStorageUsed failed: " + e.getMessage());
         }
         return 0.0;
+    }
+
+    public List<Document> searchDocumentsByUserId(int userId, String keyword) {
+        List<Document> list = new ArrayList<>();
+        String sql = "SELECT * FROM documents WHERE user_id = ? AND title LIKE ? ORDER BY created_at DESC";
+
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            ps.setString(2, "%" + keyword.trim() + "%");
+            try ( ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapRow(rs));
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[DocumentDAO] searchDocumentsByUserId failed: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return list;
     }
 }
