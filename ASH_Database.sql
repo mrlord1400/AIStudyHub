@@ -50,7 +50,9 @@ CREATE TABLE users (
     ai_prompts_today INT DEFAULT 0,
     last_prompt_reset DATETIME DEFAULT GETDATE(),
     status NVARCHAR(10) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'SUSPENDED', 'BANNED')),
-    expires_at DATETIME2 NULL,     
+    expires_at DATETIME2 NULL,
+	expiry_notified BIT NOT NULL DEFAULT 0,
+	downgrade_notice_pending BIT NOT NULL DEFAULT 0,
     created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (tier_id) REFERENCES subscriptions(tier_id)

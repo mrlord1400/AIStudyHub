@@ -158,8 +158,9 @@ public class UserDAO {
 
     /**
      * Cập nhật mật khẩu mới cho user theo email, dùng cho luồng Quên mật khẩu.
-     * newPasswordHash phải là mật khẩu ĐÃ được hash bằng PasswordUtil.hashPassword()
-     * trước khi truyền vào đây, để đồng bộ với cách lưu mật khẩu lúc register.
+     * newPasswordHash phải là mật khẩu ĐÃ được hash bằng
+     * PasswordUtil.hashPassword() trước khi truyền vào đây, để đồng bộ với cách
+     * lưu mật khẩu lúc register.
      */
     public boolean updatePassword(String email, String newPasswordHash) {
 
@@ -635,5 +636,108 @@ public class UserDAO {
             System.out.println("[UserDAO.getBlockedUsers] " + e.getMessage());
         }
         return blockedList;
+    }
+
+    public List<User> getExpiredPremiumUsers() {
+        List<User> list = new ArrayList<>();
+        String sql = "SELECT * FROM users WHERE tier_id = 3 AND expires_at IS NOT NULL AND expires_at <= GETDATE()";
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql);  ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                list.add(mapExpiryUserRow(rs));
+            }
+        } catch (SQLException e) {
+            System.out.println("[UserDAO.getExpiredPremiumUsers] " + e.getMessage());
+        }
+        return list;
+    }
+
+    public List<User> getPremiumUsersNeedingWarning(int hoursBeforeExpiry) {
+        List<User> list = new ArrayList<>();
+        String sql = "SELECT * FROM users WHERE tier_id = 3 AND expires_at IS NOT NULL "
+                + "AND expires_at <= DATEADD(HOUR, ?, GETDATE()) AND expires_at > GETDATE() "
+                + "AND expiry_notified = 0";
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, hoursBeforeExpiry);
+            try ( ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapExpiryUserRow(rs));
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("[UserDAO.getPremiumUsersNeedingWarning] " + e.getMessage());
+        }
+        return list;
+    }
+
+    public boolean markExpiryNotified(int userId) {
+        String sql = "UPDATE users SET expiry_notified = 1 WHERE user_id = ?";
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.out.println("[UserDAO.markExpiryNotified] " + e.getMessage());
+        }
+        return false;
+    }
+
+    /**
+     * Gia hạn premium thêm kỳ mới, reset cờ cảnh báo
+     */
+    public boolean renewPremium(int userId, Timestamp newExpiresAt) {
+        String sql = "UPDATE users SET expires_at = ?, expiry_notified = 0 WHERE user_id = ?";
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setTimestamp(1, newExpiresAt);
+            ps.setInt(2, userId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.out.println("[UserDAO.renewPremium] " + e.getMessage());
+        }
+        return false;
+    }
+
+    /**
+     * Hạ cấp về Free do không đủ tiền gia hạn, bật cờ để FE hiển thị banner lần
+     * sau
+     */
+    public boolean downgradeToFree(int userId) {
+        String sql = "UPDATE users SET tier_id = 2, expires_at = NULL, expiry_notified = 0, "
+                + "downgrade_notice_pending = 1 WHERE user_id = ?";
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.out.println("[UserDAO.downgradeToFree] " + e.getMessage());
+        }
+        return false;
+    }
+
+    /**
+     * Gọi khi user login/mở dashboard để tắt banner sau khi đã hiển thị 1 lần
+     */
+    public boolean clearDowngradeNotice(int userId) {
+        String sql = "UPDATE users SET downgrade_notice_pending = 0 WHERE user_id = ?";
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.out.println("[UserDAO.clearDowngradeNotice] " + e.getMessage());
+        }
+        return false;
+    }
+
+    private User mapExpiryUserRow(ResultSet rs) throws SQLException {
+        User user = new User();
+        user.setUserId(rs.getInt("user_id"));
+        user.setUsername(rs.getString("username"));
+        user.setEmail(rs.getString("email"));
+        user.setTierId(rs.getInt("tier_id"));
+        user.setStatus(rs.getString("status"));
+        user.setBalance(rs.getInt("balance"));
+        Timestamp expiresTs = rs.getTimestamp("expires_at");
+        if (expiresTs != null) {
+            user.setExpiresAt(expiresTs.toLocalDateTime());
+        }
+        user.setExpiryNotified(rs.getBoolean("expiry_notified"));
+        return user;
     }
 }

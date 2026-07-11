@@ -39,6 +39,22 @@
         userBalance = user.getBalance();
     }
 
+    java.time.LocalDateTime expiresAt = null;
+    if (userId != null) {
+        User u2 = dao.getUserById(userId);
+        expiresAt = u2.getExpiresAt();
+        // Nếu vừa bị downgrade do hết tiền, bật cờ hiển thị banner 1 lần rồi tắt
+        if (u2.isDowngradeNoticePending()) {
+            userSession.setAttribute("showDowngradeNotice", true);
+            dao.clearDowngradeNotice(userId);
+        }
+    }
+    request.setAttribute("expiresAt", expiresAt);
+    Boolean showDowngradeNotice = (Boolean) userSession.getAttribute("showDowngradeNotice");
+    if (showDowngradeNotice != null && showDowngradeNotice) {
+        userSession.removeAttribute("showDowngradeNotice");
+    }
+
     // LẤY CẤU HÌNH GÓI TỪ DATABASE
     SubscriptionDAO subDao = new SubscriptionDAO();
     List<Subscription> subscriptions = subDao.getAllSubscriptions();
@@ -339,6 +355,12 @@
             <div class="flex justify-between items-center mb-10">
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight text-white">Nâng cấp tài khoản</h1>
+                    <% if (showDowngradeNotice != null && showDowngradeNotice) { %>
+                    <div class="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium dark:bg-amber-900/30 dark:border-amber-700 dark:text-amber-300">
+                        Gói Premium của bạn đã hết hạn và <strong>không thể tự động gia hạn</strong> do số dư trong ví không đủ.
+                        Tài khoản đã được chuyển về gói Free. Vui lòng nạp thêm Coin để nâng cấp lại.
+                    </div>
+                    <% }%>
                     <p class="text-sm text-gray-500 font-medium dark:text-gray-400">Bứt phá mọi giới hạn học tập cùng các tính năng AI thông minh</p>
                 </div>
             </div>
@@ -415,6 +437,11 @@
                             </ul>
                             <% if (isPremiumUser) { %>
                             <button disabled class="w-full py-3 bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400 rounded-xl font-semibold cursor-not-allowed">Bạn đang sử dụng gói này</button>
+                            <% if (isPremiumUser && expiresAt != null) {%>
+                            <p class="text-xs text-gray-400 text-center mt-2">
+                                Hết hạn: <%= expiresAt.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))%>
+                            </p>
+                            <% } %>
                             <% } else { %>
                             <button onclick="openPurchaseModal();" class="w-full py-3 bg-gradient-to-tr from-purple-500 to-indigo-600 text-white rounded-xl font-semibold hover:opacity-90 transition-all text-sm shadow-md">Kích hoạt bằng Coin</button>
                             <% }%>

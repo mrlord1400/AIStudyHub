@@ -16,6 +16,8 @@ public class User {
     private int tierId;
     private String status;
     private LocalDateTime expiresAt;
+    private boolean expiryNotified;
+    private boolean downgradeNoticePending;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private int balance;
@@ -128,7 +130,7 @@ public class User {
     public void setBalance(int balance) {
         this.balance = balance;
     }
-    
+
     public int getAiPromptsToday() {
         return aiPromptsToday;
     }
@@ -143,5 +145,21 @@ public class User {
 
     public void setLastPromptReset(java.sql.Timestamp lastPromptReset) {
         this.lastPromptReset = lastPromptReset;
+    }
+
+    public boolean isExpiryNotified() {
+        return expiryNotified;
+    }
+
+    public void setExpiryNotified(boolean expiryNotified) {
+        this.expiryNotified = expiryNotified;
+    }
+
+    public boolean isDowngradeNoticePending() {
+        return downgradeNoticePending;
+    }
+
+    public void setDowngradeNoticePending(boolean downgradeNoticePending) {
+        this.downgradeNoticePending = downgradeNoticePending;
     }
 }
