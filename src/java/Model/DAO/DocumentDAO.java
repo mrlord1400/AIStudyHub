@@ -413,12 +413,12 @@ public class DocumentDAO {
         // NGUYÊN TẮC: is_flagged ASC (bình thường lên đầu, cắm cờ xuống chót) -> is_bookmarked DESC (đã lưu lên đầu) -> sortBy DESC
         String orderBy;
         if ("downloads".equals(sortBy)) {
-            orderBy = "ORDER BY d.is_flagged ASC, is_bookmarked DESC, ISNULL(d.download_count, 0) DESC";
+            orderBy = " ORDER BY d.is_flagged ASC, is_bookmarked DESC, ISNULL(d.download_count, 0) DESC";
         } else if ("bookmarks".equals(sortBy)) {
-            orderBy = "ORDER BY d.is_flagged ASC, is_bookmarked DESC, ISNULL(d.bookmark_count, 0) DESC";
+            orderBy = " ORDER BY d.is_flagged ASC, is_bookmarked DESC, ISNULL(d.bookmark_count, 0) DESC";
         } else {
             // Default "date"
-            orderBy = "ORDER BY d.is_flagged ASC, is_bookmarked DESC, COALESCE(d.updated_at, d.created_at) DESC";
+            orderBy = " ORDER BY d.is_flagged ASC, is_bookmarked DESC, COALESCE(d.updated_at, d.created_at) DESC";
         }
 
         if (isFriendsView) {
@@ -428,28 +428,34 @@ public class DocumentDAO {
                     + "INNER JOIN users u ON d.user_id = u.user_id "
                     + "INNER JOIN friendships f ON (d.user_id = f.addressee_id OR d.user_id = f.requester_id) "
                     + "LEFT JOIN bookmarks b ON d.document_id = b.document_id AND b.user_id = ? "
-                    + "WHERE d.sharing_permission = 'FRIENDS_ONLY' AND d.is_flagged = 0 "
+                    + "WHERE d.sharing_permission = 'FRIENDS_ONLY' AND (d.is_flagged = 0 OR d.user_id = ?) "
                     + "AND (f.requester_id = ? OR f.addressee_id = ?) AND d.user_id != ? "
                     + "AND f.status = 'ACCEPTED' "
-                    + "ORDER BY is_bookmarked DESC, COALESCE(d.updated_at, d.created_at) DESC";
+                    + searchCondition
+                    + orderBy;
         } else {
             sql = "SELECT d.*, u.username AS author_username, "
                     + "CASE WHEN b.bookmark_id IS NOT NULL THEN 1 ELSE 0 END AS is_bookmarked "
                     + "FROM documents d "
                     + "INNER JOIN users u ON d.user_id = u.user_id "
                     + "LEFT JOIN bookmarks b ON d.document_id = b.document_id AND b.user_id = ? "
-                    + "WHERE d.sharing_permission = 'PUBLIC' AND d.is_flagged = 0 "
-                    + "ORDER BY is_bookmarked DESC, COALESCE(d.updated_at, d.created_at) DESC";
+                    + "WHERE d.sharing_permission = 'PUBLIC' AND (d.is_flagged = 0 OR d.user_id = ?) "
+                    + searchCondition
+                    + orderBy;
         }
 
         try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             int paramIndex = 1;
+
+            // param cho LEFT JOIN bookmarks b.user_id = ?
+            ps.setInt(paramIndex++, currentUserId);
+            // param cho (d.is_flagged = 0 OR d.user_id = ?)  -- để chính chủ vẫn thấy tài liệu bị cấm cờ của mình
             ps.setInt(paramIndex++, currentUserId);
 
             if (isFriendsView) {
-                ps.setInt(paramIndex++, currentUserId);
-                ps.setInt(paramIndex++, currentUserId);
-                ps.setInt(paramIndex++, currentUserId);
+                ps.setInt(paramIndex++, currentUserId); // f.requester_id = ?
+                ps.setInt(paramIndex++, currentUserId); // f.addressee_id = ?
+                ps.setInt(paramIndex++, currentUserId); // d.user_id != ?
             }
 
             if (searchQuery != null && !searchQuery.trim().isEmpty()) {
