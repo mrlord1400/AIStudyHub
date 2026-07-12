@@ -79,11 +79,9 @@ public class ChatMessageDAO {
         return finalMessage;
     }
 
-    // Thay thế hàm createUserMessage cũ
     public int createUserMessage(String userMessage, int sessionId) {
         String sql = "INSERT INTO chat_messages (session_id, sender, message_content) VALUES (?, 'USER', ?)";
         try (Connection conn = DBUtils.getConnection();
-             // Chú ý: Thêm Statement.RETURN_GENERATED_KEYS để lấy ID vừa tạo
              PreparedStatement ps = conn.prepareStatement(sql, java.sql.Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, sessionId);
             ps.setString(2, userMessage);
@@ -91,7 +89,7 @@ public class ChatMessageDAO {
             if (rowsAffected > 0) {
                 try (ResultSet rs = ps.getGeneratedKeys()) {
                     if (rs.next()) {
-                        return rs.getInt(1); // Trả về ID
+                        return rs.getInt(1);
                     }
                 }
             }
@@ -114,7 +112,6 @@ public class ChatMessageDAO {
         }
     }
 
-    // Thay thế hàm createSystemMessage cũ
     public int createSystemMessage(String systemMessage, int sessionId) {
         String sql = "INSERT INTO chat_messages (session_id, sender, message_content, display) VALUES (?, 'USER', ?, 0)";
         try (Connection conn = DBUtils.getConnection();
@@ -125,7 +122,7 @@ public class ChatMessageDAO {
             if (rowsAffected > 0) {
                 try (ResultSet rs = ps.getGeneratedKeys()) {
                     if (rs.next()) {
-                        return rs.getInt(1); // Trả về ID
+                        return rs.getInt(1);
                     }
                 }
             }
@@ -148,11 +145,10 @@ public class ChatMessageDAO {
         }
     }
 
-    // Thay thế hàm handleAttachmentIfPresent cũ
     public int handleAttachmentIfPresent(String currentAttachment, String messageText, int sessionId) {
         String attachmentPrompt = buildAttachmentSystemMessage(currentAttachment, messageText);
         if (attachmentPrompt == null) {
-            return 0; // Không có đính kèm
+            return 0; 
         }
         return createSystemMessage(attachmentPrompt, sessionId);
     }
@@ -223,15 +219,13 @@ public class ChatMessageDAO {
         return null;
     }
 
-    // --- HÀM MỚI ĐỂ HỖ TRỢ XÓA LỊCH SỬ KHI EDIT PROMPT ---
     public boolean deleteMessagesFromId(int messageId, int sessionId) {
         String sql = "DELETE FROM chat_messages WHERE session_id = ? AND message_id >= ?";
         try (Connection conn = DBUtils.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, sessionId);
             ps.setInt(2, messageId);
-            int rowsAffected = ps.executeUpdate();
-            return rowsAffected > 0;
+            return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
             return false;

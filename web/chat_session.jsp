@@ -383,7 +383,7 @@
                             <span>Lịch sử trò chuyện</span>
                         </button>
                         <button onclick="toggleCreateModal(true)" class="btn-secondary">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"/></svg>
                             <span>Cuộc trò chuyện mới</span>
                         </button>
                     </div>
@@ -581,7 +581,6 @@
                                                 </span>
                                             </c:if>
                                             <c:if test="${!sessionItem.pinned}">
-                                                
                                                 <span id="pin-badge-${sessionItem.sessionId}" class="hidden inline-flex items-center gap-1 text-[9px] font-bold text-yellow-400 mt-0.5">
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24"
                                                          fill="currentColor" stroke="currentColor" stroke-width="2">
@@ -842,11 +841,10 @@
                 inputElement.value = textToEdit;
                 inputElement.focus();
                 
-                // Lấy ID thật hoặc ID tạm từ thuộc tính dữ liệu HTML5
+                // Thu thập id trực tiếp từ DOM mà không quan trọng id cũ hay id temp
                 editingMessageId = container.getAttribute('data-msg-id');
                 editingContainer = container;
                 
-                // Trực quan hóa trạng thái chỉnh sửa bằng độ mờ
                 container.style.opacity = '0.5';
             }
 
@@ -858,7 +856,7 @@
 
                 if (!messageText && !attachmentToSend) return;
 
-                // XÓA LỊCH SỬ TỪ VỊ TRÍ EDIT TRONG DB VÀ UI MÀ KHÔNG CẦN CHỜ REFRESH
+                // XỬ LÝ XÓA ĐỒNG BỘ KHÔNG REFRESH KHI Ở TRẠNG THÁI EDIT PROMPT
                 if (editingMessageId && editingContainer) {
                     try {
                         const delFormData = new URLSearchParams();
@@ -893,7 +891,7 @@
                     displayMessage = messageText ? (messageText + attachmentNote) : attachmentNote;
                 }
 
-                // Thiết lập nhãn định danh tạm thời bằng Timestamp
+                // Nhãn định danh tạm thời để gán ID thật sau đó
                 const tempMsgId = "temp-" + Date.now(); 
 
                 const userMsgHtml = `
@@ -953,12 +951,12 @@
                         const errorMsg = await response.text();
                         throw new Error(errorMsg || "Network error");
                     }
-                    // Đọc ID thật từ HTTP response header
+                    // Trích xuất ID thật do Database trả ra trong Response Header
                     msgIdFromServer = response.headers.get("X-Message-Id");
                     return response.text();
                 })
                 .then(data => {
-                    // Cập nhật ID thật đồng bộ ngầm mà không cần tải lại trang
+                    // Ánh xạ ngầm ID thật vào DOM để sẵn sàng cho lần Edit tiếp theo
                     if (msgIdFromServer) {
                         const tempContainer = document.getElementById(`msg-container-${tempMsgId}`);
                         if (tempContainer) {
@@ -1077,7 +1075,7 @@
                         .catch(err => console.error("Pin Error:", err));
             }
 
-            // --- Xử lý tính năng Copy và Edit ---
+            // --- Xử lý tính năng Copy ---
             function copyMessageContent(btnEl) {
                 const container = btnEl.closest('.msg-container');
                 const contentEl = container.querySelector('.msg-content');

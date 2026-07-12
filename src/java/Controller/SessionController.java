@@ -308,7 +308,6 @@ public class SessionController extends HttpServlet {
         }
     }
 
-    // --- HÀM MỚI XỬ LÝ XÓA LỊCH SỬ TỪ 1 MESSAGE ---
     private void handleDeleteMessagesFrom(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         response.setContentType("application/json");
