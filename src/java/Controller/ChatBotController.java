@@ -158,19 +158,30 @@ public class ChatBotController extends HttpServlet {
             // - Nếu có file đính kèm, build thêm 1 dòng "system prompt" ẨN
             //   (display = 0) chứa lệnh VIEW/..., để AI đọc và biết phải gọi VIEW.
             // ════════════════════════════════════════════════════════════════
+            int firstInsertedId = -1;
+
             if (hasMessage) {
-                boolean isUserMsgSaved = chatMessageDAO.createUserMessage(userMessage, sessionId);
-                if (!isUserMsgSaved) {
+                firstInsertedId = chatMessageDAO.createUserMessage(userMessage, sessionId);
+                if (firstInsertedId == -1) {
                     throw new Exception("Không thể lưu tin nhắn của người dùng vào CSDL.");
                 }
             }
 
             if (hasAttachment) {
-                // Logic chuyển từ front-end: build prompt yêu cầu AI dùng lệnh VIEW/...
-                boolean attachmentHandled = chatMessageDAO.handleAttachmentIfPresent(attachment, userMessage, sessionId);
-                if (!attachmentHandled) {
+                int sysMsgId = chatMessageDAO.handleAttachmentIfPresent(attachment, userMessage, sessionId);
+                if (sysMsgId == -1) {
                     throw new Exception("Không thể lưu thông tin tài liệu đính kèm vào CSDL.");
                 }
+                // Nếu người dùng chỉ gửi file (không nhập text), lấy ID của file làm mốc xóa
+                if (firstInsertedId == -1) {
+                    firstInsertedId = sysMsgId;
+                }
+            }
+            
+            // ---> Kéo xuống cuối hàm doPost, ngay trước dòng out.print(finalResponse);
+            // Bạn thêm 3 dòng này để gắn ID vào Header gửi về UI:
+            if (firstInsertedId != -1) {
+                response.setHeader("X-Message-Id", String.valueOf(firstInsertedId));
             }
 
             // BƯỚC 4: LẤY TOÀN BỘ LỊCH SỬ CỦA SESSION NÀY (bao gồm cả message ẩn, để AI đọc đủ context)

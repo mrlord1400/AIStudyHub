@@ -53,9 +53,15 @@ public class SessionController extends HttpServlet {
                 case "findSessionByName":
                     handleFindSessionByName(request, response);
                     break;
+
                 case "pinSession":
                     handlePinSession(request, response);
                     break;
+
+                case "deleteMessagesFrom":
+                    handleDeleteMessagesFrom(request, response);
+                    break;
+
                 default:
                     response.sendRedirect(request.getContextPath() + "/SessionController?action=chatMain");
                     break;
@@ -110,13 +116,12 @@ public class SessionController extends HttpServlet {
             ChatMessageDAO messageDao = new ChatMessageDAO();
             List<ChatMessage> messageList = messageDao.getAllDisplayableMessage(sessionId);
 
-            // BẮT FILE ĐÍNH KÈM NẾU CÓ TỪ UPLOAD CONTROLLER TRẢ VỀ QUA SESSION (Bảo vệ lỗi font)
             String isAttached = request.getParameter("attached");
             if ("true".equals(isAttached)) {
                 String attachedDoc = (String) request.getSession().getAttribute("newAttachedDocTitle");
                 if (attachedDoc != null) {
                     request.setAttribute("attachedDocName", attachedDoc);
-                    request.getSession().removeAttribute("newAttachedDocTitle"); // Dọn dẹp
+                    request.getSession().removeAttribute("newAttachedDocTitle"); 
                 }
             }
 
@@ -132,7 +137,6 @@ public class SessionController extends HttpServlet {
 
     private void handleCreateSession(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-
         HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute("userId") == null) {
             response.sendRedirect(request.getContextPath() + "/login.jsp");
@@ -158,7 +162,6 @@ public class SessionController extends HttpServlet {
 
     private void handleUpdateSessionName(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
-
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         PrintWriter out = response.getWriter();
@@ -199,7 +202,6 @@ public class SessionController extends HttpServlet {
 
     private void handleDeleteSession(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
-
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         PrintWriter out = response.getWriter();
@@ -233,7 +235,6 @@ public class SessionController extends HttpServlet {
 
     private void handleFindSessionByName(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
-
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         PrintWriter out = response.getWriter();
@@ -266,10 +267,8 @@ public class SessionController extends HttpServlet {
         out.print(jsonBuilder.toString());
     }
 
-    // ADD this new private method alongside the other handle* methods
     private void handlePinSession(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
-
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         PrintWriter out = response.getWriter();
@@ -281,7 +280,7 @@ public class SessionController extends HttpServlet {
         }
 
         String sessionIdStr = request.getParameter("sessionId");
-        String pinnedStr = request.getParameter("isPinned"); // "true" or "false"
+        String pinnedStr = request.getParameter("isPinned"); 
 
         if (sessionIdStr == null || pinnedStr == null) {
             out.print("{\"success\": false, \"message\": \"Dữ liệu không hợp lệ\"}");
@@ -304,6 +303,40 @@ public class SessionController extends HttpServlet {
             } else {
                 out.print("{\"success\": false, \"message\": \"Lỗi cập nhật CSDL\"}");
             }
+        } catch (NumberFormatException e) {
+            out.print("{\"success\": false, \"message\": \"ID không hợp lệ\"}");
+        }
+    }
+
+    // --- HÀM MỚI XỬ LÝ XÓA LỊCH SỬ TỪ 1 MESSAGE ---
+    private void handleDeleteMessagesFrom(HttpServletRequest request, HttpServletResponse response)
+            throws IOException {
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        PrintWriter out = response.getWriter();
+
+        HttpSession session = request.getSession(false);
+        if (session == null || session.getAttribute("userId") == null) {
+            out.print("{\"success\": false, \"message\": \"Vui lòng đăng nhập\"}");
+            return;
+        }
+
+        String sessionIdStr = request.getParameter("sessionId");
+        String messageIdStr = request.getParameter("messageId");
+
+        if (sessionIdStr == null || messageIdStr == null) {
+            out.print("{\"success\": false, \"message\": \"Dữ liệu không hợp lệ\"}");
+            return;
+        }
+
+        try {
+            int sessionId = Integer.parseInt(sessionIdStr);
+            int messageId = Integer.parseInt(messageIdStr);
+
+            ChatMessageDAO dao = new ChatMessageDAO();
+            boolean success = dao.deleteMessagesFromId(messageId, sessionId);
+
+            out.print("{\"success\": " + success + "}");
         } catch (NumberFormatException e) {
             out.print("{\"success\": false, \"message\": \"ID không hợp lệ\"}");
         }

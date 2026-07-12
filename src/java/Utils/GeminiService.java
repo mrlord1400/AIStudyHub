@@ -12,7 +12,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 public class GeminiService {
-    private static final String API_KEY = "";
+    private static final String API_KEY = "AQ.Ab8RN6LI0hFMgm5oq5lTq_elPi8SNq0WQax2qj1PmfETls4XFw";
     private static final String API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key="
             + API_KEY;
 
