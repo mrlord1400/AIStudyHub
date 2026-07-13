@@ -182,6 +182,18 @@ public class DocumentController extends HttpServlet {
                 if (sharingPerm == null) {
                     sharingPerm = "PRIVATE";
                 }
+                sharingPerm = sharingPerm.toUpperCase();
+
+                // 🔥 MỚI: User đang bị SUSPENDED thì không được đặt tài liệu là PUBLIC
+                String updateDocErrorMsg = null;
+                if ("PUBLIC".equals(sharingPerm)) {
+                    UserDAO userDaoCheck = new UserDAO();
+                    User currentUserInfo = userDaoCheck.getUserById(userId);
+                    if (currentUserInfo != null && "SUSPENDED".equalsIgnoreCase(currentUserInfo.getStatus())) {
+                        sharingPerm = "PRIVATE";
+                        updateDocErrorMsg = "Tài khoản của bạn đang bị tạm khóa (suspended) nên không thể đặt tài liệu ở chế độ công khai. Tài liệu đã được lưu ở chế độ riêng tư.";
+                    }
+                }
 
                 Integer folderId = null;
                 String folderStr = request.getParameter("folderId");
@@ -195,15 +207,20 @@ public class DocumentController extends HttpServlet {
                 Document existingDoc = dao.findById(docId);
                 String existingCloudUrl = (existingDoc != null) ? existingDoc.getCloudStorageUrl() : "";
 
-                boolean updated = dao.updateDocumentInfo(docId, newTitle, folderId, sharingPerm.toUpperCase(), existingCloudUrl);
+                boolean updated = dao.updateDocumentInfo(docId, newTitle, folderId, sharingPerm, existingCloudUrl);
 
                 String role = (String) session.getAttribute("role");
                 boolean isAdmin = "ADMIN".equalsIgnoreCase(role);
 
                 if (updated) {
-                    response.sendRedirect(request.getContextPath() + (isAdmin
-                            ? "/AdminController?action=listPublicDocs&updateSuccess=1"
-                            : "/user_dashboard.jsp?updateSuccess=1"));
+                    // 🔥 MỚI: nếu bị chặn do suspended, đá về kèm cảnh báo thay vì báo thành công bình thường
+                    if (updateDocErrorMsg != null) {
+                        response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?warning=account_suspended");
+                    } else {
+                        response.sendRedirect(request.getContextPath() + (isAdmin
+                                ? "/AdminController?action=listPublicDocs&updateSuccess=1"
+                                : "/user_dashboard.jsp?updateSuccess=1"));
+                    }
                 } else {
                     request.setAttribute("errorMessage", "Không thể cập nhật. Vui lòng thử lại.");
                     request.getRequestDispatcher("/MainController?action=editDoc&docId=" + docId).forward(request, response);
@@ -215,10 +232,21 @@ public class DocumentController extends HttpServlet {
                 if (sharingPerm == null || sharingPerm.trim().isEmpty()) {
                     sharingPerm = "PRIVATE";
                 }
+                sharingPerm = sharingPerm.toUpperCase();
+
+                // 🔥 MỚI: chặn suspended user bật PUBLIC qua action riêng lẻ này
+                if ("PUBLIC".equals(sharingPerm)) {
+                    UserDAO userDaoCheck = new UserDAO();
+                    User currentUserInfo = userDaoCheck.getUserById(userId);
+                    if (currentUserInfo != null && "SUSPENDED".equalsIgnoreCase(currentUserInfo.getStatus())) {
+                        response.sendRedirect(request.getContextPath() + "/DocumentController?action=viewPage&docId=" + docId + "&error=account_suspended");
+                        return;
+                    }
+                }
 
                 Document doc = dao.findById(docId);
                 if (doc != null && doc.getUserId() == userId) {
-                    boolean updated = dao.updateSharingPermission(docId, sharingPerm.toUpperCase());
+                    boolean updated = dao.updateSharingPermission(docId, sharingPerm);
                     if (updated) {
                         response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?updateSuccess=1");
                     } else {

@@ -3,6 +3,8 @@ package Controller;
 import Model.DTO.Document;
 import Model.DAO.DocumentDAO;
 import Model.DAO.DocumentTextDAO;
+import Model.DTO.User;
+import Model.DAO.UserDAO;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.MultipartConfig;
@@ -239,6 +241,13 @@ public class UploadController extends HttpServlet {
         sharingPermission = (sharingPermission == null || sharingPermission.trim().isEmpty())
                 ? "PRIVATE" : sharingPermission.trim().toUpperCase();
 
+        // 🔥 MỚI: User đang bị SUSPENDED thì không được đặt tài liệu MỚI là PUBLIC
+        boolean blockedBySuspend = false;
+        if ("PUBLIC".equals(sharingPermission) && isUserSuspended(userId)) {
+            sharingPermission = "PRIVATE";
+            blockedBySuspend = true;
+        }
+
         Integer newFolderId = null;
         String folderIdParam = request.getParameter("folderId");
         if (folderIdParam != null && !folderIdParam.trim().isEmpty() && !folderIdParam.equals("null")) {
@@ -282,7 +291,9 @@ public class UploadController extends HttpServlet {
             if (newFolderId != null) {
                 redirectTarget += "&folderId=" + newFolderId;
             }
-            response.sendRedirect(request.getContextPath() + redirectTarget + "&uploadSuccess=1");
+            // 🔥 MỚI: kèm cảnh báo nếu vừa bị chặn public do suspended, để FE có thể hiển thị nếu muốn
+            String suspendFlag = blockedBySuspend ? "&warning=account_suspended" : "";
+            response.sendRedirect(request.getContextPath() + redirectTarget + "&uploadSuccess=1" + suspendFlag);
         } else {
             request.setAttribute("errorMessage", "Không thể cập nhật thông tin tài liệu.");
             request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
@@ -310,6 +321,14 @@ public class UploadController extends HttpServlet {
             return;
         }
 
+        int userId = (int) session.getAttribute("userId");
+
+        // 🔥 MỚI: Chặn lại lần nữa ở bước "Ghi đè" phòng trường hợp request bị gọi trực tiếp,
+        // bỏ qua bước handleConfirm ở trên (VD gọi thẳng API).
+        if ("PUBLIC".equals(conflictSharingPermission) && isUserSuspended(userId)) {
+            conflictSharingPermission = "PRIVATE";
+        }
+
         DocumentDAO dao = new DocumentDAO();
         Document oldDoc = dao.findById(duplicateDocId);
         Document pendingDoc = dao.findById(pendingDocId);
@@ -317,7 +336,6 @@ public class UploadController extends HttpServlet {
         if (oldDoc != null && pendingDoc != null) {
             deletePhysicalFile(oldDoc.getCloudStorageUrl(), request);
 
-            int userId = (int) session.getAttribute("userId");
             String newCloudUrl = renameToFinalName(pendingFilePath, userId, conflictTitle, pendingDoc.getFileExtension(), request);
 
             dao.replaceDocumentFile(duplicateDocId, newCloudUrl, pendingDoc.getFileSizeMb(),
@@ -371,6 +389,12 @@ public class UploadController extends HttpServlet {
         if (pendingDocId == null || conflictTitle == null) {
             response.sendRedirect(request.getContextPath() + "/document_upload.jsp?error=session_expired");
             return;
+        }
+
+        // 🔥 MỚI: Chặn lại lần nữa ở bước "Giữ cả hai" phòng trường hợp request bị gọi trực tiếp,
+        // bỏ qua bước handleConfirm ở trên (VD gọi thẳng API).
+        if ("PUBLIC".equals(conflictSharingPermission) && isUserSuspended(userId)) {
+            conflictSharingPermission = "PRIVATE";
         }
 
         DocumentDAO dao = new DocumentDAO();
@@ -446,6 +470,17 @@ public class UploadController extends HttpServlet {
     private String stripExtension(String fileName) {
         int dotIndex = fileName.lastIndexOf('.');
         return (dotIndex > 0) ? fileName.substring(0, dotIndex) : fileName;
+    }
+
+    /**
+     * 🔥 MỚI: Kiểm tra nhanh tài khoản có đang ở trạng thái SUSPENDED hay không.
+     * Dùng ở các bước ghi sharing_permission trong luồng upload (confirm / replace / keepBoth)
+     * để chặn việc đặt tài liệu MỚI thành PUBLIC khi tài khoản đang bị tạm khóa.
+     */
+    private boolean isUserSuspended(int userId) {
+        UserDAO userDao = new UserDAO();
+        User user = userDao.getUserById(userId);
+        return user != null && "SUSPENDED".equalsIgnoreCase(user.getStatus());
     }
 
     private String renameToFinalName(String tempFilePath, int userId, String finalTitle,

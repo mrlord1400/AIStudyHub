@@ -1,9 +1,5 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%
-    // ==========================================
-    // KIỂM TRA BẢO MẬT (RẤT QUAN TRỌNG)
-    // Ngăn chặn truy cập thẳng vào link mà chưa nhập OTP
-    // ==========================================
     String targetEmail = request.getParameter("email");
     if (targetEmail == null || targetEmail.trim().isEmpty()) {
         response.sendRedirect(request.getContextPath() + "/login.jsp");
@@ -14,7 +10,6 @@
     Boolean canReset = (userSession != null) ? (Boolean) userSession.getAttribute("ALLOW_RESET_" + targetEmail) : null;
     
     if (canReset == null || !canReset) {
-        // Trả về login nếu cố tình bypass bước OTP
         response.sendRedirect(request.getContextPath() + "/login.jsp?error=unauthorized");
         return;
     }
@@ -40,10 +35,7 @@
         html.dark .form-container { background-color: #111827; }
         html.dark .input-field { background-color: #374151; border-color: #4b5563; color: #ffffff; }
         html.dark .input-field:focus { background-color: #1f2937; border-color: #5c3cf5; }
-        
-        .bg-brand-gradient {
-            background: linear-gradient(135deg, #4f22ffd1 0%, #7c3aed 100%);
-        }
+        .bg-brand-gradient { background: linear-gradient(135deg, #4f22ffd1 0%, #7c3aed 100%); }
     </style>
 </head>
 
@@ -51,11 +43,8 @@
     <div class="flex flex-col md:flex-row min-h-screen w-full">
 
         <div class="w-full md:w-1/2 flex flex-col justify-between items-center p-8 bg-white dark:bg-gray-900 min-h-screen form-container">
-
             <div class="hidden md:block"></div>
-
             <div class="w-full max-w-md my-auto">
-
                 <div class="text-center mb-8">
                     <div class="inline-flex items-center justify-center w-20 h-20 bg-green-500 text-white rounded-[24px] mb-4 shadow-lg shadow-green-500/20">
                         <svg class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -68,7 +57,13 @@
                         <strong class="text-gray-800 dark:text-gray-200"><%= targetEmail %></strong>
                     </p>
                 </div>
-
+                
+                <%
+                    String errorMsg = request.getParameter("error");
+                    if ("weak_password".equals(errorMsg)) {
+                %>
+                <div class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-sm text-center rounded-lg border border-red-100 dark:border-red-900/50">Mật khẩu không đạt yêu cầu bảo mật! (Cần 8 ký tự, có số, chữ hoa, ký tự đặc biệt).</div>
+                <% } %>
                 <div id="reset-alert" class="hidden mb-4 p-3 text-sm text-center rounded-lg border"></div>
 
                 <form id="reset-form" action="MainController" method="POST" class="space-y-4">
@@ -81,7 +76,7 @@
                             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                             </span>
-                            <input type="password" name="newPassword" id="new-password" placeholder="Tối thiểu 6 ký tự" 
+                            <input type="password" name="newPassword" id="new-password" placeholder="Tối thiểu 8 ký tự, có số & chữ hoa" 
                                    class="input-field w-full pl-10 pr-12 py-3 bg-[#f3f3f5] border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" required>
                             <button type="button" onclick="togglePassword('new-password')" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
@@ -107,12 +102,8 @@
                         Lưu mật khẩu và Đăng nhập
                     </button>
                 </form>
-
             </div>
-
-            <p class="text-center text-xs text-gray-400 dark:text-gray-500 mt-6 font-medium tracking-wide">
-                Dự án SWP391 - Đại học FPT
-            </p>
+            <p class="text-center text-xs text-gray-400 dark:text-gray-500 mt-6 font-medium tracking-wide">Dự án SWP391 - Đại học FPT</p>
         </div>
 
         <div class="hidden md:flex w-full md:w-1/2 bg-brand-gradient items-center justify-center p-16 text-white min-h-screen">
@@ -127,7 +118,7 @@
                         </div>
                         <div>
                             <h3 class="font-semibold text-base mb-0.5">Lời khuyên bảo mật</h3>
-                            <p class="text-sm text-purple-100/80">Sử dụng ít nhất 6 ký tự. Kết hợp chữ cái, số và ký tự đặc biệt.</p>
+                            <p class="text-sm text-purple-100/80">Sử dụng ít nhất 8 ký tự. Phải có chữ cái in hoa, chữ số, và ký tự đặc biệt (!@#$%...).</p>
                         </div>
                     </div>
                 </div>
@@ -151,16 +142,21 @@
             const confirmPwd = document.getElementById('confirm-password').value;
             const alertBox = document.getElementById('reset-alert');
 
+            // BR-15, BR-16, BR-17, BR-17b Validation
+            const hasUppercase = /[A-Z]/.test(pwd);
+            const hasNumber = /[0-9]/.test(pwd);
+            const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd);
+
             if (pwd !== confirmPwd) {
-                e.preventDefault(); // Chặn gửi form đi
+                e.preventDefault(); 
                 alertBox.classList.remove('hidden', 'bg-green-50', 'text-green-600', 'border-green-100');
                 alertBox.classList.add('bg-red-50', 'dark:bg-red-950/40', 'text-red-600', 'dark:text-red-400', 'border-red-100', 'dark:border-red-900/50');
                 alertBox.innerText = 'Mật khẩu xác nhận không trùng khớp!';
-            } else if (pwd.length < 6) {
+            } else if (pwd.length < 8 || !hasUppercase || !hasNumber || !hasSpecial) {
                 e.preventDefault();
                 alertBox.classList.remove('hidden', 'bg-green-50', 'text-green-600', 'border-green-100');
                 alertBox.classList.add('bg-red-50', 'dark:bg-red-950/40', 'text-red-600', 'dark:text-red-400', 'border-red-100', 'dark:border-red-900/50');
-                alertBox.innerText = 'Mật khẩu phải dài tối thiểu 6 ký tự!';
+                alertBox.innerText = 'Mật khẩu phải từ 8 ký tự, có chữ hoa, chữ số & ký tự đặc biệt!';
             }
         });
     </script>

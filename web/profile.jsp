@@ -262,34 +262,37 @@
                 </div>
 
                 <div class="user-area">
-                    <a href="#" class="user-profile-link">
-                        <div class="user-avatar">
-                            <%= username != null && !username.isEmpty() ? username.substring(0, 1) : "U"%>
-                        </div>
-                        <div class="user-info">
-                            <div class="flex items-center gap-1.5 min-w-0">
-                                <p class="user-name"><%= username != null ? username : "Khách"%></p>
-                                <% if (isPremiumUser) { %>
-                                <span class="flex-shrink-0 px-1.5 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-[9px] rounded-full shadow-sm scale-90 origin-left">PRO</span>
-                                <% } else { %>
-                                <span class="flex-shrink-0 px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-400 dark:border-emerald-700 font-bold text-[10px] rounded-full shadow-sm scale-90 origin-left tracking-wide">FREE</span>
-                                <% }%>
+                    <!-- GOM KHỐI USER INFO VÀ FRIEND ICON VÀO CHUNG 1 ROW -->
+                    <div class="flex items-center justify-between w-full mb-1">
+                        <a href="#" class="user-profile-link flex-1 mr-2">
+                            <div class="user-avatar">
+                                <%= username != null && !username.isEmpty() ? username.substring(0, 1) : "U"%>
                             </div>
-                            <p class="user-role">Quyền: <%= role != null ? role : "Free"%></p>
-                        </div>
-                    </a>
+                            <div class="user-info">
+                                <div class="flex items-center gap-1.5 min-w-0">
+                                    <p class="user-name"><%= username != null ? username : "Khách"%></p>
+                                    <% if (isPremiumUser) { %>
+                                    <span class="flex-shrink-0 px-1.5 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-[9px] rounded-full shadow-sm scale-90 origin-left">PRO</span>
+                                    <% } else { %>
+                                    <span class="flex-shrink-0 px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-400 dark:border-emerald-700 font-bold text-[10px] rounded-full shadow-sm scale-90 origin-left tracking-wide">FREE</span>
+                                    <% }%>
+                                </div>
+                                <p class="user-role">Quyền: <%= role != null ? role : "Free"%></p>
+                            </div>
+                        </a>
 
-                    <a href="<%= request.getContextPath()%>/MainController?action=friendList" 
-                       class="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors dark:hover:text-indigo-400 dark:hover:bg-indigo-950/40 flex-shrink-0" 
-                       title="Danh sách bạn bè">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-                        <circle cx="9" cy="7" r="4"/>
-                        <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                        </svg>
-                    </a>
-                       
+                        <a href="<%= request.getContextPath()%>/MainController?action=friendList" 
+                           class="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors dark:hover:text-indigo-400 dark:hover:bg-indigo-950/40 flex-shrink-0" 
+                           title="Danh sách bạn bè">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                        </a>
+                    </div>
+                        
                     <a href="<%= request.getContextPath()%>/MainController?action=logout" class="logout-btn">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
                         <span>Đăng xuất</span>
@@ -308,10 +311,15 @@
                 </a>
             </div>
 
+            <!-- THÊM THÔNG BÁO CHO TRƯỜNG HỢP MẬT KHẨU YẾU -->
+            <div id="form-error-alert" class="hidden max-w-3xl mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium dark:bg-red-950/40 dark:border-red-900 dark:text-red-400"></div>
+
             <% if ("wrong_password".equals(error)) { %>
             <div class="max-w-3xl mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium dark:bg-red-950/40 dark:border-red-900 dark:text-red-400">Mật khẩu hiện tại không chính xác. Không thể lưu thay đổi.</div>
             <% } else if ("update_failed".equals(error)) { %>
             <div class="max-w-3xl mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium dark:bg-red-950/40 dark:border-red-900 dark:text-red-400">Lỗi hệ thống: Không thể cập nhật thông tin.</div>
+            <% } else if ("weak_password".equals(error)) { %>
+            <div class="max-w-3xl mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium dark:bg-red-950/40 dark:border-red-900 dark:text-red-400">Mật khẩu mới không đạt yêu cầu bảo mật! (Cần 8 ký tự, có số, chữ hoa, ký tự đặc biệt).</div>
             <% } else if ("1".equals(updateSuccess)) { %>
             <div class="max-w-3xl mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-xl text-sm font-medium dark:bg-green-950/40 dark:border-green-900 dark:text-green-400">Cập nhật thông tin thành công!</div>
             <% }%>
@@ -322,7 +330,7 @@
                 <button type="button" id="tab-security-btn" onclick="switchTab('security')" class="tab-btn-inactive">Bảo mật & Mật khẩu</button>
             </div>
 
-            <form action="<%= request.getContextPath()%>/MainController" method="POST">
+            <form id="profile-form" action="<%= request.getContextPath()%>/MainController" method="POST">
                 <input type="hidden" name="action" value="updateProfile" />
 
                 <!-- TAB 1: THÔNG TIN CÁ NHÂN -->
@@ -367,14 +375,14 @@
                         </div>
                         <div>
                             <h2 class="text-lg font-bold text-gray-900 dark:text-white">Đổi mật khẩu tài khoản</h2>
-                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Đảm bảo tài khoản sử dụng mật khẩu mạnh để bảo mật an toàn dữ liệu học tập.</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Sử dụng ít nhất 8 ký tự. Kết hợp chữ hoa, số và ký tự đặc biệt (!@#$%...).</p>
                         </div>
                     </div>
 
                     <div class="space-y-5">
                         <div>
                             <label class="form-label text-indigo-600 dark:text-indigo-400">Mật khẩu mới</label>
-                            <input type="password" name="newPassword" class="form-input" placeholder="Nhập mật khẩu mới muốn thay đổi" />
+                            <input type="password" name="newPassword" id="new-password-field" class="form-input" placeholder="Nhập mật khẩu mới muốn thay đổi" />
                         </div>
 
                         <div class="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
@@ -419,38 +427,56 @@
                 const securityCurrentPass = securityContent.querySelector('input[name="currentPassword"]');
 
                 if (tab === 'info') {
-                    // Đổi giao diện
                     infoBtn.className = "tab-btn-active";
                     securityBtn.className = "tab-btn-inactive";
-
                     infoContent.classList.remove('hidden');
                     securityContent.classList.add('hidden');
                     dangerZone.classList.add('hidden');
 
-                    // BẬT input của tab Info, TẮT input của tab Security
                     infoCurrentPass.required = true;
                     infoCurrentPass.disabled = false;
-
                     securityCurrentPass.required = false;
-                    securityCurrentPass.disabled = true; // Trình duyệt sẽ bỏ qua thẻ này khi submit
+                    securityCurrentPass.disabled = true; 
 
                 } else if (tab === 'security') {
-                    // Đổi giao diện
                     infoBtn.className = "tab-btn-inactive";
                     securityBtn.className = "tab-btn-active";
-
                     infoContent.classList.add('hidden');
                     securityContent.classList.remove('hidden');
                     dangerZone.classList.remove('hidden');
 
-                    // TẮT input của tab Info, BẬT input của tab Security
                     infoCurrentPass.required = false;
-                    infoCurrentPass.disabled = true; // Trình duyệt sẽ bỏ qua thẻ này khi submit
-
+                    infoCurrentPass.disabled = true; 
                     securityCurrentPass.required = true;
                     securityCurrentPass.disabled = false;
                 }
             }
+
+            // Xử lý Validation Password bằng JS khi Submit Form
+            document.getElementById('profile-form').addEventListener('submit', function(e) {
+                const securityContent = document.getElementById('tab-security-content');
+                const errorAlert = document.getElementById('form-error-alert');
+                
+                // Chỉ validate mật khẩu mới khi người dùng đang ở tab Security
+                if (!securityContent.classList.contains('hidden')) {
+                    const pwd = document.getElementById('new-password-field').value;
+                    
+                    if (pwd.trim() !== '') {
+                        const hasUppercase = /[A-Z]/.test(pwd);
+                        const hasNumber = /[0-9]/.test(pwd);
+                        const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd);
+
+                        if (pwd.length < 8 || !hasUppercase || !hasNumber || !hasSpecial) {
+                            e.preventDefault();
+                            errorAlert.innerText = 'Mật khẩu mới phải từ 8 ký tự, có chữ hoa, chữ số & ký tự đặc biệt!';
+                            errorAlert.classList.remove('hidden');
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                        } else {
+                            errorAlert.classList.add('hidden');
+                        }
+                    }
+                }
+            });
         </script>
     </body>
 </html>

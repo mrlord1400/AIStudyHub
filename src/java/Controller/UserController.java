@@ -14,6 +14,17 @@ import java.io.IOException;
 @WebServlet(name = "UserController", urlPatterns = {"/UserController"})
 public class UserController extends HttpServlet {
 
+    /**
+     * Hàm kiểm tra mật khẩu đạt chuẩn (BR-15, 16, 17, 17b)
+     */
+    private boolean isValidPassword(String password) {
+        if (password == null || password.length() < 8) return false;
+        if (!password.matches(".*[A-Z].*")) return false;
+        if (!password.matches(".*[0-9].*")) return false;
+        if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?].*")) return false;
+        return true;
+    }
+
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
@@ -55,21 +66,20 @@ public class UserController extends HttpServlet {
                 User existingUser = dao.getUserById(userId);
                 String finalPasswordHash = existingUser.getPasswordHash();
 
-                // If the user typed a new password, update it. Otherwise, keep the old one.
+                // If the user typed a new password, update it.
                 if (newPassword != null && !newPassword.trim().isEmpty()) {
-                    finalPasswordHash =
-                            PasswordUtil.hashPassword(
-                                    newPassword
-                            );
+                    // Kiểm tra quy tắc bảo mật từ Backend
+                    if (!isValidPassword(newPassword)) {
+                        response.sendRedirect(request.getContextPath() + "/MainController?action=profile&error=weak_password");
+                        return;
+                    }
+                    finalPasswordHash = PasswordUtil.hashPassword(newPassword);
                 }
 
-                User userToUpdate = new User();
-                userToUpdate.setUserId(userId);
-                userToUpdate.setUsername(username);
-                userToUpdate.setEmail(email);
-                userToUpdate.setPasswordHash(finalPasswordHash);
+                existingUser.setUsername(username);
+                existingUser.setEmail(email);
 
-                boolean success = dao.updateUser(userToUpdate);
+                boolean success = dao.updateUser(existingUser) && dao.updatePassword(existingUser.getEmail(), finalPasswordHash);
                 if (success) {
                     // Sync the new username to the active HTTP session
                     session.setAttribute("username", username);
