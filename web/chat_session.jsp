@@ -383,7 +383,7 @@
                             <span>Lịch sử trò chuyện</span>
                         </button>
                         <button onclick="toggleCreateModal(true)" class="btn-secondary">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"/></svg>
                             <span>Cuộc trò chuyện mới</span>
                         </button>
                     </div>
@@ -407,9 +407,21 @@
                                 <c:forEach var="msg" items="${messageList}">
                                     <c:choose>
                                         <c:when test="${msg.sender == 'USER'}">
-                                            <div class="flex items-start gap-3 justify-end">
-                                                <div class="bg-indigo-600 text-white rounded-2xl p-4 max-w-[85%] text-sm shadow-sm relative">
-                                                    <p class="leading-relaxed font-medium">${msg.messageContent}</p>
+                                            <div id="msg-container-${msg.messageId}" class="flex items-start gap-3 justify-end msg-container group" data-msg-id="${msg.messageId}">
+                                                <div class="flex flex-col items-end gap-1 max-w-[85%]">
+                                                    <div class="bg-indigo-600 text-white rounded-2xl p-4 text-sm shadow-sm relative msg-content">
+                                                        <p class="leading-relaxed font-medium">${msg.messageContent}</p>
+                                                    </div>
+                                                    <div class="flex items-center gap-3 mr-1 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                        <button onclick="editPrompt(this)" class="flex items-center gap-1 hover:text-indigo-400 transition-colors text-[11px] font-medium" title="Sửa lời nhắc">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                                                            <span>Sửa & Gửi lại</span>
+                                                        </button>
+                                                        <button onclick="copyMessageContent(this)" class="flex items-center gap-1 hover:text-indigo-400 transition-colors text-[11px] font-medium" title="Copy">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                                            <span class="copy-text">Copy</span>
+                                                        </button>
+                                                    </div>
                                                 </div>
                                                 <div class="w-8 h-8 rounded-full bg-indigo-900/60 text-indigo-300 flex items-center justify-center font-bold text-xs uppercase flex-shrink-0 shadow-sm">
                                                     <%= username != null && !username.isEmpty() ? username.substring(0, 1) : "U"%>
@@ -418,12 +430,20 @@
                                         </c:when>
 
                                         <c:otherwise>
-                                            <div class="flex items-start gap-3">
+                                            <div class="flex items-start gap-3 msg-container group">
                                                 <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.886L4.2 10.8 10.088 12.714 12 18.6l1.912-5.886L19.8 10.8l-5.886-1.914Z"/></svg>
                                                 </div>
-                                                <div class="bot-msg-box border rounded-2xl p-4 max-w-[85%] shadow-sm relative transition-colors duration-200">
-                                                    <div class="prose prose-sm prose-invert max-w-none leading-relaxed font-medium markdown-content">${msg.messageContent}</div>
+                                                <div class="flex flex-col items-start gap-1 max-w-[85%]">
+                                                    <div class="bot-msg-box border rounded-2xl p-4 shadow-sm relative transition-colors duration-200">
+                                                        <div class="prose prose-sm prose-invert max-w-none leading-relaxed font-medium markdown-content msg-content">${msg.messageContent}</div>
+                                                    </div>
+                                                    <div class="flex items-center gap-2 ml-2 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                        <button onclick="copyMessageContent(this)" class="flex items-center gap-1 hover:text-emerald-400 transition-colors text-[11px] font-medium" title="Copy câu trả lời">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                                            <span class="copy-text">Copy</span>
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </c:otherwise>
@@ -548,7 +568,7 @@
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500 mt-0.5 group-hover:text-indigo-400 flex-shrink-0"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                                         <div class="flex-1 min-w-0 pr-2">
                                             <p id="title-text-${sessionItem.sessionId}" class="text-sm font-semibold ${isActive ? 'text-indigo-400' : 'text-gray-200'} truncate mb-0.5">${sessionItem.sessionName}</p>
-                                            <!-- ADDED: Pinned badge — only visible when session is pinned -->
+                                            
                                             <c:if test="${sessionItem.pinned}">
                                                 <span id="pin-badge-${sessionItem.sessionId}"
                                                       class="inline-flex items-center gap-1 text-[9px] font-bold text-yellow-400 mt-0.5">
@@ -561,7 +581,6 @@
                                                 </span>
                                             </c:if>
                                             <c:if test="${!sessionItem.pinned}">
-                                                <!-- ADDED: Empty badge placeholder for JS to toggle into -->
                                                 <span id="pin-badge-${sessionItem.sessionId}" class="hidden inline-flex items-center gap-1 text-[9px] font-bold text-yellow-400 mt-0.5">
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24"
                                                          fill="currentColor" stroke="currentColor" stroke-width="2">
@@ -571,7 +590,7 @@
                                                     Đã ghim
                                                 </span>
                                             </c:if>
-                                            <span class="text-[10px] text-gray-500 font-medium">${sessionItem.createdAt}</span>
+                                            <span class="text-[10px] text-gray-500 font-medium block">${sessionItem.createdAt}</span>
                                         </div>
                                     </div>
 
@@ -769,16 +788,14 @@
 
 
             // ==============================================================================
-            // CÁC HÀM XỬ LÝ GIAO DIỆN VÀ GỬI TIN NHẮN
+            // CÁC HÀM XỬ LÝ GIAO DIỆN VÀ GỬI TIN NHẮN (ĐÃ CHUYỂN LOGIC ATTACHMENT SANG BACK-END)
             // ==============================================================================
 
-            // Khởi tạo biến từ JSTL để xử lý đính kèm
-            // ==============================================================================
-// CÁC HÀM XỬ LÝ GIAO DIỆN VÀ GỬI TIN NHẮN (ĐÃ CHUYỂN LOGIC ATTACHMENT SANG BACK-END)
-// ==============================================================================
-
-// Khởi tạo biến từ JSTL để xử lý đính kèm
             let currentAttachment = "${attachedDocName}";
+
+            // Trạng thái giữ Id tin nhắn đang chỉnh sửa
+            let editingMessageId = null;
+            let editingContainer = null;
 
             function scrollToBottom() {
                 const scrollArea = document.getElementById('chatMessageLogs');
@@ -793,7 +810,7 @@
                 scrollToBottom();
             });
 
-// Xóa đính kèm hiện tại ra khỏi UI và bộ nhớ
+            // Xóa đính kèm hiện tại ra khỏi UI và bộ nhớ
             function removeAttachedFile() {
                 currentAttachment = "";
                 document.getElementById('filePreviewContainer').classList.add('hidden');
@@ -811,34 +828,94 @@
                 }
             }
 
-            function processSendMessage() {
+            function editPrompt(btnEl) {
+                const container = btnEl.closest('.msg-container');
+                const contentEl = container.querySelector('.msg-content');
+                
+                let textToEdit = contentEl.innerText.trim();
+                if(textToEdit.includes("📎 Đã đính kèm:")) {
+                    textToEdit = textToEdit.split("📎 Đã đính kèm:")[0].trim();
+                }
+
+                const inputElement = document.getElementById('userChatInput');
+                inputElement.value = textToEdit;
+                inputElement.focus();
+                
+                // Thu thập id trực tiếp từ DOM mà không quan trọng id cũ hay id temp
+                editingMessageId = container.getAttribute('data-msg-id');
+                editingContainer = container;
+                
+                container.style.opacity = '0.5';
+            }
+
+            async function processSendMessage() {
                 const inputElement = document.getElementById('userChatInput');
                 const logsContainer = document.getElementById('chatLogsContainer');
                 const messageText = inputElement.value.trim();
-                const attachmentToSend = currentAttachment; // Lưu lại trước khi xóa chip khỏi UI
+                const attachmentToSend = currentAttachment; 
 
-                // Nếu không có chữ và không có đính kèm thì không làm gì cả
-                if (!messageText && !attachmentToSend)
-                    return;
+                if (!messageText && !attachmentToSend) return;
 
-                // Hiển thị tin nhắn của user lên UI — CHỈ hiển thị nội dung gốc + ghi chú đính kèm,
-                // KHÔNG còn build chuỗi "[HỆ THỐNG: ...]" ở đây nữa (việc này đã chuyển sang back-end)
+                // XỬ LÝ XÓA ĐỒNG BỘ KHÔNG REFRESH KHI Ở TRẠNG THÁI EDIT PROMPT
+                if (editingMessageId && editingContainer) {
+                    try {
+                        const delFormData = new URLSearchParams();
+                        delFormData.append('messageId', editingMessageId);
+                        delFormData.append('sessionId', '${currentChat.sessionId}');
+                        
+                        await fetch('<%= request.getContextPath()%>/SessionController?action=deleteMessagesFrom', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                            body: delFormData.toString()
+                        });
+
+                        let nextEl = editingContainer.nextElementSibling;
+                        while(nextEl) {
+                            let toRemove = nextEl;
+                            nextEl = nextEl.nextElementSibling;
+                            toRemove.remove();
+                        }
+                        editingContainer.remove();
+
+                    } catch (e) {
+                        console.error("Lỗi khi xóa tin nhắn cũ: ", e);
+                    }
+                    
+                    editingMessageId = null;
+                    editingContainer = null;
+                }
+
                 let displayMessage = messageText;
                 if (attachmentToSend) {
                     const attachmentNote = '<span class="text-indigo-300 text-xs block mt-1">📎 Đã đính kèm: ' + attachmentToSend + '</span>';
                     displayMessage = messageText ? (messageText + attachmentNote) : attachmentNote;
                 }
 
+                // Nhãn định danh tạm thời để gán ID thật sau đó
+                const tempMsgId = "temp-" + Date.now(); 
+
                 const userMsgHtml = `
-        <div class="flex items-start gap-3 justify-end">
-            <div class="bg-indigo-600 text-white rounded-2xl p-4 max-w-[85%] text-sm shadow-sm relative">
-                <p class="leading-relaxed font-medium">` + displayMessage + `</p>
-            </div>
-            <div class="w-8 h-8 rounded-full bg-indigo-900/60 text-indigo-300 flex items-center justify-center font-bold text-xs uppercase flex-shrink-0 shadow-sm">
-            <%= username != null && !username.isEmpty() ? username.substring(0, 1) : "U"%>
-            </div>
-        </div>
-    `;
+                <div id="msg-container-`+tempMsgId+`" class="flex items-start gap-3 justify-end msg-container group" data-msg-id="`+tempMsgId+`">
+                    <div class="flex flex-col items-end gap-1 max-w-[85%]">
+                        <div class="bg-indigo-600 text-white rounded-2xl p-4 text-sm shadow-sm relative msg-content">
+                            <p class="leading-relaxed font-medium">` + displayMessage + `</p>
+                        </div>
+                        <div class="flex items-center gap-3 mr-1 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            <button onclick="editPrompt(this)" class="flex items-center gap-1 hover:text-indigo-400 transition-colors text-[11px] font-medium" title="Sửa lời nhắc">
+                                <svg xmlns="http://www.w3.org/2000/xl" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                                <span>Sửa & Gửi lại</span>
+                            </button>
+                            <button onclick="copyMessageContent(this)" class="flex items-center gap-1 hover:text-indigo-400 transition-colors text-[11px] font-medium" title="Copy">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                <span class="copy-text">Copy</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="w-8 h-8 rounded-full bg-indigo-900/60 text-indigo-300 flex items-center justify-center font-bold text-xs uppercase flex-shrink-0 shadow-sm">
+                        <%= username != null && !username.isEmpty() ? username.substring(0, 1) : "U"%>
+                    </div>
+                </div>`;
+                
                 logsContainer.insertAdjacentHTML('beforeend', userMsgHtml);
                 scrollToBottom();
 
@@ -849,10 +926,8 @@
                     logsContainer.firstElementChild.remove();
                 }
 
-                removeAttachedFile(); // Xóa chip trên UI ngay sau khi gửi
+                removeAttachedFile(); 
 
-                // Gửi message GỐC (không chèn system prompt) + tên file đính kèm (nếu có) riêng biệt.
-                // Back-end (ChatBotController) sẽ tự build system prompt VIEW/... khi cần.
                 const bodyParams = new URLSearchParams();
                 bodyParams.append('message', messageText);
                 bodyParams.append('sessionId', '${currentChat.sessionId}');
@@ -860,50 +935,68 @@
                     bodyParams.append('attachment', attachmentToSend);
                 }
 
+                let msgIdFromServer = null;
+
                 fetch('<%= request.getContextPath()%>/ChatBotController', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: bodyParams.toString()
                 })
-                        .then(async response => {
-                            if (response.status === 429) {
-                                const errorMsg = await response.text();
-                                throw new Error("RATE_LIMIT:" + errorMsg);
-                            }
-                            if (!response.ok) {
-                                const errorMsg = await response.text();
-                                throw new Error(errorMsg || "Network error");
-                            }
-                            return response.text();
-                        })
-                        .then(data => {
-                            const parsedHTML = marked.parse(data);
+                .then(async response => {
+                    if (response.status === 429) {
+                        const errorMsg = await response.text();
+                        throw new Error("RATE_LIMIT:" + errorMsg);
+                    }
+                    if (!response.ok) {
+                        const errorMsg = await response.text();
+                        throw new Error(errorMsg || "Network error");
+                    }
+                    // Trích xuất ID thật do Database trả ra trong Response Header
+                    msgIdFromServer = response.headers.get("X-Message-Id");
+                    return response.text();
+                })
+                .then(data => {
+                    // Ánh xạ ngầm ID thật vào DOM để sẵn sàng cho lần Edit tiếp theo
+                    if (msgIdFromServer) {
+                        const tempContainer = document.getElementById(`msg-container-${tempMsgId}`);
+                        if (tempContainer) {
+                            tempContainer.id = `msg-container-${msgIdFromServer}`;
+                            tempContainer.setAttribute('data-msg-id', msgIdFromServer);
+                        }
+                    }
 
-                            const botMsgHtml = `
-                    <div class="flex items-start gap-3">
+                    const parsedHTML = marked.parse(data);
+
+                    const botMsgHtml = `
+                    <div class="flex items-start gap-3 msg-container group">
                         <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.886L4.2 10.8 10.088 12.714 12 18.6l1.912-5.886L19.8 10.8l-5.886-1.914Z"/></svg>
                         </div>
-                        <div class="bot-msg-box border rounded-2xl p-4 max-w-[85%] shadow-sm relative transition-colors duration-200">
-                        <div class="prose prose-sm prose-invert max-w-none leading-relaxed font-medium">` + parsedHTML + `</div>
+                        <div class="flex flex-col items-start gap-1 max-w-[85%]">
+                            <div class="bot-msg-box border rounded-2xl p-4 shadow-sm relative transition-colors duration-200">
+                                <div class="prose prose-sm prose-invert max-w-none leading-relaxed font-medium markdown-content msg-content">` + parsedHTML + `</div>
+                            </div>
+                            <div class="flex items-center gap-2 ml-2 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                <button onclick="copyMessageContent(this)" class="flex items-center gap-1 hover:text-emerald-400 transition-colors text-[11px] font-medium" title="Copy câu trả lời">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                    <span class="copy-text">Copy</span>
+                                </button>
+                            </div>
                         </div>
-                    </div>
-`;
-                            logsContainer.insertAdjacentHTML('beforeend', botMsgHtml);
-                            scrollToBottom();
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            let displayError = "Đã xảy ra lỗi khi kết nối với máy chủ.";
-                            if (error.message.startsWith("RATE_LIMIT:")) {
-                                displayError = error.message.replace("RATE_LIMIT:", "").replace(/\n/g, "<br>");
-                            } else if (error.message) {
-                                displayError = error.message;
-                            }
+                    </div>`;
+                    logsContainer.insertAdjacentHTML('beforeend', botMsgHtml);
+                    scrollToBottom();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    let displayError = "Đã xảy ra lỗi khi kết nối với máy chủ.";
+                    if (error.message.startsWith("RATE_LIMIT:")) {
+                        displayError = error.message.replace("RATE_LIMIT:", "").replace(/\n/g, "<br>");
+                    } else if (error.message) {
+                        displayError = error.message;
+                    }
 
-                            const errorMsgHtml = `
+                    const errorMsgHtml = `
                     <div class="flex items-start gap-3">
                         <div class="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -911,22 +1004,21 @@
                         <div class="border border-red-500/30 bg-red-500/10 text-red-400 rounded-2xl p-4 max-w-[85%] text-sm shadow-sm relative">
                             <p class="leading-relaxed font-semibold">` + displayError + `</p>
                         </div>
-                    </div>
-                `;
-                            logsContainer.insertAdjacentHTML('beforeend', errorMsgHtml);
-                            scrollToBottom();
-                        })
-                        .finally(() => {
-                            inputElement.disabled = false;
-                            inputElement.focus();
-                        });
+                    </div>`;
+                    logsContainer.insertAdjacentHTML('beforeend', errorMsgHtml);
+                    scrollToBottom();
+                })
+                .finally(() => {
+                    inputElement.disabled = false;
+                    inputElement.focus();
+                });
             }
-            // ADDED: Toggle pin/unpin a chat session
+
+            // Toggle pin/unpin a chat session
             function togglePinSession(id, btnEl) {
-                // Read current pin state from the button's icon fill attribute
                 const svgEl = btnEl.querySelector('svg');
-                const isPinned = svgEl.getAttribute('fill') === 'currentColor'; // currently pinned
-                const newState = !isPinned; // toggle to opposite
+                const isPinned = svgEl.getAttribute('fill') === 'currentColor';
+                const newState = !isPinned; 
 
                 const url = "<%= request.getContextPath()%>/SessionController?action=pinSession";
                 const formData = new URLSearchParams();
@@ -941,7 +1033,6 @@
                         .then(response => response.json())
                         .then(data => {
                             if (data.success) {
-                                // --- Update pin button icon (filled = pinned, outline = unpinned) ---
                                 svgEl.setAttribute('fill', newState ? 'currentColor' : 'none');
                                 btnEl.setAttribute('title', newState ? 'Bỏ ghim' : 'Ghim');
                                 if (newState) {
@@ -950,7 +1041,6 @@
                                     svgEl.classList.remove('text-yellow-400');
                                 }
 
-                                // --- Show/hide the "Đã ghim" badge in the title area ---
                                 const badge = document.getElementById('pin-badge-' + id);
                                 if (badge) {
                                     if (newState) {
@@ -960,14 +1050,11 @@
                                     }
                                 }
 
-                                // --- Move the session row to top (pinned) or re-sort (unpinned) ---
                                 const row = btnEl.closest('.session-row');
                                 const container = document.getElementById('historyItemsContainer');
                                 if (newState) {
-                                    // Pinned: move to the very top of the list
                                     container.prepend(row);
                                 } else {
-                                    // Unpinned: move below all other pinned rows
                                     const pinnedRows = container.querySelectorAll(
                                             '.session-row svg[fill="currentColor"]'
                                             );
@@ -986,6 +1073,34 @@
                             }
                         })
                         .catch(err => console.error("Pin Error:", err));
+            }
+
+            // --- Xử lý tính năng Copy ---
+            function copyMessageContent(btnEl) {
+                const container = btnEl.closest('.msg-container');
+                const contentEl = container.querySelector('.msg-content');
+                
+                let textToCopy = contentEl.innerText.trim();
+
+                if(textToCopy.includes("📎 Đã đính kèm:")) {
+                    textToCopy = textToCopy.split("📎 Đã đính kèm:")[0].trim();
+                }
+
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    const spanEl = btnEl.querySelector('.copy-text');
+                    const originalText = spanEl.innerText;
+                    
+                    spanEl.innerText = "Đã Copy!";
+                    btnEl.classList.add('text-emerald-400');
+                    
+                    setTimeout(() => {
+                        spanEl.innerText = originalText;
+                        btnEl.classList.remove('text-emerald-400');
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Lỗi khi copy: ', err);
+                    alert('Trình duyệt của bạn không hỗ trợ tính năng copy tự động.');
+                });
             }
         </script>
     </body>
