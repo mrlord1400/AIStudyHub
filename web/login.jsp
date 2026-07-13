@@ -115,6 +115,8 @@
                     <div class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-sm text-center rounded-lg border border-red-100 dark:border-red-900/50">Bạn cần xác thực OTP trước khi đổi mật khẩu!</div>
                     <% } else if ("reset_failed".equals(error)) { %>
                     <div class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-sm text-center rounded-lg border border-red-100 dark:border-red-900/50">Đổi mật khẩu thất bại. Vui lòng thử lại!</div>
+                    <% } else if ("banned".equals(error)) { %>
+                    <div class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-sm text-center rounded-lg border border-red-100 dark:border-red-900/50 font-semibold">Tài khoản của bạn đã bị BAN do vi phạm điều khoản và chính sách của hệ thống.</div>
                     <% } else if ("success".equals(register)) { %>
                     <div class="mb-4 p-3 bg-green-50 dark:bg-emerald-950/40 text-green-600 dark:text-emerald-400 text-sm text-center rounded-lg border border-green-100 dark:border-emerald-900/50">Đăng ký thành công! Vui lòng đăng nhập.</div>
                     <% } else if ("success".equals(reset)) { %>

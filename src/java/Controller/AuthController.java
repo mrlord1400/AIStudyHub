@@ -125,6 +125,10 @@ public class AuthController extends HttpServlet {
      * Requirement:
      * - Receive data from login page
      * - Authenticate user
+     * - 🔥 MỚI: Nếu tài khoản đang BANNED, từ chối đăng nhập kể cả khi
+     *   mật khẩu đúng, và hiển thị thông báo riêng tại login.jsp.
+     *   Việc kiểm tra này đặt SAU khi verify mật khẩu để không lộ
+     *   thông tin tài khoản tồn tại hay không cho người nhập sai mật khẩu.
      * - Show corresponding dashboard
      */
     private void handleLogin(HttpServletRequest request,
@@ -143,6 +147,14 @@ public class AuthController extends HttpServlet {
                 PasswordUtil.verifyPassword(
                         password,
                         user.getPasswordHash())){
+
+            // 🔥 MỚI: Chặn tài khoản BANNED ngay tại đây, trước khi tạo session
+            if ("BANNED".equalsIgnoreCase(user.getStatus())) {
+                response.sendRedirect(
+                        request.getContextPath()
+                                + "/login.jsp?error=banned");
+                return;
+            }
 
             HttpSession session = request.getSession();
 

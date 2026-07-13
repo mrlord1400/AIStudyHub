@@ -398,7 +398,11 @@ public class DocumentDAO {
         return false;
     }
 
-    // 🔥 HÀM MỚI: TÍCH HỢP TÌM KIẾM VÀ SẮP XẾP TỪ BACKEND
+    // 🔥 HÀM ĐÃ SỬA: TÍCH HỢP TÌM KIẾM VÀ SẮP XẾP TỪ BACKEND
+    // FIX (bug tài liệu flagged bị mất): không loại bỏ hoàn toàn tài liệu is_flagged=1
+    // khỏi kết quả nữa, chỉ ẩn với người khác — chính chủ sở hữu vẫn thấy được để sửa report của mình.
+    // FIX (sort không hoạt động): gắn biến orderBy (đã ưu tiên is_flagged ASC xuống cuối)
+    // vào câu SQL thật, trước đây orderBy được tính nhưng không dùng.
     public List<Document> getExploreDocuments(int currentUserId, boolean isFriendsView, String searchQuery, String sortBy) {
         List<Document> list = new ArrayList<>();
         String sql;
@@ -449,7 +453,7 @@ public class DocumentDAO {
 
             // param cho LEFT JOIN bookmarks b.user_id = ?
             ps.setInt(paramIndex++, currentUserId);
-            // param cho (d.is_flagged = 0 OR d.user_id = ?)  -- để chính chủ vẫn thấy tài liệu bị cấm cờ của mình
+            // param cho (d.is_flagged = 0 OR d.user_id = ?) -- để chính chủ vẫn thấy tài liệu bị cấm cờ của mình
             ps.setInt(paramIndex++, currentUserId);
 
             if (isFriendsView) {
@@ -747,5 +751,28 @@ public class DocumentDAO {
             e.printStackTrace();
         }
         return list;
+    }
+
+    /**
+     * 🔥 MỚI: Dùng khi Admin chuyển trạng thái một user sang SUSPENDED.
+     * Tự động đẩy toàn bộ tài liệu đang ở chế độ PUBLIC của user đó về PRIVATE,
+     * để tuân thủ quy định "user bị suspend không được công khai tài liệu".
+     * Tài liệu FRIENDS_ONLY hoặc PRIVATE không bị ảnh hưởng.
+     */
+    public boolean privatizePublicDocumentsByUserId(int userId) {
+        String sql = "UPDATE documents SET sharing_permission = 'PRIVATE', updated_at = ? "
+                + "WHERE user_id = ? AND sharing_permission = 'PUBLIC'";
+
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setTimestamp(1, java.sql.Timestamp.valueOf(LocalDateTime.now()));
+            ps.setInt(2, userId);
+            ps.executeUpdate();
+            // Không cần rowCount > 0 vì user có thể không có tài liệu PUBLIC nào -> vẫn coi là thành công
+            return true;
+        } catch (SQLException e) {
+            System.err.println("[DocumentDAO] privatizePublicDocumentsByUserId failed: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return false;
     }
 }

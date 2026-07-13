@@ -171,6 +171,15 @@ public class AdminController extends HttpServlet {
                     user.setBalance(newBalance);
                     user.setTierId(newTierId);
                     userDAO.updateUser(user);
+
+                    // 🔥 MỚI: Nếu admin chuyển user sang SUSPENDED, tự động đẩy
+                    // toàn bộ tài liệu PUBLIC của họ về PRIVATE ngay lập tức.
+                    // Tài liệu FRIENDS_ONLY / PRIVATE giữ nguyên, các tính năng khác
+                    // của user vẫn hoạt động bình thường (chỉ chặn public từ nay).
+                    if ("SUSPENDED".equalsIgnoreCase(newStatus)) {
+                        DocumentDAO docDAO = new DocumentDAO();
+                        docDAO.privatizePublicDocumentsByUserId(userId);
+                    }
                 }
                 break;
 
