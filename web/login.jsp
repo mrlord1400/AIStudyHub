@@ -54,28 +54,12 @@
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
         <style type="text/tailwindcss">
-            html.dark body {
-                background-color: #111827;
-                color: #f3f4f6;
-            }
-            html.dark .form-container {
-                background-color: #111827;
-            }
-            html.dark .input-field {
-                background-color: #374151;
-                border-color: #4b5563;
-                color: #ffffff;
-            }
-            html.dark .input-field:focus {
-                background-color: #1f2937;
-                border-color: #5c3cf5;
-            }
-            html.dark .tab-bg {
-                background-color: #1f2937;
-            }
-            .bg-brand-gradient {
-                background: linear-gradient(135deg, #4f22ffd1 0%, #7c3aed 100%);
-            }
+            html.dark body { background-color: #111827; color: #f3f4f6; }
+            html.dark .form-container { background-color: #111827; }
+            html.dark .input-field { background-color: #374151; border-color: #4b5563; color: #ffffff; }
+            html.dark .input-field:focus { background-color: #1f2937; border-color: #5c3cf5; }
+            html.dark .tab-bg { background-color: #1f2937; }
+            .bg-brand-gradient { background: linear-gradient(135deg, #4f22ffd1 0%, #7c3aed 100%); }
         </style>
     </head>
 
@@ -106,11 +90,14 @@
                         String error = request.getParameter("error");
                         String register = request.getParameter("register");
                         String reset = request.getParameter("reset");
+                        
                         if ("invalid_credentials".equals(error)) {
                     %>
                     <div class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-sm text-center rounded-lg border border-red-100 dark:border-red-900/50">Sai email hoặc mật khẩu. Vui lòng thử lại!</div>
                     <% } else if ("register_failed".equals(error)) { %>
                     <div class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-sm text-center rounded-lg border border-red-100 dark:border-red-900/50">Đăng ký thất bại. Email có thể đã tồn tại!</div>
+                    <% } else if ("weak_password".equals(error)) { %>
+                    <div class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-sm text-center rounded-lg border border-red-100 dark:border-red-900/50">Mật khẩu phải dài ít nhất 8 ký tự, bao gồm chữ hoa, chữ số và ký tự đặc biệt!</div>
                     <% } else if ("unauthorized".equals(error)) { %>
                     <div class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-sm text-center rounded-lg border border-red-100 dark:border-red-900/50">Bạn cần xác thực OTP trước khi đổi mật khẩu!</div>
                     <% } else if ("reset_failed".equals(error)) { %>

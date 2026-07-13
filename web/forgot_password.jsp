@@ -11,32 +11,12 @@
         </script>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
         <style type="text/tailwindcss">
-            html.dark body {
-                background-color: #111827;
-                color: #f3f4f6;
-            }
-            html.dark .form-container {
-                background-color: #111827;
-            }
-            html.dark .input-field {
-                background-color: #374151;
-                border-color: #4b5563;
-                color: #ffffff;
-            }
-            html.dark .input-field:focus {
-                background-color: #1f2937;
-                border-color: #5c3cf5;
-            }
-            .bg-brand-gradient {
-                background: linear-gradient(135deg, #4f22ffd1 0%, #7c3aed 100%);
-            }
-            .otp-box {
-                width: 3rem;
-                height: 3.5rem;
-                text-align: center;
-                font-size: 1.5rem;
-                font-weight: 600;
-            }
+            html.dark body { background-color: #111827; color: #f3f4f6; }
+            html.dark .form-container { background-color: #111827; }
+            html.dark .input-field { background-color: #374151; border-color: #4b5563; color: #ffffff; }
+            html.dark .input-field:focus { background-color: #1f2937; border-color: #5c3cf5; }
+            .bg-brand-gradient { background: linear-gradient(135deg, #4f22ffd1 0%, #7c3aed 100%); }
+            .otp-box { width: 3rem; height: 3.5rem; text-align: center; font-size: 1.5rem; font-weight: 600; }
         </style>
     </head>
 
@@ -69,7 +49,8 @@
 
                     <div id="step-otp" class="hidden">
                         <p class="text-sm text-gray-500 dark:text-gray-400 text-center mb-6">
-                            Mã xác nhận 6 số đã được gửi đến <span id="otp-target-email" class="font-semibold text-gray-800 dark:text-gray-200"></span>
+                            Nếu email này tồn tại trong hệ thống, mã xác nhận 6 số đã được gửi đến <br>
+                            <span id="otp-target-email" class="font-semibold text-gray-800 dark:text-gray-200"></span>
                         </p>
                         <div id="otp-alert" class="hidden mb-4 p-3 text-sm text-center rounded-lg border"></div>
                         <div class="flex justify-center gap-2 mb-4">
@@ -120,16 +101,6 @@
                             <div>
                                 <h3 class="font-semibold text-base mb-0.5">AI Chatbot hỗ trợ học tập</h3>
                                 <p class="text-sm text-purple-100/80">Trợ lý AI giúp bạn giải đáp thắc mắc và học tập hiệu quả hơn</p>
-                            </div>
-                        </div>
-
-                        <div class="flex items-start">
-                            <div class="w-11 h-11 bg-white/15 rounded-xl flex items-center justify-center mr-4 flex-shrink-0 backdrop-blur-sm">
-                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-base mb-0.5">Thư viện phong phú</h3>
-                                <p class="text-sm text-purple-100/80">Truy cập hàng ngàn tài liệu học tập chất lượng cao</p>
                             </div>
                         </div>
                     </div>
@@ -204,7 +175,6 @@
                 }, 1000);
             }
 
-            // Đã sửa đoạn này: Gọi thẳng tới ForgotPasswordController thay vì MainController
             async function callForgotPasswordApi(action, extraParams) {
                 const params = new URLSearchParams({action: action, email: currentEmail, ...extraParams});
                 const res = await fetch('<%= request.getContextPath()%>/ForgotPasswordController', {
@@ -304,7 +274,6 @@
                 }
             });
 
-            // Xử lý UI cho các ô nhập OTP (chuyển ô tự động)
             otpDigits.forEach((input, idx) => {
                 input.addEventListener('input', () => {
                     input.value = input.value.replace(/[^0-9]/g, '');

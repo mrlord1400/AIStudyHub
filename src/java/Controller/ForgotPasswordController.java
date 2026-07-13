@@ -18,7 +18,6 @@ import javax.servlet.http.HttpSession;
 @WebServlet(name = "ForgotPasswordController", urlPatterns = {"/ForgotPasswordController"})
 public class ForgotPasswordController extends HttpServlet {
 
-    // Bộ nhớ đệm dùng để chặn nếu nhập sai 3 lần, Reset khi restart Tomcat
     private static final Map<String, Long> lockMap = new ConcurrentHashMap<>(); 
     private static final Map<String, Integer> attemptMap = new ConcurrentHashMap<>(); 
     
@@ -40,7 +39,6 @@ public class ForgotPasswordController extends HttpServlet {
             return;
         }
 
-        // 1. Kiểm tra tài khoản có bị khóa vì quá số lần thử không
         if (lockMap.containsKey(email)) {
             long unlockTime = lockMap.get(email);
             if (System.currentTimeMillis() < unlockTime) {
@@ -54,29 +52,32 @@ public class ForgotPasswordController extends HttpServlet {
 
         try {
             if ("sendOTP".equals(action)) {
-                // Chỉ gửi OTP cho email đã đăng ký trong hệ thống
                 UserDAO dao = new UserDAO();
                 User user = dao.getUserByEmail(email);
 
-                if (user == null) {
-                    out.print("{\"status\":\"error\", \"message\":\"Email không tồn tại trong hệ thống.\"}");
-                    return;
-                }
-
-                // Render mã OTP gồm 6 chữ số ngẫu nhiên
-                String otp = String.format("%06d", new Random().nextInt(999999));
-                
-                // Gửi OTP thông qua tiện ích SMTP (Lưu ý: Bạn phải config EmailUtil.java trước nhé)
-                boolean isSent = EmailUtil.sendOTP(email, otp);
-                if (isSent) {
-                    HttpSession session = request.getSession();
-                    session.setAttribute("RECOVERY_OTP_" + email, otp);
-                    session.setAttribute("RECOVERY_TIME_" + email, System.currentTimeMillis());
+                // BR-18 Update: Luôn trả về thành công để tránh dò quét Email (User Enumeration).
+                // Nếu email CÓ TỒN TẠI, tiến hành gửi OTP.
+                if (user != null) {
+                    String otp = String.format("%06d", new Random().nextInt(999999));
+                    boolean isSent = EmailUtil.sendOTP(email, otp);
                     
-                    out.print("{\"status\":\"success\"}");
+                    if (isSent) {
+                        HttpSession session = request.getSession();
+                        session.setAttribute("RECOVERY_OTP_" + email, otp);
+                        session.setAttribute("RECOVERY_TIME_" + email, System.currentTimeMillis());
+                    } else {
+                        // Log nội bộ, không throw lỗi ra frontend
+                        System.err.println("Failed to send OTP to: " + email);
+                    }
                 } else {
-                    out.print("{\"status\":\"error\", \"message\":\"Lỗi kết nối hòm thư. Vui lòng thử lại sau.\"}");
+                    // Nếu email KHÔNG TỒN TẠI: Giả lập thời gian delay của việc gửi mail để chống Timing Attack.
+                    try {
+                        Thread.sleep((long) (Math.random() * 500 + 500));
+                    } catch (InterruptedException ignored) {}
                 }
+                
+                // Mặc định luôn trả về True cho Client
+                out.print("{\"status\":\"success\"}");
                 
             } else if ("verifyOTP".equals(action)) {
                 String inputOtp = request.getParameter("otp");
@@ -96,7 +97,6 @@ public class ForgotPasswordController extends HttpServlet {
                 }
 
                 if (realOtp.equals(inputOtp)) {
-                    // Thành công: Xóa biến đếm, mở khóa cờ reset password
                     attemptMap.remove(email);
                     session.removeAttribute("RECOVERY_OTP_" + email);
                     session.removeAttribute("RECOVERY_TIME_" + email);
@@ -104,7 +104,6 @@ public class ForgotPasswordController extends HttpServlet {
                     
                     out.print("{\"status\":\"success\"}");
                 } else {
-                    // Nhập sai: Tăng đếm và kiểm tra trần giới hạn
                     int attempts = attemptMap.getOrDefault(email, 0) + 1;
                     attemptMap.put(email, attempts);
                     
