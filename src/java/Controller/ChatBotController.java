@@ -25,6 +25,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @WebServlet(name = "ChatBotController", urlPatterns = {"/ChatBotController"})
@@ -39,6 +40,9 @@ public class ChatBotController extends HttpServlet {
     private DocumentTextDAO documentTextDAO;
 
     private static final int MAX_AI_LOOP = 5;
+
+    // Danh sách các định dạng file mà hệ thống hiện tại hỗ trợ trích xuất văn bản
+    private static final List<String> SUPPORTED_EXTENSIONS = Arrays.asList("pdf", "docx", "txt", "xlsx", "pptx", "md");
 
     @Override
     public void init() throws ServletException {
@@ -198,30 +202,44 @@ public class ChatBotController extends HttpServlet {
                         Integer docIdInt = Integer.parseInt(docId);
                         String systemMessage;
                         Document foundDoc = null;
+                        
                         if (docIdInt != null) {
                             foundDoc = documentDAO.findById(docIdInt);
                         }
+                        
                         if (foundDoc == null) {
                             systemMessage = "Hệ thống không tìm thấy tài liệu có id \"" + docId
                                     + "\" trong kho lưu trữ của sinh viên. "
                                     + "Hãy thông báo cho sinh viên biết và hỏi lại tên chính xác.";
                         } else {
                             String parsingStatus = foundDoc.getAiParsingStatus();
+                            String ext = foundDoc.getFileExtension() != null ? foundDoc.getFileExtension().toLowerCase() : "";
 
-                            if (!"READY".equalsIgnoreCase(parsingStatus)) {
-                                systemMessage = "Tài liệu \"" + foundDoc.getTitle()
-                                        + "\" được tìm thấy nhưng chưa sẵn sàng để phân tích "
+                            // MÀNG LỌC 1: Kiểm tra đuôi file cứng (Bảo vệ lỗi kẹt Processing)
+                            if (!SUPPORTED_EXTENSIONS.contains(ext)) {
+                                systemMessage = "Tài liệu \"" + foundDoc.getTitle() + "\" có định dạng (." + ext 
+                                        + ") không được hệ thống hỗ trợ đọc chữ. "
+                                        + "Hãy xin lỗi và thông báo cho sinh viên biết AI hiện tại chỉ hỗ trợ: PDF, DOCX, TXT, XLSX, PPTX.";
+                            } 
+                            // MÀNG LỌC 2: Kiểm tra trạng thái FAILED rõ ràng từ CSDL
+                            else if ("FAILED".equalsIgnoreCase(parsingStatus) || "ERROR".equalsIgnoreCase(parsingStatus)) {
+                                systemMessage = "Tài liệu \"" + foundDoc.getTitle() + "\" đã bị lỗi trong quá trình trích xuất nội dung (Trạng thái: FAILED). "
+                                        + "Hãy xin lỗi sinh viên, giải thích rằng file có thể bị hỏng, cài mật khẩu, hoặc định dạng bị lỗi, và khuyên họ tải lên file chuẩn khác.";
+                            } 
+                            // MÀNG LỌC 3: File đang xử lý
+                            else if (!"READY".equalsIgnoreCase(parsingStatus)) {
+                                systemMessage = "Tài liệu \"" + foundDoc.getTitle() + "\" đang trong quá trình trích xuất văn bản "
                                         + "(trạng thái hiện tại: " + parsingStatus + "). "
-                                        + "Hãy thông báo cho sinh viên rằng tài liệu đang được xử lý "
-                                        + "và yêu cầu họ thử lại sau.";
-                            } else {
+                                        + "Hãy báo cho sinh viên vui lòng đợi vài giây và gửi lại yêu cầu để kiểm tra lại nội dung.";
+                            } 
+                            // MÀNG LỌC 4: Lấy nội dung
+                            else {
                                 String extractedText = documentTextDAO.getExtractedText(foundDoc.getDocumentId());
 
                                 if (extractedText == null || extractedText.trim().isEmpty()) {
-                                    systemMessage = "Tài liệu \"" + foundDoc.getTitle()
-                                            + "\" được tìm thấy nhưng nội dung chưa được trích xuất. "
-                                            + "Hãy thông báo cho sinh viên rằng tài liệu đang được xử lý "
-                                            + "và yêu cầu họ thử lại sau.";
+                                    systemMessage = "Tài liệu \"" + foundDoc.getTitle() 
+                                            + "\" được tìm thấy nhưng nội dung trống rỗng hoặc hệ thống không thể quét được chữ (có thể là file chỉ toàn ảnh). "
+                                            + "Hãy thông báo cho sinh viên biết vấn đề này.";
                                 } else {
                                     systemMessage = "Đây là nội dung tài liệu \"" + foundDoc.getTitle()
                                             + "\" mà sinh viên yêu cầu:\n\n"
@@ -248,8 +266,8 @@ public class ChatBotController extends HttpServlet {
 
                     chatHistory = chatMessageDAO.getAllMessageFromSession(sessionId);
                     aiResponse = geminiService.getGeminiResponse(chatHistory);
+                    
                 } else if (trimmedResponse.toUpperCase().startsWith("GETLINK/") || trimmedResponse.toUpperCase().startsWith("GETLINK /")) {
-
                     chatMessageDAO.createNonDisplayBotMessage(trimmedResponse, sessionId);
                     try {
                         String folderId = trimmedResponse.substring(trimmedResponse.indexOf("/") + 1).trim();
@@ -274,6 +292,7 @@ public class ChatBotController extends HttpServlet {
                     }
                     chatHistory = chatMessageDAO.getAllMessageFromSession(sessionId);
                     aiResponse = geminiService.getGeminiResponse(chatHistory);
+                    
                 } else {
                     System.err.println("[ChatBotController] AI response không đúng format: " + trimmedResponse.substring(0, Math.min(50, trimmedResponse.length())));
                     finalResponse = aiResponse;
@@ -291,7 +310,7 @@ public class ChatBotController extends HttpServlet {
                 System.err.println("[Cảnh báo] Trả lời AI thành công nhưng lỗi lưu CSDL!");
             }
 
-            // GẮN ID THẬT VÀO CUSTOM HEADER TRƯỚC KHI FLUSH TEXT
+            // GẮN ID THẬT VÀO CUSTOM HEADER TRƯỚC KHI FLUSH TEXT ĐỂ JS BẮT ĐƯỢC
             if (firstInsertedId != -1) {
                 response.setHeader("X-Message-Id", String.valueOf(firstInsertedId));
             }
