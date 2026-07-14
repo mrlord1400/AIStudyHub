@@ -229,7 +229,7 @@ public class TransactionController extends HttpServlet {
         int userId = (int) session.getAttribute("userId");
         SubscriptionDAO sDao = new SubscriptionDAO();
         double premiumCost = sDao.getPremiumPrice();
-        if (premiumCost < 0){
+        if (premiumCost < 0) {
             premiumCost = 99000;
         }
 
@@ -243,7 +243,6 @@ public class TransactionController extends HttpServlet {
         }
 
         if (currentUser.getBalance() < premiumCost) {
-            // FIX: Đổi hướng về Controller để nạp lại dữ liệu UI
             response.sendRedirect(request.getContextPath() + "/MainController?action=listTransactions&error=insufficient_balance");
             return;
         }
@@ -251,7 +250,7 @@ public class TransactionController extends HttpServlet {
         Transaction t = new Transaction();
         t.setUserId(userId);
         t.setAmount(-premiumCost);
-        t.setType("WITHDRAW"); // FIX: Đổi lại thành WITHDRAW cho an toàn với Database
+        t.setType("WITHDRAW");
         t.setStatus("SUCCESS");
 
         boolean txSuccess = transactionDAO.createTransaction(t);
@@ -262,16 +261,24 @@ public class TransactionController extends HttpServlet {
             if (balanceUpdated) {
                 User updatedUser = userDAO.getUserById(userId);
                 updatedUser.setTierId(3);
-                userDAO.updateUser(updatedUser);
-                session.setAttribute("tierId", 3);
+                boolean tierUpdated = userDAO.updateUser(updatedUser);
 
-                response.sendRedirect(request.getContextPath() + "/MainController?action=listTransactions&premiumSuccess=1");
+                // NEW: kích hoạt hạn dùng Premium 30 ngày kể từ lúc mua,
+                // đồng thời reset cờ cảnh báo hết hạn để chu kỳ mới bắt đầu sạch.
+                java.sql.Timestamp expiresAt
+                        = java.sql.Timestamp.valueOf(java.time.LocalDateTime.now().plusDays(30));
+                boolean expiryUpdated = userDAO.renewPremium(userId, expiresAt);
+
+                if (tierUpdated && expiryUpdated) {
+                    session.setAttribute("tierId", 3);
+                    response.sendRedirect(request.getContextPath() + "/MainController?action=listTransactions&premiumSuccess=1");
+                } else {
+                    response.sendRedirect(request.getContextPath() + "/MainController?action=listTransactions&error=activation_failed");
+                }
             } else {
-                // FIX: Đổi hướng về Controller
                 response.sendRedirect(request.getContextPath() + "/MainController?action=listTransactions&error=balance_update_failed");
             }
         } else {
-            // FIX: Đổi hướng về Controller
             response.sendRedirect(request.getContextPath() + "/MainController?action=listTransactions&error=transaction_failed");
         }
     }
