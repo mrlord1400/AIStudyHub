@@ -8,6 +8,7 @@ import Model.DAO.TransactionDAO;
 import Model.DTO.User;
 import Model.DAO.UserDAO;
 import Utils.PasswordUtil;
+
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.*;
@@ -23,24 +24,26 @@ public class AdminController extends HttpServlet {
             HttpServletResponse response)
             throws ServletException, IOException {
 
+        request.setCharacterEncoding("UTF-8");
+        response.setContentType("text/html; charset=UTF-8");
+
         String action = request.getParameter("action");
         AdminDAO dao = new AdminDAO();
-        UserDAO userDAO = new UserDAO(); // Khởi tạo thêm UserDAO để dùng cho dữ liệu profile
+        UserDAO userDAO = new UserDAO();
         TransactionDAO tranDAO = new TransactionDAO();
 
         if ("listUsers".equals(action)) {
             List<User> users = dao.getAllUsers();
             request.setAttribute("user_list", users);
             request.getRequestDispatcher("/admin_manageUser.jsp").forward(request, response);
-            return; // Thêm return để ngắt luồng xử lý sau khi forward
+            return;
         }
 
         if ("listDashboard".equals(action)) {
             List<User> users = dao.getAllUsers();
             List<Transaction> trans = tranDAO.getAllTransactions();
-            // Đặt đúng tên thuộc tính mà file JSP cũ của bạn đang tìm kiếm
             request.setAttribute("totalUserAmount", users.size());
-            request.setAttribute("totalTransactionAmount", trans.size()); // Đóng gói tạm số 0 hoặc hàm đếm của bạn
+            request.setAttribute("totalTransactionAmount", trans.size());
 
             request.setAttribute("user_list", users);
             request.getRequestDispatcher("/admin_dashboard.jsp").forward(request, response);
@@ -54,22 +57,16 @@ public class AdminController extends HttpServlet {
             return;
         }
 
-        // THÊM: Xử lý nạp dữ liệu hồ sơ cá nhân cho Admin
         if ("profile".equals(action)) {
             HttpSession userSession = request.getSession(false);
             if (userSession != null && userSession.getAttribute("userId") != null) {
-                // Lấy userId hiện tại của Admin từ Session
                 int adminId = (int) userSession.getAttribute("userId");
-
-                // Truy vấn thông tin tài khoản chi tiết từ database
                 User adminUser = userDAO.getUserById(adminId);
 
                 if (adminUser != null) {
-                    // Đóng gói thuộc tính trùng khớp với Safety Net của trang admin_profile.jsp
                     request.setAttribute("currentUser", adminUser);
                     request.getRequestDispatcher("/admin_profile.jsp").forward(request, response);
                 } else {
-                    // Nếu không tìm thấy thông tin tài khoản trong DB, đá về đăng nhập
                     response.sendRedirect(request.getContextPath() + "/login.jsp");
                 }
             } else {
@@ -107,19 +104,77 @@ public class AdminController extends HttpServlet {
             HttpServletResponse response)
             throws ServletException, IOException {
 
+        request.setCharacterEncoding("UTF-8");
+        response.setContentType("text/html; charset=UTF-8");
+
         String action = request.getParameter("action");
 
         AdminDAO adminDAO = new AdminDAO();
         UserDAO userDAO = new UserDAO();
 
         switch (action) {
+            case "updateAdminProfile":
+                HttpSession session = request.getSession(false);
+                if (session != null && session.getAttribute("userId") != null) {
+                    int adminId = (int) session.getAttribute("userId");
+                    String adminUsername = request.getParameter("username");
+                    String adminEmail = request.getParameter("email");
+                    String currentPasswordInput = request.getParameter("currentPassword");
+                    String newPassword = request.getParameter("newPassword");
+
+                    User adminUser = userDAO.getUserById(adminId);
+
+                    if (adminUser != null) {
+
+                        if (currentPasswordInput == null) {
+                            currentPasswordInput = "";
+                        }
+                        currentPasswordInput = currentPasswordInput.trim();
+
+                        // 1. KIỂM TRA MẬT KHẨU BẰNG HÀM CÓ SẴN CỦA USER_DAO (Hỗ trợ BCrypt/Verify)
+                        boolean isPasswordValid = userDAO.checkPassword(adminId, currentPasswordInput);
+
+                        // Fallback: Đề phòng admin được tạo bằng tay trong DB với mật khẩu chưa mã hóa (plain text)
+                        if (!isPasswordValid && currentPasswordInput.equals(adminUser.getPasswordHash())) {
+                            isPasswordValid = true;
+                        }
+
+                        if (!isPasswordValid) {
+                            response.sendRedirect(request.getContextPath() + "/AdminController?action=profile&error=wrong_password");
+                            return;
+                        }
+
+                        // 2. CẬP NHẬT THÔNG TIN CƠ BẢN (Không dính dáng tới password)
+                        if (adminUsername != null && !adminUsername.trim().isEmpty()) {
+                            adminUser.setUsername(adminUsername);
+                        }
+                        if (adminEmail != null && !adminEmail.trim().isEmpty()) {
+                            adminUser.setEmail(adminEmail);
+                        }
+
+                        boolean success = userDAO.updateUser(adminUser);
+
+                        // 3. CẬP NHẬT MẬT KHẨU MỚI BẰNG HÀM RIÊNG
+                        if (success) {
+                            if (newPassword != null && !newPassword.trim().isEmpty()) {
+                                // Gọi hàm updatePassword đã có sẵn trong UserDAO
+                                String hashedNewPass = PasswordUtil.hashPassword(newPassword.trim());
+                                userDAO.updatePassword(adminUser.getEmail(), hashedNewPass);
+                            }
+
+                            session.setAttribute("username", adminUser.getUsername());
+                            response.sendRedirect(request.getContextPath() + "/AdminController?action=profile&updateSuccess=1");
+                        } else {
+                            response.sendRedirect(request.getContextPath() + "/AdminController?action=profile&error=update_failed");
+                        }
+                    }
+                }
+                return;
 
             case "createUser":
                 String username = request.getParameter("username");
                 String email = request.getParameter("email");
                 String password = request.getParameter("password");
-
-                // JSP should send: free / premium / admin
                 String accountType = request.getParameter("role");
 
                 String role = "STUDENT";
@@ -143,8 +198,6 @@ public class AdminController extends HttpServlet {
                 User newUser = new User();
                 newUser.setUsername(username);
                 newUser.setEmail(email);
-
-                // HASH PASSWORD
                 newUser.setPasswordHash(PasswordUtil.hashPassword(password));
                 newUser.setRole(role);
                 newUser.setTierId(tierId);
@@ -172,10 +225,6 @@ public class AdminController extends HttpServlet {
                     user.setTierId(newTierId);
                     userDAO.updateUser(user);
 
-                    // 🔥 MỚI: Nếu admin chuyển user sang SUSPENDED, tự động đẩy
-                    // toàn bộ tài liệu PUBLIC của họ về PRIVATE ngay lập tức.
-                    // Tài liệu FRIENDS_ONLY / PRIVATE giữ nguyên, các tính năng khác
-                    // của user vẫn hoạt động bình thường (chỉ chặn public từ nay).
                     if ("SUSPENDED".equalsIgnoreCase(newStatus)) {
                         DocumentDAO docDAO = new DocumentDAO();
                         docDAO.privatizePublicDocumentsByUserId(userId);
