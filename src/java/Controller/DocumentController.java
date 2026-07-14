@@ -292,6 +292,36 @@ public class DocumentController extends HttpServlet {
                     if (file.exists()) {
                         String ext = doc.getFileExtension() != null ? doc.getFileExtension().toLowerCase() : "";
 
+                        // Kiểm tra danh sách file hỗ trợ xem trực tiếp
+                        boolean isSupported = "docx".equals(ext) || "xlsx".equals(ext) || "pptx".equals(ext)
+                                || "pdf".equals(ext) || "txt".equals(ext) || "md".equals(ext)
+                                || "png".equals(ext) || "jpg".equals(ext) || "jpeg".equals(ext) || "gif".equals(ext);
+
+                        // 🔥 ĐÃ CHỈNH SỬA LẠI UI BÁO LỖI DỊU NHẤT VÀ CHUYÊN NGHIỆP HƠN
+                        if (!isSupported) {
+                            response.setContentType("text/html; charset=UTF-8");
+                            java.io.PrintWriter pw = response.getWriter();
+                            pw.println("<!DOCTYPE html><html><head><meta charset='UTF-8'>");
+                            pw.println("<style>");
+                            pw.println("body { font-family: 'Segoe UI', Arial, sans-serif; background: #111827; color: #f3f4f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }");
+                            pw.println(".info-box { background: #1f2937; padding: 40px; border-radius: 16px; text-align: center; max-width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border: 1px solid #374151; }");
+                            pw.println(".icon { width: 64px; height: 64px; color: #6b7280; margin-bottom: 16px; }");
+                            pw.println("h2 { color: #e5e7eb; margin-top: 0; margin-bottom: 12px; font-size: 20px; font-weight: 500; }");
+                            pw.println("p { font-size: 15px; color: #9ca3af; line-height: 1.6; margin: 8px 0; }");
+                            pw.println("strong { color: #f3f4f6; font-weight: 600; }");
+                            pw.println("</style>");
+                            pw.println("</head><body>");
+                            pw.println("<div class='info-box'>");
+                            // Icon SVG hình file thông tin nhẹ nhàng
+                            pw.println("<svg class='icon' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'></path></svg>");
+                            pw.println("<h2>Chưa hỗ trợ xem trước định dạng này</h2>");
+                            pw.println("<p>Hệ thống hiện tại chưa thể hiển thị trực tiếp file <strong>." + ext + "</strong> trên trình duyệt.</p>");
+                            pw.println("<p>Bạn vui lòng đóng tab này và sử dụng chức năng <strong>Tải về</strong> để xem trên máy tính nhé.</p>");
+                            pw.println("</div></body></html>");
+                            pw.flush();
+                            return; 
+                        }
+
                         // FILE OFFICE: Convert sang HTML bằng Apache POI
                         if ("docx".equals(ext) || "xlsx".equals(ext) || "pptx".equals(ext)) {
                             response.setContentType("text/html; charset=UTF-8");
@@ -402,14 +432,14 @@ public class DocumentController extends HttpServlet {
                                                                         break;
                                                                     case FORMULA:
                                                                         try {
-                                                                        cellValue = String.valueOf(cell.getNumericCellValue());
-                                                                    } catch (Exception fe) {
-                                                                        try {
-                                                                            cellValue = cell.getStringCellValue();
-                                                                        } catch (Exception ignored) {
+                                                                            cellValue = String.valueOf(cell.getNumericCellValue());
+                                                                        } catch (Exception fe) {
+                                                                            try {
+                                                                                cellValue = cell.getStringCellValue();
+                                                                            } catch (Exception ignored) {
+                                                                            }
                                                                         }
-                                                                    }
-                                                                    break;
+                                                                        break;
                                                                     default:
                                                                         cellValue = "";
                                                                 }
@@ -466,15 +496,16 @@ public class DocumentController extends HttpServlet {
                         } else {
                             // FILE KHÁC (PDF, TXT, MD, ảnh...): Stream bình thường
                             String mimeType = getServletContext().getMimeType(filePath);
-                            if (mimeType == null) {
+                            
+                            // Bắt buộc gán text/plain cho MD và TXT để trình duyệt đọc inline thay vì tải xuống
+                            if ("md".equals(ext) || "txt".equals(ext)) {
+                                mimeType = "text/plain; charset=UTF-8";
+                            } else if (mimeType == null) {
                                 mimeType = "application/octet-stream";
                             }
 
-                            String disposition = "attachment";
-                            if ("pdf".equals(ext) || "txt".equals(ext) || "md".equals(ext)
-                                    || "png".equals(ext) || "jpg".equals(ext) || "jpeg".equals(ext) || "gif".equals(ext)) {
-                                disposition = "inline";
-                            }
+                            // Do đã chặn file không hỗ trợ ở trên, tất cả các file lọt xuống đây đều được phép inline
+                            String disposition = "inline";
 
                             response.setContentType(mimeType);
 
