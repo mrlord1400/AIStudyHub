@@ -27,7 +27,7 @@ public class AdminReportController extends HttpServlet {
             response.sendRedirect(request.getContextPath() + "/login.jsp");
             return;
         }
-        
+
         String role = (String) session.getAttribute("role");
         if (!"ADMIN".equalsIgnoreCase(role)) {
             response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp");
@@ -44,7 +44,7 @@ public class AdminReportController extends HttpServlet {
             if ("adminReportList".equals(action)) {
                 // Lấy ID tài liệu cần xem danh sách tố cáo
                 int documentId = Integer.parseInt(request.getParameter("documentId"));
-                
+
                 // Lấy thông tin chi tiết tài liệu và danh sách report liên quan
                 Document document = docDao.findById(documentId);
                 List<Report> documentReports = reportDao.getReportList(documentId);
@@ -87,8 +87,7 @@ public class AdminReportController extends HttpServlet {
             } else if ("adminDeleteDocument".equals(action)) {
                 // Lệnh hạt nhân: Xóa tài liệu vi phạm nặng
                 int documentId = Integer.parseInt(request.getParameter("documentId"));
-                
-                // Gọi hàm dọn dẹp liên hoàn bằng Transaction mà ta đã viết ở DocumentDAO
+
                 boolean isDeleted = docDao.deleteDocumentAndDependencies(documentId);
 
                 if (isDeleted) {
