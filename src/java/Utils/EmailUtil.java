@@ -15,15 +15,23 @@ public class EmailUtil {
     private static final String SENDER_PASSWORD = "hfumixnlwrjntlld";
     private static final String SENDER_DISPLAY_NAME = "AI Study Hub";
 
-    public static boolean sendOTP(String toEmail, String otp) {
+    // Hàm dùng chung để tạo Properties chuẩn, tránh lặp lại code
+    private static Properties getMailProperties() {
         Properties props = new Properties();
         props.put("mail.smtp.host", "smtp.gmail.com");
         props.put("mail.smtp.port", "587");
         props.put("mail.smtp.auth", "true");
         props.put("mail.smtp.starttls.enable", "true");
         props.put("mail.smtp.ssl.protocols", "TLSv1.2");
+        
+        // FIX LỖI: Bỏ qua chờ phản hồi khi gửi lệnh QUIT để đóng kết nối
+        props.put("mail.smtp.quitwait", "false"); 
+        
+        return props;
+    }
 
-        Session session = Session.getInstance(props, new Authenticator() {
+    public static boolean sendOTP(String toEmail, String otp) {
+        Session session = Session.getInstance(getMailProperties(), new Authenticator() {
             @Override
             protected PasswordAuthentication getPasswordAuthentication() {
                 return new PasswordAuthentication(SENDER_EMAIL, SENDER_PASSWORD);
@@ -38,12 +46,60 @@ public class EmailUtil {
             // Set tiêu đề Email chuẩn UTF-8
             message.setSubject("Mã xác thực đổi mật khẩu - AI Study Hub", "UTF-8");
 
-            // Truyền thẳng nội dung HTML (Rất nhẹ và an toàn cho SMTP)
+            // Truyền thẳng nội dung HTML
             message.setContent(buildOtpEmailHtml(otp), "text/html; charset=UTF-8");
 
             Transport.send(message);
             return true;
         } catch (Exception e) {
+            System.err.println("SMTP Error in sendOTP: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public static boolean sendPremiumExpiryWarning(String toEmail, String username, int hoursLeft) {
+        String subject = "Gói Premium sắp hết hạn - AI Study Hub";
+        String html = buildSimpleNoticeHtml(
+                "Gói Premium sắp hết hạn",
+                "Xin chào " + username + ",<br><br>"
+                + "Gói Premium của bạn sẽ hết hạn trong khoảng <strong>" + hoursLeft + " giờ</strong> tới. "
+                + "Số dư trong ví hiện không đủ để hệ thống tự động gia hạn.<br><br>"
+                + "Vui lòng nạp thêm Coin vào ví để tiếp tục sử dụng Premium không bị gián đoạn."
+        );
+        return sendHtmlEmail(toEmail, subject, html);
+    }
+
+    public static boolean sendPremiumDowngraded(String toEmail, String username) {
+        String subject = "Gói Premium đã bị huỷ - AI Study Hub";
+        String html = buildSimpleNoticeHtml(
+                "Gói Premium đã bị huỷ",
+                "Xin chào " + username + ",<br><br>"
+                + "Gói Premium của bạn đã hết hạn và không thể tự động gia hạn do số dư trong ví không đủ. "
+                + "Tài khoản của bạn đã được chuyển về gói Free.<br><br>"
+                + "Bạn có thể nạp Coin và nâng cấp lại Premium bất cứ lúc nào."
+        );
+        return sendHtmlEmail(toEmail, subject, html);
+    }
+
+    private static boolean sendHtmlEmail(String toEmail, String subject, String htmlBody) {
+        Session session = Session.getInstance(getMailProperties(), new Authenticator() {
+            @Override
+            protected PasswordAuthentication getPasswordAuthentication() {
+                return new PasswordAuthentication(SENDER_EMAIL, SENDER_PASSWORD);
+            }
+        });
+
+        try {
+            MimeMessage message = new MimeMessage(session);
+            message.setFrom(new InternetAddress(SENDER_EMAIL, SENDER_DISPLAY_NAME));
+            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
+            message.setSubject(subject, "UTF-8");
+            message.setContent(htmlBody, "text/html; charset=UTF-8");
+            Transport.send(message);
+            return true;
+        } catch (Exception e) {
+            System.err.println("SMTP Error in sendHtmlEmail: " + e.getMessage());
             e.printStackTrace();
             return false;
         }
@@ -53,7 +109,6 @@ public class EmailUtil {
      * Template email OTP dạng HTML
      */
     private static String buildOtpEmailHtml(String otp) {
-        // Thay vì dùng <svg> bị Gmail chặn, ta dùng link ảnh PNG Mũ Cử Nhân Trắng tĩnh
         String logoUrl = "https://i.postimg.cc/nhWz4dLJ/web-app-manifest-512x512.png";
 
         return "<!DOCTYPE html>"
@@ -109,59 +164,6 @@ public class EmailUtil {
                 + "</table>"
                 + "</body>"
                 + "</html>";
-    }
-
-    public static boolean sendPremiumExpiryWarning(String toEmail, String username, int hoursLeft) {
-        String subject = "Gói Premium sắp hết hạn - AI Study Hub";
-        String html = buildSimpleNoticeHtml(
-                "Gói Premium sắp hết hạn",
-                "Xin chào " + username + ",<br><br>"
-                + "Gói Premium của bạn sẽ hết hạn trong khoảng <strong>" + hoursLeft + " giờ</strong> tới. "
-                + "Số dư trong ví hiện không đủ để hệ thống tự động gia hạn.<br><br>"
-                + "Vui lòng nạp thêm Coin vào ví để tiếp tục sử dụng Premium không bị gián đoạn."
-        );
-        return sendHtmlEmail(toEmail, subject, html);
-    }
-
-    public static boolean sendPremiumDowngraded(String toEmail, String username) {
-        String subject = "Gói Premium đã bị huỷ - AI Study Hub";
-        String html = buildSimpleNoticeHtml(
-                "Gói Premium đã bị huỷ",
-                "Xin chào " + username + ",<br><br>"
-                + "Gói Premium của bạn đã hết hạn và không thể tự động gia hạn do số dư trong ví không đủ. "
-                + "Tài khoản của bạn đã được chuyển về gói Free.<br><br>"
-                + "Bạn có thể nạp Coin và nâng cấp lại Premium bất cứ lúc nào."
-        );
-        return sendHtmlEmail(toEmail, subject, html);
-    }
-
-    private static boolean sendHtmlEmail(String toEmail, String subject, String htmlBody) {
-        Properties props = new Properties();
-        props.put("mail.smtp.host", "smtp.gmail.com");
-        props.put("mail.smtp.port", "587");
-        props.put("mail.smtp.auth", "true");
-        props.put("mail.smtp.starttls.enable", "true");
-        props.put("mail.smtp.ssl.protocols", "TLSv1.2");
-
-        Session session = Session.getInstance(props, new Authenticator() {
-            @Override
-            protected PasswordAuthentication getPasswordAuthentication() {
-                return new PasswordAuthentication(SENDER_EMAIL, SENDER_PASSWORD);
-            }
-        });
-
-        try {
-            MimeMessage message = new MimeMessage(session);
-            message.setFrom(new InternetAddress(SENDER_EMAIL, SENDER_DISPLAY_NAME));
-            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
-            message.setSubject(subject, "UTF-8");
-            message.setContent(htmlBody, "text/html; charset=UTF-8");
-            Transport.send(message);
-            return true;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return false;
-        }
     }
 
     private static String buildSimpleNoticeHtml(String title, String bodyHtml) {
