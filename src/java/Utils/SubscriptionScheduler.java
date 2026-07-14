@@ -26,7 +26,7 @@ public class SubscriptionScheduler implements ServletContextListener {
             } catch (Exception e) {
                 System.err.println("[SubscriptionScheduler] " + e.getMessage());
             }
-        }, 1, 60, TimeUnit.MINUTES);
+        }, 1, 60, TimeUnit.SECONDS);
     }
 
     @Override
