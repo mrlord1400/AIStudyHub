@@ -165,7 +165,8 @@ public class EmailUtil {
                 + "</body>"
                 + "</html>";
     }
-
+    
+    // Thêm 1 hàm mới
     private static String buildSimpleNoticeHtml(String title, String bodyHtml) {
         return "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head>"
                 + "<body style=\"margin:0;padding:0;background-color:#f4f4f7;font-family:'Segoe UI',Arial,sans-serif;\">"
