@@ -57,7 +57,7 @@
 
     <aside class="sidebar">
         <div class="space-y-6 w-full">
-            <a href="<%= request.getContextPath()%>/MainController?action=listDashboard" class="flex items-center space-x-3 px-2 py-1 transition-opacity hover:opacity-80 block w-full">
+            <a href="<%= request.getContextPath()%>/AdminController?action=listDashboard" class="flex items-center space-x-3 px-2 py-1 transition-opacity hover:opacity-80 block w-full">
                 <div class="w-9 h-9 bg-red-600 rounded-xl flex items-center justify-center text-white shadow-sm">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                 </div>
@@ -65,11 +65,11 @@
             </a>
 
             <nav class="space-y-1 w-full">
-                <a href="<%= request.getContextPath()%>/MainController?action=listDashboard" class="nav-link">
+                <a href="<%= request.getContextPath()%>/AdminController?action=listDashboard" class="nav-link">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
                     <span>Dashboard</span>
                 </a>
-                <a href="<%= request.getContextPath()%>/MainController?action=listUsers" class="nav-link">
+                <a href="<%= request.getContextPath()%>/AdminController?action=listUsers" class="nav-link">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                     <span>Quản lý người dùng</span>
                 </a>
@@ -110,7 +110,7 @@
     <main class="flex-1 p-8 overflow-y-auto h-screen relative">
         <div class="flex justify-between items-center mb-6 max-w-3xl">
             <h1 class="text-2xl font-bold text-gray-900 tracking-tight dark:text-white">Cấu hình tài khoản Admin</h1>
-            <a href="<%= request.getContextPath()%>/AdminController?action=dashboard" class="btn-secondary !px-4 !py-2 flex items-center space-x-1.5">
+            <a href="<%= request.getContextPath()%>/AdminController?action=listDashboard" class="btn-secondary !px-4 !py-2 flex items-center space-x-1.5">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
                 <span>Dashboard</span>
             </a>
@@ -129,9 +129,8 @@
             <button type="button" id="tab-security-btn" onclick="switchTab('security')" class="tab-btn-inactive">Thay đổi mật khẩu</button>
         </div>
 
-        <form action="<%= request.getContextPath()%>/MainController" method="POST">
-            <input type="hidden" name="action" value="updateProfile" />
-            <input type="hidden" name="fromAdmin" value="true" />
+        <form action="<%= request.getContextPath()%>/AdminController" method="POST">
+            <input type="hidden" name="action" value="updateAdminProfile" />
 
             <div id="tab-info-content" class="form-card">
                 <div class="mb-6 pb-6 border-b border-gray-100 dark:border-gray-700 flex items-start space-x-4">
@@ -161,7 +160,7 @@
                 </div>
 
                 <div class="mt-6 flex justify-end space-x-3">
-                    <a href="<%= request.getContextPath()%>/AdminController?action=dashboard" class="btn-secondary">Hủy bỏ</a>
+                    <a href="<%= request.getContextPath()%>/AdminController?action=listDashboard" class="btn-secondary">Hủy bỏ</a>
                     <button type="submit" class="btn-primary">Lưu cấu hình</button>
                 </div>
             </div>
@@ -190,7 +189,7 @@
                 </div>
 
                 <div class="mt-6 flex justify-end space-x-3">
-                    <a href="<%= request.getContextPath()%>/AdminController?action=dashboard" class="btn-secondary">Hủy bỏ</a>
+                    <a href="<%= request.getContextPath()%>/AdminController?action=listDashboard" class="btn-secondary">Hủy bỏ</a>
                     <button type="submit" class="btn-primary">Cập nhật mật khẩu mới</button>
                 </div>
             </div>

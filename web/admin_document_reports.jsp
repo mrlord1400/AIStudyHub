@@ -142,7 +142,7 @@
                                                 <span class="text-xs text-green-500 font-semibold">✓ Đã duyệt</span>
                                             </c:if>
                                             
-                                            <form action="${pageContext.request.contextPath}/MainController" method="POST" class="inline" onsubmit="return confirm('Bạn có chắc chắn muốn xóa bỏ báo cáo này không? Điểm phạt sẽ bị giữ nguyên nếu bạn không cập nhật lại.');">
+                                            <form action="${pageContext.request.contextPath}/MainController" method="POST" class="inline" onsubmit="return confirm('Bạn có chắc chắn muốn xóa bỏ báo cáo này không? Điểm phạt sẽ được tự động hoàn lại cho tài liệu.');">
                                                 <input type="hidden" name="action" value="adminDeleteReport">
                                                 <input type="hidden" name="documentId" value="${document.documentId}">
                                                 <input type="hidden" name="reportId" value="${rep.reportId}">

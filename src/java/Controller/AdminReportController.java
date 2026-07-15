@@ -2,8 +2,10 @@ package Controller;
 
 import Model.DAO.ReportDAO;
 import Model.DAO.DocumentDAO;
+import Model.DAO.ReportReasonDAO;
 import Model.DTO.Report;
 import Model.DTO.Document;
+import Model.DTO.ReportReason;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -42,56 +44,85 @@ public class AdminReportController extends HttpServlet {
 
         try {
             if ("adminReportList".equals(action)) {
-                // Lấy ID tài liệu cần xem danh sách tố cáo
                 int documentId = Integer.parseInt(request.getParameter("documentId"));
-
-                // Lấy thông tin chi tiết tài liệu và danh sách report liên quan
                 Document document = docDao.findById(documentId);
                 List<Report> documentReports = reportDao.getReportList(documentId);
 
-                // Đóng gói dữ liệu chuyển sang giao diện JSP
                 request.setAttribute("document", document);
                 request.setAttribute("documentReports", documentReports);
                 request.getRequestDispatcher("/admin_document_reports.jsp").forward(request, response);
 
             } else if ("adminUpdateReportStatus".equals(action)) {
-                // Đổi trạng thái xử lý của report (PENDING -> REVIEWED)
                 int reportId = Integer.parseInt(request.getParameter("reportId"));
                 int documentId = Integer.parseInt(request.getParameter("documentId"));
                 String newStatus = request.getParameter("status");
 
-                // Vì hàm update của team yêu cầu truyền nguyên Object, ta tìm lại record cũ để set dữ liệu mới
                 List<Report> allReps = reportDao.getReportList(documentId);
                 for (Report r : allReps) {
                     if (r.getReportId() == reportId) {
                         r.setStatus(newStatus);
-                        r.setAdminId(adminId); // Ghi nhận Admin thực hiện giải quyết
-                        r.setResolvedAt(java.time.LocalDateTime.now()); // Lưu vết thời gian giải quyết
-                        reportDao.updateReport(r); // Gọi hàm update an toàn của team
+                        r.setAdminId(adminId); 
+                        r.setResolvedAt(java.time.LocalDateTime.now()); 
+                        reportDao.updateReport(r); 
                         break;
                     }
                 }
                 response.sendRedirect(request.getContextPath() + "/MainController?action=adminReportList&documentId=" + documentId);
 
             } else if ("adminDeleteReport".equals(action)) {
-                // Xóa bỏ lượt report rác từ user tố cáo xàm
+                // Xóa bỏ lượt report rác từ user tố cáo xàm và HỒI ĐIỂM
                 int reportId = Integer.parseInt(request.getParameter("reportId"));
                 int documentId = Integer.parseInt(request.getParameter("documentId"));
 
-                Report reportToDelete = new Report();
-                reportToDelete.setReportId(reportId);
-                reportDao.deleteReport(reportToDelete);
+                // Lấy thông tin report trước khi xóa để lấy mã lỗi (reason code)
+                Report targetReport = null;
+                List<Report> reps = reportDao.getReportList(documentId);
+                for (Report r : reps) {
+                    if (r.getReportId() == reportId) {
+                        targetReport = r;
+                        break;
+                    }
+                }
+
+                if (targetReport != null) {
+                    ReportReasonDAO reasonDao = new ReportReasonDAO();
+                    ReportReason reason = reasonDao.getReasonByCode(targetReport.getReasonCode());
+                    double scoreToDeduct = (reason != null) ? reason.getBaseScore() : 0.0;
+                    double autoFlagThreshold = (reason != null) ? reason.getAutoFlagThreshold() : 999.0;
+
+                    // Thực hiện xóa report
+                    boolean isDeleted = reportDao.deleteReport(targetReport);
+                    
+                    if (isDeleted) {
+                        // Cập nhật và trừ điểm lại cho Document
+                        Document doc = docDao.findById(documentId);
+                        if (doc != null) {
+                            double newScore = doc.getTotalReportScore() - scoreToDeduct;
+                            if (newScore < 0) {
+                                newScore = 0.0;
+                            }
+                            doc.setTotalReportScore(newScore);
+
+                            // Cập nhật lại cờ vi phạm (Flag)
+                            if (newScore >= autoFlagThreshold && newScore > 0) {
+                                doc.setIsFlagged(true);
+                            } else {
+                                doc.setIsFlagged(false);
+                            }
+
+                            // Lưu điểm số mới xuống Database
+                            docDao.updateReportMetrics(doc.getDocumentId(), doc.getTotalReportScore(), doc.isFlagged());
+                        }
+                    }
+                }
 
                 response.sendRedirect(request.getContextPath() + "/MainController?action=adminReportList&documentId=" + documentId);
 
             } else if ("adminDeleteDocument".equals(action)) {
-                // Lệnh hạt nhân: Xóa tài liệu vi phạm nặng
                 int documentId = Integer.parseInt(request.getParameter("documentId"));
-
                 boolean isDeleted = docDao.deleteDocumentAndDependencies(documentId);
 
                 if (isDeleted) {
-                    // Xóa sạch xong thì đá về trang dashboard quản lý chung của admin
                     response.sendRedirect(request.getContextPath() + "/MainController?action=listDashboard");
                 } else {
                     response.sendRedirect(request.getContextPath() + "/MainController?action=adminReportList&documentId=" + documentId + "&error=delete_failed");
