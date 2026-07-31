@@ -16,7 +16,8 @@ public class FolderDAO {
     public boolean createFolder(Folder folder) {
         String sql = "INSERT INTO folders (user_id, parent_folder_id, folder_name, sharing_permission) VALUES (?, ?, ?, ?)";
 
-        try ( Connection conn = Utils.DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+        try ( Connection conn = Utils.DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS)) {
+
             ps.setInt(1, folder.getUserId());
             if (folder.getParentFolderId() != null) {
                 ps.setInt(2, folder.getParentFolderId());
@@ -26,15 +27,18 @@ public class FolderDAO {
             ps.setString(3, folder.getFolderName());
             ps.setString(4, folder.getSharingPermission() != null ? folder.getSharingPermission() : "PRIVATE");
 
-            boolean check = ps.executeUpdate() > 0;
+            int affectedRows = ps.executeUpdate();
+            if (affectedRows == 0) {
+                return false;
+            }
 
             try ( ResultSet rs = ps.getGeneratedKeys()) {
                 if (rs.next()) {
-                    int folderId = rs.getInt(1);
-                    folder.setFolderId(folderId);
+                    folder.setFolderId(rs.getInt(1));
                 }
             }
-            return check;
+            return true;
+
         } catch (SQLException e) {
             System.err.println("[FolderDAO.createFolder] Lỗi khi tạo thư mục: " + e.getMessage());
         }
