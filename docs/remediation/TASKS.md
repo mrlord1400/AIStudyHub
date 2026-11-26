@@ -23,7 +23,7 @@ Each task should fit in one session. If it doesn't, split it here first.
 
 ## Phase 0 — Containment
 
-### [ ] T0.1 Rotate leaked secrets and keep the Gemini key out of git
+### [~] T0.1 Rotate leaked secrets and keep the Gemini key out of git
 - **Findings:** F-08
 - **Owner:** the **user** does the rotation (an agent can't). The agent prepares the commit hygiene.
 - **Steps:**
@@ -34,8 +34,11 @@ Each task should fit in one session. If it doesn't, split it here first.
   3. Decide on a git-history rewrite (decision D-05). The default is no rewrite, since rotation is enough.
 - **Verify:** the old Gmail password fails SMTP login; the old Gemini key returns 400/403; `git log -p -S "<old key prefix>"` shows nothing new.
 - **Depends:** none.
+- **Notes (2026-11-26):** agent part done: `revamp/d_dev` and this branch contain no key (`GeminiService` is read from config). The
+  user still has to rotate the Gmail app password, the Gemini key and the DB password, and keep the real `GeminiService.java` edit on
+  `fix-folder-error` uncommitted. Still unticked until the user confirms the old values are dead.
 
-### [ ] T0.2 Introduce `Utils.AppConfig` and move all secrets and env literals into it
+### [~] T0.2 Introduce `Utils.AppConfig` and move all secrets and env literals into it
 - **Findings:** F-08, F-70 (partly)
 - **Files:** new `src/java/Utils/AppConfig.java`; `DBUtils.java`, `EmailUtil.java`, `GeminiService.java`, `CookieUtil.java`;
   new `docs/remediation/app.properties.example` (already drafted, so keep it in sync); a startup validator (new `Listener/ConfigValidationListener.java`, or extend `AppStartupListener`).
@@ -44,8 +47,15 @@ Each task should fit in one session. If it doesn't, split it here first.
 - **Verify:** with a key missing, startup logs `Missing required config: <KEY>` and the app refuses DB/Gemini/SMTP use. With a
   complete properties file: login, upload, chat and the OTP email all work. grepping `src/` for the old literal values of the DB password, SMTP password, Gemini key and remember-me secret (take them from `git show main:src/java/Utils/DBUtils.java` etc., and don't paste them into docs or commits) → nothing; no `private static final String` holds a credential.
 - **Depends:** T0.1 step 1, or at least new values available locally.
+- **Notes (2026-11-26):** `Utils.AppConfig` + `Listener.ConfigValidationListener` added; `DBUtils`, `EmailUtil`, `GeminiService`
+  (key now in `x-goog-api-key`), `CookieUtil` read from config. `SMTP_HOST`/`SMTP_PORT` default to Gmail. See decision D-08.
+  *Verified:* full `javac --release 8` of `src/java` compiles; with no config DB/Cookie/Gemini/Mail each throw `Missing required config: <KEY>`;
+  file / env / `-D` precedence, blank-as-missing and strict booleans behave; no old DB password, SMTP password, Gemini key or remember-me secret
+  remains in `src/` (checked against `git show main:`). *Not verified (needs Tomcat, SQL Server and real keys):* login, upload, chat and the OTP
+  email with a complete properties file, and the startup log lines. Left for later: `STORAGE_DIR` is not validated until T2.1; `System.out`
+  remains in other `UserDAO` methods (T5.1).
 
-### [ ] T0.3 Remove the seeded admin backdoor and the plaintext-password fallback
+### [~] T0.3 Remove the seeded admin backdoor and the plaintext-password fallback
 - **Findings:** F-02
 - **Files:** `src/java/Listener/AppStartupListener.java`, `UserDAO.seedTestUsers`, `AdminController.java` (~138).
 - **Steps:**
@@ -56,12 +66,20 @@ Each task should fit in one session. If it doesn't, split it here first.
   4. User: delete or re-password `admin@gmail.com` and `user@gmail.com` in every existing DB.
 - **Verify:** fresh start with default config → no `admin@gmail.com` row. Logging in with `admin@gmail.com`/`123` fails.
 - **Depends:** T0.2.
+- **Notes (2026-11-26):** seeding now runs only with `DEV_SEED_TEST_USERS=true` (WARNING logged, password from `DEV_SEED_PASSWORD`);
+  `UserDAO.seedTestUsers(String)`; the fallback that accepted the stored hash as the current password is gone from `updateAdminProfile`;
+  first-admin procedure is in `CODEBASE.md` §11. *Verified:* compiles; `AppConfig.getBoolean("DEV_SEED_TEST_USERS", false)` is false with no config.
+  *Not verified:* a fresh start against a real DB (no `admin@gmail.com` row, `admin@gmail.com`/`123` rejected). *Step 4 is the user's:* remove or
+  re-password `admin@gmail.com` and `user@gmail.com` in every existing database.
 
-### [ ] T0.4 Fix the `src/java/FIlter` directory name
+### [~] T0.4 Fix the `src/java/FIlter` directory name
 - **Findings:** CODEBASE §10 gotcha
 - **Steps:** `git mv src/java/FIlter src/java/FilterTmp && git mv src/java/FilterTmp src/java/Filter` (two steps, because Windows is case-insensitive). Clean and rebuild in NetBeans.
 - **Verify:** clean build succeeds; the app starts; SessionSyncFilter still runs (banning a user logs them out within 60 s).
 - **Depends:** none. Do it before Phase 1 adds filters.
+- **Notes (2026-11-26):** done with two `git mv` steps; `git ls-files` shows `src/java/Filter/SessionSyncFilter.java`. *Verified:* the whole source tree
+  compiles. *Not verified:* NetBeans clean build, app start, and the ban-logs-out-within-60-s check (needs Tomcat). Stale `nbproject/private` entries
+  pointing at `FIlter` are gitignored and harmless.
 
 ---
 

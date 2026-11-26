@@ -43,11 +43,12 @@ src/java/
   Controller/             17 servlets (one per feature area)
   Filter/                 package `Filter` (directory renamed from the "FIlter" typo in T0.4)
     SessionSyncFilter.java
-  Listener/AppStartupListener.java   seeds test users at startup (F-02)
+  Listener/AppStartupListener.java   seeds dev test users only when DEV_SEED_TEST_USERS=true (T0.3)
+  Listener/ConfigValidationListener.java   logs which required config keys are present/missing (T0.2)
   Model/DAO/              12 DAOs, plain JDBC
   Model/DTO/              10 POJOs
   Model/Service/SubscriptionRenewalService.java
-  Utils/                  DBUtils, PasswordUtil, CookieUtil, EmailUtil, GeminiService, LinkUtil, SubscriptionScheduler
+  Utils/                  AppConfig, DBUtils, PasswordUtil, CookieUtil, EmailUtil, GeminiService, LinkUtil, SubscriptionScheduler
 web/
   *.jsp                   30 pages (no WEB-INF protection: all directly reachable)
   WEB-INF/web.xml         only maps SystemConfigController + session timeout 30 min
@@ -141,8 +142,9 @@ Triggers maintain `updated_at` on `users`, `documents` and `friendships`.
 
 | Class | Notes |
 |---|---|
-| `Utils.DBUtils` | `getConnection()` (hard-coded creds, F-08), `closeConnection()` |
-| `UserDAO` | register/login/get/update user, `updateBalance` (read-modify-write, F-20), `updatePassword(email,…)`, AI usage, premium expiry helpers, friend lists, `deleteUserAndAssociatedData` (**the one place that uses a real transaction**, a good pattern to copy), `seedTestUsers` (F-02) |
+| `Utils.AppConfig` | All secrets/env settings: env var → system property → `~/.aistudyhub/app.properties`. `require(key)` fails closed with `Missing required config: KEY` |
+| `Utils.DBUtils` | `getConnection()` (credentials from `AppConfig`: `DB_URL`, `DB_USER`, `DB_PASSWORD`), `closeConnection()` |
+| `UserDAO` | register/login/get/update user, `updateBalance` (read-modify-write, F-20), `updatePassword(email,…)`, AI usage, premium expiry helpers, friend lists, `deleteUserAndAssociatedData` (**the one place that uses a real transaction**, a good pattern to copy), `seedTestUsers(password)` (dev only, T0.3) |
 | `DocumentDAO` | ~780 lines: CRUD, explore query (`getExploreDocuments`, builds ORDER BY from a whitelist, so it's safe), duplicates, bookmarks, storage totals, admin listing, `privatizePublicDocumentsByUserId` |
 | `DocumentTextDAO` | extracted text CRUD |
 | `FolderDAO` | owner-scoped CRUD, recursive CTE delete, `buildFolderTree` (text tree for the chatbot) |
@@ -188,3 +190,32 @@ Triggers maintain `updated_at` on `users`, `documents` and `friendships`.
 - Comments are a mix of Vietnamese and English. User-facing strings are Vietnamese, so keep them Vietnamese.
 - Many JSPs contain scriptlets that call DAOs directly (e.g. `user_dashboard.jsp`, `login.jsp`). Grep JSPs too when you change a DAO signature.
 - The seeded `user@gmail.com` uses tier 1 (Guest), but registration uses tier 2. The tier ids are magic numbers (F-70).
+
+## 11. Configuration and the first admin (T0.2 / T0.3)
+
+**Local setup.** Copy `docs/remediation/app.properties.example` to `%USERPROFILE%\.aistudyhub\app.properties` and fill in the
+required keys (`DB_URL`, `DB_USER`, `DB_PASSWORD`, `SMTP_USER`, `SMTP_PASSWORD`, `REMEMBER_ME_SECRET`, and `GEMINI_API_KEY` while
+`AI_ENABLED` is not `false`). Environment variables and `-D` system properties override the file. If Tomcat runs as a service its
+`user.home` differs, so point `AISTUDYHUB_CONFIG` at the file instead. At startup `ConfigValidationListener` logs which required
+key names are missing; any code path that needs a missing key throws `Missing required config: KEY`.
+
+**There is no default admin.** The app no longer seeds `admin@gmail.com` / `user@gmail.com` unless `DEV_SEED_TEST_USERS=true`
+(plus `DEV_SEED_PASSWORD`), which is for a local machine only and logs a WARNING.
+
+**Creating the first admin on a real database:**
+
+1. Generate a BCrypt hash locally (JDK 9+, run from the repo root; the password never leaves your machine):
+   ```
+   jshell --class-path web/WEB-INF/lib/jbcrypt-0.4.jar
+   jshell> org.mindrot.jbcrypt.BCrypt.hashpw("<choose a strong password>", org.mindrot.jbcrypt.BCrypt.gensalt())
+   ```
+2. Insert the user (tier 3 matches what the old seed used; adjust to your tier ids):
+   ```sql
+   INSERT INTO users (username, email, password_hash, role, tier_id, status)
+   VALUES (N'<admin name>', N'<admin email>', N'<bcrypt hash from step 1>', 'ADMIN', 3, 'ACTIVE');
+   ```
+3. Existing databases that were started with an older build still hold the seeded rows. Delete them or give them a new password:
+   ```sql
+   SELECT user_id, email, role FROM users WHERE email IN ('admin@gmail.com', 'user@gmail.com');
+   -- then either DELETE them (check their documents first) or UPDATE users SET password_hash = '<new bcrypt hash>' WHERE email = '...';
+   ```
