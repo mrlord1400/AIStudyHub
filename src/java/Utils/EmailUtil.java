@@ -49,9 +49,8 @@ public class EmailUtil {
     }
 
     public static boolean sendOTP(String toEmail, String otp) {
-        Session session = newSession();
-
         try {
+            Session session = newSession();
             MimeMessage message = new MimeMessage(session);
             message.setFrom(new InternetAddress(senderEmail(), SENDER_DISPLAY_NAME));
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
@@ -95,9 +94,8 @@ public class EmailUtil {
     }
 
     private static boolean sendHtmlEmail(String toEmail, String subject, String htmlBody) {
-        Session session = newSession();
-
         try {
+            Session session = newSession();
             MimeMessage message = new MimeMessage(session);
             message.setFrom(new InternetAddress(senderEmail(), SENDER_DISPLAY_NAME));
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));

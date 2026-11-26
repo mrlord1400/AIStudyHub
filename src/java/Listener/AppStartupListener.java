@@ -19,7 +19,14 @@ public class AppStartupListener implements ServletContextListener {
 
         // Development convenience only. Off unless DEV_SEED_TEST_USERS=true, so a default
         // deployment never contains well-known accounts.
-        if (!AppConfig.getBoolean("DEV_SEED_TEST_USERS", false)) {
+        boolean seed;
+        try {
+            seed = AppConfig.getBoolean("DEV_SEED_TEST_USERS", false);
+        } catch (IllegalStateException e) {
+            LOG.log(Level.SEVERE, "{0}; not seeding", e.getMessage());
+            return;
+        }
+        if (!seed) {
             return;
         }
 

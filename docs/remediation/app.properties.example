@@ -3,7 +3,8 @@
 # Copy to %USERPROFILE%\.aistudyhub\app.properties (or point AISTUDYHUB_CONFIG at another path)
 # and fill in real values. NEVER commit the real file.
 # Environment variables and JVM system properties with the same key override this file.
-# Keys marked REQUIRED have no default: the app refuses to start without them.
+# Keys marked REQUIRED have no default: a missing one is logged at startup and the feature that needs it
+# fails closed ("Missing required config: KEY"). Some keys below are only read by later tasks (T2.1, T3.x, T6.x).
 # Read through Utils.AppConfig only (see docs/remediation/CONVENTIONS.md section 1).
 
 # --- Database (REQUIRED) ---

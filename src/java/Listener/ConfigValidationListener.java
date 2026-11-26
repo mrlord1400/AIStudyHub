@@ -29,7 +29,13 @@ public class ConfigValidationListener implements ServletContextListener {
     @Override
     public void contextInitialized(ServletContextEvent sce) {
         List<String> required = new ArrayList<>(Arrays.asList(ALWAYS_REQUIRED));
-        if (AppConfig.getBoolean("AI_ENABLED", true)) {
+        boolean aiEnabled = true;
+        try {
+            aiEnabled = AppConfig.getBoolean("AI_ENABLED", true);
+        } catch (IllegalStateException e) {
+            LOG.log(Level.SEVERE, "{0}; treating AI as enabled", e.getMessage());
+        }
+        if (aiEnabled) {
             required.add("GEMINI_API_KEY");
         }
         String[] keys = required.toArray(new String[0]);
