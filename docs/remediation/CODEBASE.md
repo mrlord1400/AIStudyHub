@@ -41,7 +41,7 @@ Admins manage users, transactions, reported documents, report-reason config and 
 ASH_Database.sql          schema + seed data
 src/java/
   Controller/             17 servlets (one per feature area)
-  FIlter/                 <- directory name has a typo ("FIlter"), but the package is `Filter`
+  Filter/                 package `Filter` (directory renamed from the "FIlter" typo in T0.4)
     SessionSyncFilter.java
   Listener/AppStartupListener.java   seeds test users at startup (F-02)
   Model/DAO/              12 DAOs, plain JDBC
@@ -181,7 +181,7 @@ Triggers maintain `updated_at` on `users`, `documents` and `friendships`.
 
 ## 10. Gotchas
 
-- `src/java/FIlter/` vs package `Filter`. This works on Windows only because the filesystem is case-insensitive. Put new filters in the same directory and package, or fix the directory name first with `git mv` (tracked in TASKS).
+- `src/java/Filter/` was once misspelled `FIlter` (fixed in T0.4). On a clone that still has the old directory name in an IDE cache, clean and rebuild.
 - Annotated `@WebFilter`s have **no defined order**. Declare filters in `web.xml` when order matters.
 - `SystemConfigController` is mapped twice (annotation + `web.xml`). That works because the mappings are identical, but keep it in mind.
 - `DocumentController` derives the on-disk path from `cloud_storage_url` by stripping the context path. Any change to storage must update `viewDoc`, `downloadDoc`, `deleteDoc`, `UploadController.deletePhysicalFile`/`renameToFinalName`, `AdminReportController.adminDeleteDocument`, and `UserDAO.deleteUserAndAssociatedData` (verify the last two when you get there).

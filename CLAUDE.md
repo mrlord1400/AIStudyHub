@@ -22,4 +22,4 @@ Update `STATUS.md` and `TASKS.md` before ending a session.
   `revamp/feature/d_<name>` for features; PRs target `revamp/d_dev`. Don't merge into `revamp/d_dev` without the user's approval.
 - Never commit secrets. Config goes through `Utils.AppConfig` once T0.2 lands; until then, don't add new literals.
 - Don't commit machine-specific `nbproject/*` changes unless the task asks for it.
-- `src/java/FIlter/` holds package `Filter` (directory typo, fixed in T0.4).
+- Filters live in `src/java/Filter/` (package `Filter`).
