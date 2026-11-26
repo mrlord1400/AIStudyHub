@@ -3,19 +3,17 @@ package Utils;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Utility class for creating JDBC connections to the ai_study_hub database.
  *
- * NOTE: Update DB_URL, DB_USER, and DB_PASSWORD to match your environment.
+ * Connection settings (DB_URL, DB_USER, DB_PASSWORD) come from {@link AppConfig}.
  */
 public class DBUtils {
 
-    // ─── Connection Settings ──────────────────────────────────────────────────
-    // SQL Server default port is 1433. Added trustServerCertificate to bypass local SSL issues.
-    private static final String DB_URL      = "jdbc:sqlserver://localhost:1433;databaseName=ai_study_hub;encrypt=true;trustServerCertificate=true;";
-    private static final String DB_USER     = "sa";      // ← change if needed
-    private static final String DB_PASSWORD = "12345";   // ← change if needed
+    private static final Logger LOG = Logger.getLogger(DBUtils.class.getName());
 
     static {
         try {
@@ -32,7 +30,10 @@ public class DBUtils {
      * The caller is responsible for closing the connection after use.
      */
     public static Connection getConnection() throws SQLException {
-        return DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+        return DriverManager.getConnection(
+                AppConfig.require("DB_URL"),
+                AppConfig.require("DB_USER"),
+                AppConfig.require("DB_PASSWORD"));
     }
 
     /**
@@ -46,9 +47,7 @@ public class DBUtils {
                     conn.close();
                 }
             } catch (SQLException e) {
-                // In a production environment, you would typically log this error
-                // using a framework like SLF4J or Log4j instead of System.err.
-                System.err.println("Error closing the database connection: " + e.getMessage());
+                LOG.log(Level.WARNING, "Error closing the database connection", e);
             }
         }
     }

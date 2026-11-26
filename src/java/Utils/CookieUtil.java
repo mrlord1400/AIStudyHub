@@ -19,9 +19,7 @@ import java.util.Base64;
  */
 public class CookieUtil {
 
-    // TODO: Trong thực tế nên đưa SECRET_KEY vào biến môi trường / file config,
-    // KHÔNG hard-code trong source. Để demo đồ án, tạm để ở đây.
-    private static final String SECRET_KEY = "AIStudyHub-RememberMe-Secret-SWP391-ChangeThisInProduction";
+    // Khóa bí mật lấy từ AppConfig (REMEMBER_ME_SECRET), KHÔNG hard-code trong source.
 
     // Theo yêu cầu: ghi nhớ đăng nhập "cho đến khi user logout hoặc hệ thống update".
     // Vì cookie là stateless (không lưu DB) nên không thể tự huỷ khi server restart,
@@ -76,9 +74,11 @@ public class CookieUtil {
     }
 
     private static String hmac(String data) {
+        // Read outside the try so a missing key reports "Missing required config: REMEMBER_ME_SECRET".
+        String secret = AppConfig.require("REMEMBER_ME_SECRET");
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(SECRET_KEY.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
             byte[] hash = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
             return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
         } catch (Exception e) {

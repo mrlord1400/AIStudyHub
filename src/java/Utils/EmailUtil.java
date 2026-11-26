@@ -1,6 +1,8 @@
 package Utils;
 
 import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.mail.Authenticator;
 import javax.mail.Message;
 import javax.mail.PasswordAuthentication;
@@ -11,15 +13,20 @@ import javax.mail.internet.MimeMessage;
 
 public class EmailUtil {
 
-    private static final String SENDER_EMAIL = "aistudyhub.noreply@gmail.com";
-    private static final String SENDER_PASSWORD = "hfumixnlwrjntlld";
+    private static final Logger LOG = Logger.getLogger(EmailUtil.class.getName());
+
     private static final String SENDER_DISPLAY_NAME = "AI Study Hub";
+
+    // SMTP_USER is also the From address. SMTP_PASSWORD never leaves AppConfig/the Authenticator.
+    private static String senderEmail() {
+        return AppConfig.require("SMTP_USER");
+    }
 
     // Hàm dùng chung để tạo Properties chuẩn, tránh lặp lại code
     private static Properties getMailProperties() {
         Properties props = new Properties();
-        props.put("mail.smtp.host", "smtp.gmail.com");
-        props.put("mail.smtp.port", "587");
+        props.put("mail.smtp.host", AppConfig.get("SMTP_HOST", "smtp.gmail.com"));
+        props.put("mail.smtp.port", AppConfig.get("SMTP_PORT", "587"));
         props.put("mail.smtp.auth", "true");
         props.put("mail.smtp.starttls.enable", "true");
         props.put("mail.smtp.ssl.protocols", "TLSv1.2");
@@ -30,17 +37,23 @@ public class EmailUtil {
         return props;
     }
 
-    public static boolean sendOTP(String toEmail, String otp) {
-        Session session = Session.getInstance(getMailProperties(), new Authenticator() {
+    private static Session newSession() {
+        final String user = AppConfig.require("SMTP_USER");
+        final String password = AppConfig.require("SMTP_PASSWORD");
+        return Session.getInstance(getMailProperties(), new Authenticator() {
             @Override
             protected PasswordAuthentication getPasswordAuthentication() {
-                return new PasswordAuthentication(SENDER_EMAIL, SENDER_PASSWORD);
+                return new PasswordAuthentication(user, password);
             }
         });
+    }
+
+    public static boolean sendOTP(String toEmail, String otp) {
+        Session session = newSession();
 
         try {
             MimeMessage message = new MimeMessage(session);
-            message.setFrom(new InternetAddress(SENDER_EMAIL, SENDER_DISPLAY_NAME));
+            message.setFrom(new InternetAddress(senderEmail(), SENDER_DISPLAY_NAME));
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
 
             // Set tiêu đề Email chuẩn UTF-8
@@ -52,8 +65,7 @@ public class EmailUtil {
             Transport.send(message);
             return true;
         } catch (Exception e) {
-            System.err.println("SMTP Error in sendOTP: " + e.getMessage());
-            e.printStackTrace();
+            LOG.log(Level.SEVERE, "SMTP error in sendOTP", e);
             return false;
         }
     }
@@ -83,24 +95,18 @@ public class EmailUtil {
     }
 
     private static boolean sendHtmlEmail(String toEmail, String subject, String htmlBody) {
-        Session session = Session.getInstance(getMailProperties(), new Authenticator() {
-            @Override
-            protected PasswordAuthentication getPasswordAuthentication() {
-                return new PasswordAuthentication(SENDER_EMAIL, SENDER_PASSWORD);
-            }
-        });
+        Session session = newSession();
 
         try {
             MimeMessage message = new MimeMessage(session);
-            message.setFrom(new InternetAddress(SENDER_EMAIL, SENDER_DISPLAY_NAME));
+            message.setFrom(new InternetAddress(senderEmail(), SENDER_DISPLAY_NAME));
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
             message.setSubject(subject, "UTF-8");
             message.setContent(htmlBody, "text/html; charset=UTF-8");
             Transport.send(message);
             return true;
         } catch (Exception e) {
-            System.err.println("SMTP Error in sendHtmlEmail: " + e.getMessage());
-            e.printStackTrace();
+            LOG.log(Level.SEVERE, "SMTP error in sendHtmlEmail", e);
             return false;
         }
     }

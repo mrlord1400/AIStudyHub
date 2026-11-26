@@ -186,3 +186,4 @@ Record the exact commands and results in the task's notes in `TASKS.md`.
 | D-05 | 2026-11-26 | Rotate leaked secrets; git-history rewrite **optional** | Rotation is what removes the risk. A rewrite disrupts every teammate's clone | Proposed — user decides on rewrite |
 | D-06 | 2026-11-26 | Other users' private resources answer as "not found" | Avoids leaking existence (checklist 403 vs 404) | Adopted |
 | D-07 | 2026-11-26 | Rate limiting and lockouts stay in-memory | Single Tomcat instance; documented assumption. Revisit if scaled out | Proposed |
+| D-08 | 2026-11-26 | A missing required config key is logged at startup (`ConfigValidationListener`) and fails closed on first use via `AppConfig.require`; it does not abort deployment | The app stays deployable so the admin can read the log, while DB/SMTP/Gemini/remember-me stay unusable. Keeps seeding and the scheduler from taking the context down | Adopted in T0.2 |

@@ -12,15 +12,17 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 public class GeminiService {
-    private static final String API_KEY = "";
-    private static final String API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key="
-            + API_KEY;
+    private static final String API_BASE = "https://generativelanguage.googleapis.com/v1beta/models/";
 
     public String getGeminiResponse(List<ChatMessage> messageHistory) throws Exception {
-        URL url = new URL(API_URL);
+        // The key goes in a header, not the URL, so it can't leak through logs or exception messages.
+        String apiKey = AppConfig.require("GEMINI_API_KEY");
+        String model = AppConfig.get("GEMINI_MODEL", "gemini-3.1-flash-lite");
+        URL url = new URL(API_BASE + model + ":generateContent");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("POST");
         conn.setRequestProperty("Content-Type", "application/json");
+        conn.setRequestProperty("x-goog-api-key", apiKey);
         conn.setDoOutput(true);
 
         // 1. DÙNG GSON ĐỂ BUILD PAYLOAD JSON AN TOÀN
