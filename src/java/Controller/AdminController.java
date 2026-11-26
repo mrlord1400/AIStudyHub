@@ -134,11 +134,6 @@ public class AdminController extends HttpServlet {
                         // 1. KIỂM TRA MẬT KHẨU BẰNG HÀM CÓ SẴN CỦA USER_DAO (Hỗ trợ BCrypt/Verify)
                         boolean isPasswordValid = userDAO.checkPassword(adminId, currentPasswordInput);
 
-                        // Fallback: Đề phòng admin được tạo bằng tay trong DB với mật khẩu chưa mã hóa (plain text)
-                        if (!isPasswordValid && currentPasswordInput.equals(adminUser.getPasswordHash())) {
-                            isPasswordValid = true;
-                        }
-
                         if (!isPasswordValid) {
                             response.sendRedirect(request.getContextPath() + "/AdminController?action=profile&error=wrong_password");
                             return;

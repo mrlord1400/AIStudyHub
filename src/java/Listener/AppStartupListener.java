@@ -1,6 +1,9 @@
 package Listener;
 
 import Model.DAO.UserDAO;
+import Utils.AppConfig;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
 import javax.servlet.annotation.WebListener;
@@ -8,23 +11,40 @@ import javax.servlet.annotation.WebListener;
 @WebListener
 public class AppStartupListener implements ServletContextListener {
 
+    private static final Logger LOG = Logger.getLogger(AppStartupListener.class.getName());
+
     @Override
     public void contextInitialized(ServletContextEvent sce) {
-        System.out.println("=== Application Starting: Seeding Database ===");
-        
-        UserDAO userDAO = new UserDAO();
-        boolean success = userDAO.seedTestUsers();
-        
-        if (success) {
-            System.out.println("Test users successfully added to the database!");
-        } else {
-            System.out.println("Failed to add test users (they might already exist).");
+        LOG.info("=== Application starting ===");
+
+        // Development convenience only. Off unless DEV_SEED_TEST_USERS=true, so a default
+        // deployment never contains well-known accounts.
+        boolean seed;
+        try {
+            seed = AppConfig.getBoolean("DEV_SEED_TEST_USERS", false);
+        } catch (IllegalStateException e) {
+            LOG.log(Level.SEVERE, "{0}; not seeding", e.getMessage());
+            return;
+        }
+        if (!seed) {
+            return;
+        }
+
+        LOG.warning("DEV_SEED_TEST_USERS=true: creating well-known test accounts "
+                + "(user@gmail.com, admin@gmail.com). NEVER enable this outside a local machine.");
+        try {
+            boolean success = new UserDAO().seedTestUsers(AppConfig.require("DEV_SEED_PASSWORD"));
+            LOG.info(success
+                    ? "Test users added to the database."
+                    : "Test users were not added (they may already exist).");
+        } catch (RuntimeException e) {
+            // e.g. DEV_SEED_PASSWORD or DB settings missing: report it but don't abort deployment.
+            LOG.log(Level.SEVERE, "Seeding test users failed", e);
         }
     }
 
     @Override
     public void contextDestroyed(ServletContextEvent sce) {
-        // This runs when the server stops. You can leave it empty.
-        System.out.println("=== Application Shutting Down ===");
+        LOG.info("=== Application shutting down ===");
     }
 }

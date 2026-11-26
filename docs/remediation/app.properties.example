@@ -3,7 +3,8 @@
 # Copy to %USERPROFILE%\.aistudyhub\app.properties (or point AISTUDYHUB_CONFIG at another path)
 # and fill in real values. NEVER commit the real file.
 # Environment variables and JVM system properties with the same key override this file.
-# Keys marked REQUIRED have no default: the app refuses to start without them.
+# Keys marked REQUIRED have no default: a missing one is logged at startup and the feature that needs it
+# fails closed ("Missing required config: KEY"). Some keys below are only read by later tasks (T2.1, T3.x, T6.x).
 # Read through Utils.AppConfig only (see docs/remediation/CONVENTIONS.md section 1).
 
 # --- Database (REQUIRED) ---
@@ -43,7 +44,7 @@ OTP_SEND_MAX_PER_HOUR=5
 OTP_VALID_SECONDS=120
 OTP_MAX_ATTEMPTS=3
 
-# --- File storage (REQUIRED, outside the web app folder; T2.1) ---
+# --- File storage (REQUIRED from T2.1; not read yet, outside the web app folder) ---
 STORAGE_DIR=C:/aistudyhub-data/uploads
 
 # --- Money (T4.4) ---
@@ -54,5 +55,6 @@ PAGE_SIZE_DEFAULT=24
 PAGE_SIZE_MAX=100
 
 # --- Development only (T0.3). Leave false outside a local machine. ---
+# When true the app creates user@gmail.com and admin@gmail.com at startup using DEV_SEED_PASSWORD.
 DEV_SEED_TEST_USERS=false
 DEV_SEED_PASSWORD=

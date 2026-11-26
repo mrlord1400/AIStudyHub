@@ -14,8 +14,12 @@ import java.sql.Timestamp;
 import Utils.PasswordUtil;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class UserDAO {
+
+    private static final Logger LOG = Logger.getLogger(UserDAO.class.getName());
 
     public boolean register(User user) {
 
@@ -449,19 +453,22 @@ public class UserDAO {
         return false;
     }
 
-    //Insert Test Users into database
-    public boolean seedTestUsers() {
+    /**
+     * DEV ONLY: inserts a student and an admin account that share the given password.
+     * The caller (AppStartupListener) only runs this when DEV_SEED_TEST_USERS=true, and takes the
+     * password from config, so no credential lives in source.
+     */
+    public boolean seedTestUsers(String plainPassword) {
         String sql = "INSERT INTO users(username, email, password_hash, role, tier_id, status) VALUES(?,?,?,?,?,?)";
-        Connection conn = null;
+        String passwordHash = PasswordUtil.hashPassword(plainPassword);
 
-        try {
-            conn = DBUtils.getConnection();
-            PreparedStatement ps = conn.prepareStatement(sql);
+        try (Connection conn = DBUtils.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             // --- Insert User 1: Student ---
             ps.setString(1, "student_user");
             ps.setString(2, "user@gmail.com");
-            ps.setString(3, PasswordUtil.hashPassword("123")); // Hashing via Java
+            ps.setString(3, passwordHash);
             ps.setString(4, "STUDENT");
             ps.setInt(5, 1); // Assuming 1 is the default Free/Guest tier
             ps.setString(6, "ACTIVE");
@@ -470,7 +477,7 @@ public class UserDAO {
             // --- Insert User 2: Admin ---
             ps.setString(1, "admin_user");
             ps.setString(2, "admin@gmail.com");
-            ps.setString(3, PasswordUtil.hashPassword("123")); // Hashing via Java
+            ps.setString(3, passwordHash);
             ps.setString(4, "ADMIN");
             ps.setInt(5, 3); // Assuming 3 is a higher tier
             ps.setString(6, "ACTIVE");
@@ -481,9 +488,7 @@ public class UserDAO {
             return results.length == 2;
 
         } catch (SQLException e) {
-            System.out.println("[UserDAO.seedTestUsers] " + e.getMessage());
-        } finally {
-            DBUtils.closeConnection(conn);
+            LOG.log(Level.WARNING, "seedTestUsers failed (the users may already exist)", e);
         }
 
         return false;
