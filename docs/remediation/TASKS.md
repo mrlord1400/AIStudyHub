@@ -1,0 +1,388 @@
+# Remediation Tasks
+
+Legend: `[ ]` todo · `[~]` in progress · `[x]` done and verified · `[-]` won't do (give the reason).
+Ids are stable. Never renumber; add new tasks as `Tn.m+1` or with a letter suffix.
+`F-xx` = finding in [FINDINGS.md](./FINDINGS.md). "Conv §n" = section n of [CONVENTIONS.md](./CONVENTIONS.md).
+
+Order: phases run in order. Within a phase, follow the numbering unless the *Depends* line says otherwise.
+Each task should fit in one session. If it doesn't, split it here first.
+
+| Phase | Theme | Why this position |
+|---|---|---|
+| 0 | Containment: secrets, backdoors | Hours of work, removes the risk of someone simply logging in as admin |
+| 1 | Authorization | One filter plus SQL scoping closes most critical holes |
+| 2 | File storage | RCE and private-file exposure. Needs config from Phase 0 |
+| 3 | Browser-side security | XSS/CSRF/session. Large but mechanical |
+| 4 | Money & concurrency | Correctness of balances and Premium |
+| 5 | Failure handling & observability | Touches every file. Do it after behaviour is correct to avoid conflicts |
+| 6 | Data, config, operability | Pooling, Gemini hardening, pagination |
+| 7 | Tests | Lock in the rules |
+| 8 | UI state & accessibility | Checklist §01 and §10 pass |
+
+---
+
+## Phase 0 — Containment
+
+### [ ] T0.1 Rotate leaked secrets and keep the Gemini key out of git
+- **Findings:** F-08
+- **Owner:** the **user** does the rotation (an agent can't). The agent prepares the commit hygiene.
+- **Steps:**
+  1. User: revoke the Gmail app password for `aistudyhub.noreply@gmail.com` and create a new one; revoke and re-issue the
+     Gemini API key; change the SQL Server `sa` password (better: create a dedicated `aistudyhub_app` login with rights on `ai_study_hub` only).
+  2. Agent: make sure `src/java/Utils/GeminiService.java` is **not** committed with a key. Run `git diff` to check. Until T0.2
+     lands, keep the key out of the file and pass it some other way, or keep the change unstaged.
+  3. Decide on a git-history rewrite (decision D-05). The default is no rewrite, since rotation is enough.
+- **Verify:** the old Gmail password fails SMTP login; the old Gemini key returns 400/403; `git log -p -S "<old key prefix>"` shows nothing new.
+- **Depends:** none.
+
+### [ ] T0.2 Introduce `Utils.AppConfig` and move all secrets and env literals into it
+- **Findings:** F-08, F-70 (partly)
+- **Files:** new `src/java/Utils/AppConfig.java`; `DBUtils.java`, `EmailUtil.java`, `GeminiService.java`, `CookieUtil.java`;
+  new `docs/remediation/app.properties.example` (already drafted, so keep it in sync); a startup validator (new `Listener/ConfigValidationListener.java`, or extend `AppStartupListener`).
+- **Steps:** implement Conv §1. Replace the literals with `AppConfig.require(...)`. Send the Gemini key in the
+  `x-goog-api-key` header instead of the URL. Validate all required keys at startup and log the **names** of present keys (never values).
+- **Verify:** with a key missing, startup logs `Missing required config: <KEY>` and the app refuses DB/Gemini/SMTP use. With a
+  complete properties file: login, upload, chat and the OTP email all work. grepping `src/` for the old literal values of the DB password, SMTP password, Gemini key and remember-me secret (take them from `git show main:src/java/Utils/DBUtils.java` etc., and don't paste them into docs or commits) → nothing; no `private static final String` holds a credential.
+- **Depends:** T0.1 step 1, or at least new values available locally.
+
+### [ ] T0.3 Remove the seeded admin backdoor and the plaintext-password fallback
+- **Findings:** F-02
+- **Files:** `src/java/Listener/AppStartupListener.java`, `UserDAO.seedTestUsers`, `AdminController.java` (~138).
+- **Steps:**
+  1. Seeding runs only when `AppConfig.getBoolean("DEV_SEED_TEST_USERS", false)` is true, and logs a loud WARNING when it does.
+     Seeded passwords come from config, not literals.
+  2. Delete the "plain text" fallback in `updateAdminProfile`.
+  3. Document how to create the first admin (a SQL snippet with a BCrypt hash generated locally) in `CODEBASE.md` §10.
+  4. User: delete or re-password `admin@gmail.com` and `user@gmail.com` in every existing DB.
+- **Verify:** fresh start with default config → no `admin@gmail.com` row. Logging in with `admin@gmail.com`/`123` fails.
+- **Depends:** T0.2.
+
+### [ ] T0.4 Fix the `src/java/FIlter` directory name
+- **Findings:** CODEBASE §10 gotcha
+- **Steps:** `git mv src/java/FIlter src/java/FilterTmp && git mv src/java/FilterTmp src/java/Filter` (two steps, because Windows is case-insensitive). Clean and rebuild in NetBeans.
+- **Verify:** clean build succeeds; the app starts; SessionSyncFilter still runs (banning a user logs them out within 60 s).
+- **Depends:** none. Do it before Phase 1 adds filters.
+
+---
+
+## Phase 1 — Authorization
+
+### [ ] T1.1 Single auth gate: `Utils.Access` + `Filter.AuthFilter`, filters ordered in `web.xml`
+- **Findings:** F-01, F-73
+- **Files:** new `Utils/Access.java`, new `Filter/AuthFilter.java`, `web/WEB-INF/web.xml`; remove `@WebFilter` from `SessionSyncFilter` and register it in `web.xml` instead.
+- **Steps:** implement Conv §2.1–2.2.
+  - *Public*: `/login.jsp`, `/register.jsp`, `/forgot_password.jsp`, `/reset_password.jsp`, `/index.jsp`, `/guest_dashboard.jsp`,
+    `/publicDocument_view.jsp` (verify), `/AuthController`, `/ForgotPasswordController`, `/MainController` (the router itself;
+    its forwards are checked on FORWARD), `/DocumentController` (the controller keeps its guest rules for `viewPublicPage`/`viewDoc`), static assets if any.
+  - *Admin*: `/AdminController`, `/AdminReportController`, `/ReportConfigController`, `/admin/*`, `/admin_*.jsp`, plus the `TransactionController`
+    actions `adminListTransactions` and `adminUpdateTransaction` (check the `action` param for this servlet).
+  - *Everything else*: login required.
+  - Replace the hand-written role checks in `AdminReportController` and `TransactionController` with `Access.isAdmin` (keep them as defence in depth).
+  - Grep every JSP for where users are sent on login/logout so the public list is complete. Missing a public page shows up as a redirect loop.
+- **Verify (curl, Conv §11):**
+  - Anonymous `POST /AdminController action=createUser…` → redirect to login, no row created.
+  - Student session → 403 for `/AdminController?action=listUsers`, `/admin/system-config`, `/ReportConfigController?action=reportConfigDelete&reasonCode=SPAM`, `/admin_manageUser.jsp`, and `/MainController?action=listUsers` (the FORWARD path).
+  - Admin session → all admin pages work. Guest → `guest_dashboard`, login, register, forgot-password still work.
+- **Depends:** T0.4.
+
+### [ ] T1.2 Document edit/delete scoped to the owner
+- **Findings:** F-03
+- **Files:** `DocumentController.java` (`editDoc`, `updateDoc`, `deleteDoc`), `DocumentDAO.java` (new owner-scoped methods), and `UploadController` callers of `updateDocumentInfo`/`deleteDocument` (they use session-held ids, but switch them to owner-scoped too).
+- **Steps:** Conv §2.3. Delete the physical file **only after** the owner-scoped DB delete returns 1 row. The `isAdmin` branches in
+  `DocumentController` suggest admins once used these actions. Grep the `admin_*.jsp` files (none were found at audit time). Admin deletion goes through `AdminReportController.adminDeleteDocument`.
+- **Verify:** user A cannot `editDoc`/`updateDoc`/`deleteDoc` user B's document (they get the `not_found` redirect, and B's row and file are unchanged). A can still do all three on their own documents.
+- **Depends:** T1.1.
+
+### [ ] T1.3 `DocumentAccess.canView` with a real friendship check, used everywhere
+- **Findings:** F-04
+- **Files:** new `Model/Service/DocumentAccess.java`; `DocumentController` (`viewPublicPage`, `viewDoc`, `downloadDoc`, `toggleBookmark`), `ChatBotController` (`VIEW/`, to be finished in T1.4), `ReportController.createReport`.
+- **Steps:** Conv §2.2. Friendship = an ACCEPTED row in either direction (`FriendshipDAO.getFriendshipStatus`). A flagged document is visible to its owner only, matching Explore's behaviour (verify).
+- **Verify:** C (not a friend of B) gets "not found" for B's FRIENDS_ONLY document on view, download and bookmark. B's accepted friend A can view it. Public documents still work for guests.
+- **Depends:** T1.1.
+
+### [ ] T1.4 Chat sessions and messages scoped to the owner
+- **Findings:** F-06
+- **Files:** `ChatBotController.java`, `SessionController.java`, `ChatSessionDAO.java`, `ChatMessageDAO.java`.
+- **Steps:**
+  - `ChatBotController`: after parsing `sessionId`, load the session and require `getUserId() == userId` **before** using any quota or storing anything. `VIEW/<id>`: allow only if `DocumentAccess.canView(doc, userId)`; otherwise reply "not found".
+  - `SessionController`: pass `userId` to rename, pin, delete-messages and search, and add `AND user_id = ?` in the DAO SQL (for messages: `AND session_id IN (SELECT session_id FROM chat_sessions WHERE user_id = ?)`).
+  - Replace the hand-built JSON in `handleFindSessionByName` with Gson.
+- **Verify:** A posting to B's `sessionId` → 403/404 and no message row inserted. A cannot rename, pin or delete B's session or messages. Search returns only A's sessions. Asking the bot to "VIEW/<B's private doc id>" gets "not found".
+- **Depends:** T1.3.
+
+### [ ] T1.5 Enforce the friendship state machine
+- **Findings:** F-10
+- **Files:** `FriendController.java`, `FriendshipDAO.java`.
+- **Steps:** Conv §2.4. Split `updateFriendStatusByUsers` into:
+  - `accept(addresseeId=me, requesterId=target)`: requires `status='PENDING'`;
+  - `block(me, target)`: from any state, sets `blocker_id = me`;
+  - unblock: goes through delete, and only the blocker may do it (that check exists today).
+  Validate `returnPath` against a whitelist (`friendList`/`pendingList`/`blockedList`). Also consider preventing a reverse-pair duplicate row (B→A when A→B exists). `createFriendship` checks status in both directions; verify that.
+- **Verify:** a requester who tries to accept their own request → no change. A blocked user trying `status=ACCEPTED` → no change. Normal accept and block flows still work.
+- **Depends:** T1.1.
+
+### [ ] T1.6 Folder ids from requests must belong to the caller
+- **Findings:** F-05 (last bullet)
+- **Files:** `UploadController` (`upload`, `confirm`), `DocumentController.updateDoc`.
+- **Steps:** add `FolderDAO.isOwnedBy(folderId, userId)`. If the id isn't owned, treat it as root (`null`) or reject with `error=invalid_folder`. Choose rejection and keep it consistent.
+- **Verify:** uploading or moving a document into B's folder id is rejected, and B's folder view doesn't show A's document.
+- **Depends:** T1.2.
+
+### [ ] T1.7 Validate admin inputs
+- **Findings:** F-11
+- **Files:** `AdminController` (`createUser`, `updateUser`), `SystemConfigController.doPost`, `TransactionController.handleUpdateTransactionStatus`, `ReportConfigController.doPost`.
+- **Steps:** whitelist role (`STUDENT`/`ADMIN`), status (`ACTIVE`/`SUSPENDED`/`BANNED`), tier (existing ids), transaction status (`SUCCESS`/`CANCELLED`), severity. Add numeric ranges with caps. Make `SystemConfigController` validate every row **before** writing any, inside one DB transaction. Block an admin from demoting or banning themselves (avoids lock-out). Make `ReportConfig` delete POST-only.
+- **Verify:** invalid values → `error=invalid_input` and nothing written. Valid edits still work.
+- **Depends:** T1.1.
+
+### [ ] T1.8 Sweep: confirm the remaining endpoints
+- **Files:** `UserController` (`updateProfile`, `deleteAccount`), `SearchController`, `ReportController` (all actions), `AdminReportController`, `DocumentController.explore`, `MainController` `guest`.
+- **Steps:** for each action, record in `CODEBASE.md` §5: who may call it, what is scoped, and what's left. Fix small gaps here; open new tasks for big ones.
+- **Verify:** the `CODEBASE.md` §5 table has no ❌ left.
+- **Depends:** T1.2–T1.7.
+
+---
+
+## Phase 2 — File storage
+
+### [ ] T2.1 Store uploads outside the web root and serve them only through the controller
+- **Findings:** F-05
+- **Files:** `UploadController.java`, `DocumentController.java` (`viewDoc`, `downloadDoc`, `deleteDoc`), `AdminReportController.adminDeleteDocument`, `UserDAO.deleteUserAndAssociatedData` (and anything else that turns `cloud_storage_url` into a path; grep for `getRealPath`).
+- **Steps:** Conv §9. Add `Utils.FileStorage` with `save(userId, InputStream, ext) → key`, `open(key)`, `delete(key)`, `resolve(key)` (rejects `..` and absolute paths). Every path computation goes through it. Add `X-Content-Type-Options: nosniff` when serving.
+- **Verify:** a new upload lands in `STORAGE_DIR/<uid>/<uuid>.<ext>`. `GET /AIStudyHub/uploads/...` → 404. View, download, replace, keep-both, cancel and delete all still work. Text extraction still works.
+- **Depends:** T0.2, T1.3.
+
+### [ ] T2.2 Migrate existing files and `cloud_storage_url` values
+- **Steps:** a one-off migration (Java main class or SQL + script) that, for each document:
+  - finds the file under the old webapp path;
+  - copies it to `STORAGE_DIR` under a uuid name;
+  - updates the row to the new key.
+  It needs a dry-run mode, counts, re-runnability, and a report of missing files. Record the run in `STATUS.md` → *Migrations*.
+- **Verify:** dry-run counts match `SELECT COUNT(*) FROM documents`. After the real run, a sample of old documents opens.
+- **Depends:** T2.1.
+
+### [ ] T2.3 Allow-list file types and check content
+- **Findings:** F-05
+- **Files:** `UploadController.handleUpload`.
+- **Steps:** keep one constant set of allowed extensions (Conv §9). Check magic bytes: `%PDF` for pdf; ZIP `PK\x03\x04` for docx/xlsx/pptx; PNG, JPEG and GIF signatures; reject NUL bytes in txt/md. Use the per-file size cap from `subscriptions.max_storage_mb` (verify what that column means; see T6.4). Show a clear Vietnamese rejection message, and never echo exception text (F-31).
+- **Verify:** uploading `x.jsp`, `x.html`, `x.exe`, and a `.pdf` that is really HTML → rejected with a message. Valid files are accepted.
+- **Depends:** T2.1.
+
+---
+
+## Phase 3 — Browser-side security
+
+### [ ] T3.1 Escape all output (split across sessions)
+- **Findings:** F-07
+- **Shared first step (T3.1a):** create `Utils.Html.esc`, `web/js/security.js` (`escapeHtml`), pinned `marked` + `DOMPurify` with SRI. Do this before the page groups.
+- [ ] **T3.1a** Helpers + admin pages: `admin_manageUser.jsp`, `admin_manageDocument.jsp`, `admin_report_config.jsp`, `admin_manageTrans.jsp`, `admin_document_reports.jsp`, `admin_dashboard.jsp`, `admin_profile.jsp`, `admin_system_config.jsp`, `WEB-INF/tags/AdminLayout.tag`. Convert `onclick='fn("<%= ... %>")'` to `data-*` attributes.
+- [ ] **T3.1b** Chat: `chat_main.jsp`, `chat_session.jsp` (server-rendered messages, session names, the JS that renders bot markdown → DOMPurify).
+- [ ] **T3.1c** Documents/explore: `FileExplore.jsp`, `guest_dashboard.jsp`, `user_dashboard.jsp`, `document_view.jsp`, `publicDocument_view.jsp`, `document_edit.jsp`, `document_upload.jsp`, `search_results.jsp`, `share_document.jsp` (innerHTML templates → `escapeHtml`/`textContent`).
+- [ ] **T3.1d** The rest: `friendMain.jsp`, `profile.jsp`, `folder_edit.jsp`, `report_create.jsp`, `report_edit.jsp`, `CreditWallet.jsp`, `Membership.jsp`, `login.jsp`, `register.jsp`, `forgot_password.jsp`, `reset_password.jsp`, `index.jsp`; `EmailUtil` HTML; the `DocumentController.viewDoc` HTML writer (Office→HTML conversion output: escape the text it pulls from documents).
+- **Method:** Conv §3. Grep each file for `<%=`, `${`, `innerHTML`, `insertAdjacentHTML`, `onclick=`.
+- **Verify per group:** create a user, document, folder, chat session and report reason whose names are `"><img src=x onerror=alert(1)>` and `'</script><script>alert(2)</script>`, then open every page in the group as both the owner and an admin. No alert fires and the text displays literally.
+- **Depends:** T1.1.
+
+### [ ] T3.2 CSRF protection and POST-only mutations
+- **Findings:** F-09
+- **Files:** new `Filter/CsrfFilter.java`, `web.xml`, every JSP form and `fetch` call, controllers' GET handlers.
+- **Steps:** Conv §4. Expose the token via `<meta name="csrf-token">` in a shared include. List every mutating action. For each one, make GET return 405, and convert links that trigger mutations (logout, delete buttons) into small POST forms.
+- **Verify:** a POST without `_csrf` → 403. Every form in the app still works (walk through each feature). A GET to `deleteDoc` → 405.
+- **Depends:** T3.1 (the page edits overlap, so it's less merge pain after it). Can start after T3.1a if needed.
+
+### [ ] T3.3 Session hardening and security headers
+- **Findings:** F-09
+- **Steps:** call `request.changeSessionId()` on successful login and on password reset. In `context.xml`, set the session cookie to HttpOnly, SameSite=Lax, and Secure when `APP_HTTPS=true`. Add a small filter setting `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: same-origin`. Check BANNED status before verifying the password, or return the same generic message either way.
+- **Verify:** JSESSIONID differs before and after login. The response headers are present.
+- **Depends:** T1.1.
+
+### [ ] T3.4 Revocable remember-me
+- **Findings:** F-09
+- **Files:** `CookieUtil`, `AuthController`, `login.jsp` (scriptlet auto-login → move into a filter or `AuthController`), new table `remember_tokens` (migration per Conv §10).
+- **Steps:** use the selector/validator pattern. Store the SHA-256 of the validator, give it a 30-day expiry (config), rotate it on use, delete it on logout, delete all of a user's tokens on password change/reset and on ban. Set the cookie HttpOnly, SameSite=Lax, and Secure when on HTTPS.
+- **Verify:** logout → the old cookie value no longer logs in. Password reset → the token from another browser is invalid.
+- **Depends:** T3.3, T0.2.
+
+### [ ] T3.5 Rate limiting and OTP hardening
+- **Findings:** F-09
+- **Files:** `ForgotPasswordController`, `AuthController`, new `Utils/RateLimiter.java` (in-memory, bounded, D-07).
+- **Steps:**
+  - Generate the OTP with `SecureRandom`.
+  - Limit login failures per (IP+email) and per IP. Limit `sendOTP` per email (e.g. 1/min, 5/h) and per IP.
+  - Count OTP verify attempts per **issued OTP** (in the session); 3 failures invalidate that OTP, with no 12-hour email-wide lockout.
+  - Limits come from config.
+  - Make the maps bounded (evict expired entries).
+- **Verify:** the 6th login failure within a minute → throttled message. Another browser can't lock out a victim's reset. Sending the OTP twice within 60 s → the second is refused politely.
+- **Depends:** T0.2.
+
+---
+
+## Phase 4 — Money & concurrency
+
+### [ ] T4.1 Atomic balance changes
+- **Findings:** F-20
+- **Files:** `UserDAO.updateBalance` → replace with `adjustBalance(Connection, userId, delta)` per Conv §8 (returns false when the balance would go negative). Update all callers.
+- **Verify:** fire 20 concurrent +1 adjustments (a small Java test or parallel curl via approved deposits) → the balance increases by exactly 20.
+- **Depends:** none in Phase 4. Can run any time after Phase 1.
+
+### [ ] T4.2 Conditional, transactional deposit approval
+- **Findings:** F-21
+- **Files:** `TransactionController.handleUpdateTransactionStatus`, `TransactionDAO`, new `Model/Service/WalletService.java`.
+- **Steps:** in one DB transaction: `UPDATE transactions SET status=?, completed_at=SYSUTCDATETIME() WHERE transaction_id=? AND status='PENDING'`. If 1 row and SUCCESS+DEPOSIT, call `adjustBalance`. Commit. 0 rows → `already_completed`.
+- **Verify:** approve the same transaction from two browser tabs simultaneously → the balance is credited once.
+- **Depends:** T4.1.
+
+### [ ] T4.3 Atomic Premium purchase and renewal
+- **Findings:** F-22
+- **Files:** `TransactionController.handleBuyPremium`, `SubscriptionRenewalService.renew`, new `Model/Service/PremiumService.java`.
+- **Steps:** `purchase(userId)` and `renew(userId)` each run in one transaction: conditional deduct → insert the WITHDRAW transaction → set tier 3 and expiry. Any failure → rollback. The scheduler uses the same `renew`. If already Premium, decide whether buying extends the expiry or is refused, and record that in the Decisions log.
+- **Verify:** double-clicking Buy → one deduction. Forcing a failure after the deduct (temporarily throw) → balance unchanged and tier unchanged.
+- **Depends:** T4.1.
+
+### [ ] T4.4 Money parsing, type whitelist, fail-closed price
+- **Findings:** F-23
+- **Steps:** amounts parsed as integer coins with min/max from config (`MAX_DEPOSIT`). Users can only create `DEPOSIT` transactions. If the price lookup fails → error, never the 99000 fallback. Follow decision D-04 (integer coins).
+- **Verify:** `amount=1.5`, `amount=-5`, `amount=1e12`, `type=WITHDRAW` → rejected.
+- **Depends:** T4.2.
+
+### [ ] T4.5 Atomic AI quota
+- **Findings:** F-24
+- **Files:** `ChatBotController`, `UserDAO.updateAiUsage`.
+- **Steps:** reset the counter if 24 h have passed (a conditional UPDATE), then `UPDATE users SET ai_prompts_today = ai_prompts_today + 1 WHERE user_id = ? AND ai_prompts_today < ?`. 0 rows → 429. Consider refunding the prompt when Gemini fails (decide, record).
+- **Verify:** with a limit of 3, 10 parallel requests → exactly 3 go to Gemini.
+- **Depends:** T1.4.
+
+### [ ] T4.6 Named uniqueness constraints
+- **Findings:** F-25
+- **Steps:** migration adding filtered unique indexes:
+  - `UQ_folders_user_parent_name` (one for `parent_folder_id IS NULL`, one for NOT NULL);
+  - `UQ_documents_user_folder_title` (same split);
+  - prevent reverse duplicate friendships (computed columns least/greatest + unique).
+  Clean up existing duplicates first, with a dry-run report. Translate duplicate-key errors (SQL Server error 2601/2627) in one helper.
+- **Verify:** concurrently creating the same folder name twice → one succeeds, the other gets the friendly duplicate message.
+- **Depends:** T5.4 helps but isn't required.
+
+---
+
+## Phase 5 — Failure handling & observability
+
+### [ ] T5.1 Replace `System.out`/`printStackTrace` with `java.util.logging`
+- **Findings:** F-40, F-30
+- **Steps:** Conv §5, file by file. Remove PII from logs (`UserDAO.login` email, `ForgotPasswordController` email). Add a `logging.properties` note in `CODEBASE.md` describing how to set levels in Tomcat.
+- **Verify:** `grep -rn "System.out\|System.err\|printStackTrace" src/java` → 0.
+- **Depends:** best after Phases 1–4 to avoid conflicts.
+
+### [ ] T5.2 Request id filter
+- **Steps:** Conv §7. It's the first filter in `web.xml`. Logging includes the id (a custom JUL `Formatter` reading the ThreadLocal).
+- **Verify:** the response has `X-Request-Id`; the log lines for that request carry it.
+- **Depends:** T5.1.
+
+### [ ] T5.3 Generic error pages and no leaked internals
+- **Findings:** F-31
+- **Steps:** add `<error-page>` entries in `web.xml` for 403/404/405/500/`java.lang.Throwable` → new `error.jsp` (generic Vietnamese text + request id). Remove `e.getMessage()` from every user-visible string. Make `MainController`'s catch log and show the error page instead of `login.jsp`.
+- **Verify:** force an exception (e.g. stop SQL Server) → generic page with the request id, and the full stack trace is in the log.
+- **Depends:** T5.2.
+
+### [ ] T5.4 DAO error convention
+- **Findings:** F-30
+- **Steps:** add `Model/DAO/DataAccessException`. Migrate DAOs one at a time (one commit per DAO): throw on `SQLException`, return null only for not-found. Update callers to let it propagate to the error page, or handle it deliberately.
+- **Verify:** with the DB stopped, pages show the error page rather than "empty list" or "not found".
+- **Depends:** T5.3.
+
+### [ ] T5.5 JSON endpoints: status codes and one envelope
+- **Findings:** F-32
+- **Files:** `ForgotPasswordController`, `SessionController` JSON handlers, `ChatBotController` (text/plain today; decide whether to keep it), `DocumentController.toggleBookmark`, and the JS callers in the JSPs.
+- **Steps:** Conv §6. Update the client JS to branch on `response.ok` / `code`.
+- **Verify:** each endpoint's error path returns a non-200 status with the envelope, and the UI shows the message.
+- **Depends:** T5.3.
+
+### [ ] T5.6 Audit table for admin and money actions
+- **Findings:** F-40
+- **Steps:** migration `audit_log(audit_id, occurred_at, actor_user_id, action, target_type, target_id, outcome DEFAULT 'FAILED', request_id, metadata NVARCHAR(MAX))`. Keep action names in one constants class. Write it for: create/update/delete user, ban/suspend, balance edit, transaction approve/cancel, tier config change, report-reason change, admin document delete, Premium purchase/renewal. Audit failures must be logged without breaking the main action.
+- **Verify:** each action produces exactly one row with the correct outcome.
+- **Depends:** T5.2.
+
+---
+
+## Phase 6 — Data, config, operability
+
+### [ ] T6.1 Connection pool via Tomcat JNDI
+- **Findings:** F-50
+- **Steps:** a `Resource` in `context.xml` (pool sizes from config). Credentials can't sit in the repo's `context.xml`: either use a Tomcat-side `context.xml` override or build the pool in code from `AppConfig` with `org.apache.tomcat.jdbc.pool` (choose and record). `DBUtils.getConnection()` returns from the pool. Fix statement leaks (`updateBalance`, `seedTestUsers`) with try-with-resources.
+- **Verify:** load-test a page (e.g. 200 requests) → no connection errors; the SQL Server connection count stays at or below the pool max.
+- **Depends:** T0.2.
+
+### [ ] T6.2 Harden `GeminiService`
+- **Findings:** F-60
+- **Steps:**
+  - Connect/read timeouts from config.
+  - Read the error stream on non-2xx and map it to typed outcomes (`TIMEOUT`, `UPSTREAM_ERROR`, `BLOCKED`, `EMPTY`).
+  - Parse defensively and cap the response size.
+  - Model name from config.
+  - Cap the history sent (last N messages / M characters, from config).
+  - Log the call duration plus token counts (`usageMetadata`) per user (§08 cost capture).
+  - Add a kill switch `AI_ENABLED`.
+  - In `ChatBotController`, show a distinct user message for timeout vs failure.
+- **Verify:** set a 1 ms read timeout → the user sees the "AI đang bận/timeout" message and the thread returns quickly. A bad key → generic error, with the details in the log.
+- **Depends:** T0.2, T4.5.
+
+### [ ] T6.3 Pagination
+- **Findings:** F-51
+- **Steps:** server-side `OFFSET … FETCH` with a deterministic tiebreaker (`, document_id DESC`) for Explore, admin users, admin transactions, admin documents and the report list. Page size from config with a cap. Clamp the page number. Compute dashboard counts with `COUNT(*)`.
+- **Verify:** with 1000 seeded documents, Explore returns 1 page, and next/prev work while preserving filters.
+- **Depends:** T5.4 helps.
+
+### [ ] T6.4 Quotas and tiers from data, not literals
+- **Findings:** F-70
+- **Steps:**
+  - Confirm the meaning of `max_storage_mb` (per-file?) vs `total_storage_mb` (total) with the user.
+  - Enforce both from the user's tier read from the DB, not the session.
+  - Replace the magic tier ids with constants (`Tier.FREE`, `Tier.PREMIUM`) loaded/validated at startup.
+  - Move the session timeout, OTP and lock durations, and the scheduler period into config.
+- **Verify:** changing Free's `total_storage_mb` in admin config immediately changes the upload limit.
+- **Depends:** T1.7.
+
+### [ ] T6.5 LIKE escaping and input caps
+- **Findings:** F-52
+- **Steps:** add a helper that escapes `[`, `%`, `_` with `ESCAPE '\'`, and cap search input length (e.g. 100) in `ChatSessionDAO`, `FolderDAO`, `DocumentDAO`.
+- **Verify:** searching `%` returns only titles containing `%`.
+
+### [ ] T6.6 Scheduler hardening
+- **Findings:** F-72
+- **Steps:** log start/end/counts and errors with the exception. Document the single-instance assumption in `CODEBASE.md`. Make renewals idempotent by relying on the T4.3 conditional updates (`WHERE expires_at <= now AND tier_id = 3`).
+- **Depends:** T4.3, T5.1.
+
+### [ ] T6.7 Reproducible build: library references
+- **Findings:** F-70 (`C:\FPT\JavaLib`)
+- **Steps:** point `nbproject/project.properties` at jars inside the repo (`lib/` or `web/WEB-INF/lib`), so a fresh clone builds on any machine. Add the missing `javax.mail`/`activation` jars. Coordinate with the team, since everyone's NetBeans is affected.
+- **Verify:** a fresh clone in a new folder builds in NetBeans without editing properties.
+
+### [ ] T6.8 Move text extraction off the request thread (optional)
+- **Findings:** F-61
+- **Steps:** only if uploads are measured to be slow. Use a bounded executor and rely on `ai_parsing_status` PENDING→PROCESSING→READY/FAILED (the column exists), with a stale-job sweeper. Record the measurement first (checklist Part 2: "Made it asynchronous").
+
+---
+
+## Phase 7 — Tests
+
+### [ ] T7.1 Test infrastructure
+- **Steps:** JUnit 4 in the NetBeans `test/` folder. Tests must run without the network, the DB or the clock (inject `Clock`).
+- **Verify:** "Test Project" in NetBeans runs one sample test green.
+
+### [ ] T7.2 Unit tests for decision logic
+- **Steps:** `DocumentAccess.canView`/`canEdit`, AuthFilter path classification, CSRF token compare, password rules, money amount parsing, the rate limiter, `Html.esc`, `FileStorage.resolve` (path traversal), the Gemini response parser (fixtures for blocked/empty/normal).
+- **Depends:** the corresponding tasks.
+
+### [ ] T7.3 Security regression script
+- **Steps:** `docs/remediation/verify/security-regression.sh`, which collects the curl checks from the Phase 1–3 Verify steps (two users, an admin, a guest). Run it against a local instance; every check prints PASS/FAIL.
+- **Depends:** Phase 3.
+
+---
+
+## Phase 8 — UI state & accessibility (checklist §01, §10)
+
+### [ ] T8.1 Interface-state pass on the AJAX pages
+- **Scope:** `chat_session.jsp`, `chat_main.jsp`, `FileExplore.jsp`, `forgot_password.jsp`: loading/error/empty as one chain, re-entry guards on send buttons, stale-response handling, timeout vs failure messages.
+
+### [ ] T8.2 Accessibility pass
+- **Scope:** clickable `div`s → buttons, names for icon-only buttons, form labels, modal focus management, keyboard-only walkthrough of upload, chat and admin user edit.
