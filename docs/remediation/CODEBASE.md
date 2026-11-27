@@ -112,7 +112,7 @@ Reviewed in T1.8 (2026-11-27). "Path gate" is `AuthFilter`/`AccessRules`. "In-co
 | `TransactionController` | `createTransaction`, `listTransactions`, `buyPremium` | authenticated | ✅ `listTransactions` scoped to the caller. ⚠ type/amount unvalidated, balance races, non-atomic Premium: T4.1-T4.4 |
 | | `adminListTransactions`, `adminUpdateTransaction` | **admin** (any `admin*` action on this URL) | ✅ also `Access.isAdmin`; status whitelist `PROCESSING/SUCCESS/CANCELLED`. ⚠ double approval: T4.2 |
 | `AdminController` | all (`listUsers`, `listDashboard`, `listTransactions`, `profile`, `listPublicDocs`, `adminViewDoc`, `updateAdminProfile`, `createUser`, `updateUser`, `deleteUser`) | **admin** | ✅ also `Access.isAdmin`; role/status/tier/balance/name/email/password validated; an admin cannot demote, ban or delete themself |
-| `AdminReportController` | `adminReportList`, `adminUpdateReportStatus`, `adminDeleteReport`, `adminDeleteDocument` | **admin** | ✅ also `Access.isAdmin`; status whitelisted; `adminDeleteDocument` removes the physical file after the DB delete (`Utils.StoredFiles`). ⚠ mutations are GET-able: T3.2 |
+| `AdminReportController` | `adminReportList`, `adminUpdateReportStatus`, `adminDeleteReport`, `adminDeleteDocument` | **admin** | ✅ also `Access.isAdmin`; status whitelisted; `adminDeleteDocument` removes the physical file after the DB delete (`Utils.FileStorage`). ⚠ mutations are GET-able: T3.2 |
 | `ReportConfigController` (`/admin/report-config`, `/ReportConfigController`) | GET `reportConfigList`; POST `reportConfigAdd/Update/Delete` | **admin** | ✅ also `Access.isAdmin`; code/severity/scores validated; delete is POST-only (GET answers 405) |
 | `SystemConfigController` (`/admin/system-config`, mapped in web.xml **and** by annotation) | GET list tiers; POST update tiers | **admin** | ✅ also `Access.isAdmin`; every row validated first, then one DB transaction |
 | `/uploads/**` (legacy folder) | any URL | everyone | ✅ `AuthFilter` answers 404 for all callers (`AccessRules.isRetiredUploadsPath`); files are no longer stored there (T2.1) |
@@ -128,7 +128,7 @@ Reviewed in T1.8 (2026-11-27). "Path gate" is `AuthFilter`/`AccessRules`. "In-co
 | `userId` | Integer | AuthController login, `login.jsp` remember-me | the acting user. **The only trusted identity** |
 | `username`, `role` (`STUDENT`/`ADMIN`), `tierId`, `balance` | String/Integer | login; refreshed by SessionSyncFilter every 60 s | `balance`/`tierId` in the session can be ~60 s stale; re-read the DB for decisions |
 | `lastSessionSync` | Long | SessionSyncFilter | sync throttle |
-| `pendingDocumentId`, `pendingDocumentKey (storage key)`, `pendingDocumentTitle`, `pendingFileExtension` | | UploadController | the upload wizard between steps |
+| `pendingDocumentId`, `pendingDocumentTitle`, `pendingFileExtension` | | UploadController | the upload wizard between steps |
 | `conflictTitle`, `conflictFolderId`, `conflictSharingPermission`, `duplicateDocId` | | UploadController.confirm | duplicate-title resolution step |
 | `returnChatSessionId`, `newAttachedDocTitle` | String | UploadController | return to chat after uploading from chat |
 | `RECOVERY_OTP_<email>`, `RECOVERY_TIME_<email>`, `ALLOW_RESET_<email>` | | ForgotPasswordController | password-reset flow |
@@ -181,7 +181,7 @@ Triggers maintain `updated_at` on `users`, `documents` and `friendships`.
 **Upload wizard** (`UploadController` + `document_upload.jsp`):
 1. `upload` checks the extension (allow-list) and the per-file cap, saves the file as `STORAGE_DIR/<uid>/<uuid>.<ext>`, checks the magic bytes (deletes it again on a mismatch), and inserts a `documents` row (PRIVATE, PENDING) whose `cloud_storage_url` is that key. It extracts text inline (PDFBox/POI) into `document_extracted_text` and marks READY, then redirects to `?step=edit`.
 2. `confirm` sets the title/folder/sharing. If a same-title document exists in that folder it goes to `?step=duplicate`.
-3. `replace` points the old document at the new file (DB first), then deletes the old file and the pending row. `keepBoth` renames the title to `"Title (n)"`. `cancel` deletes the pending row, then its file. The file is never renamed: only the title changes.
+3. `replace` points the old document at the new file (DB first), removes the pending row, and only then deletes the old file. `keepBoth` renames the title to `"Title (n)"`. `cancel` deletes the pending row, then its file. The file is never renamed: only the title changes.
 4. Suspended users can't set PUBLIC (they're silently downgraded to PRIVATE).
 
 **Chatbot** (`ChatBotController`):

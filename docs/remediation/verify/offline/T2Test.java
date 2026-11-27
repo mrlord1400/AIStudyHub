@@ -61,6 +61,11 @@ public class T2Test {
         }
     }
 
+    /** Storage key of the pending row (the session no longer holds the key). */
+    static String keyOf(Map<String, Object> sess) throws Exception {
+        return Db.str("SELECT cloud_storage_url FROM documents WHERE document_id=" + sess.get("pendingDocumentId"));
+    }
+
     static String err(Http.Result r) {
         return String.valueOf(r.requestAttrs.get("errorMessage"));
     }
@@ -163,6 +168,7 @@ public class T2Test {
         Db.check("T2.1 a missing STORAGE_DIR fails closed with 'Missing required config: STORAGE_DIR'", threw);
         System.setProperty("STORAGE_DIR", storage.toString());
         Db.check("T2.1 validateRoot: fine when outside the webapp", FileStorage.validateRoot(tmp("aish-otherweb").toString()).isEmpty());
+Path cat = tmp("aish-catalina");        System.setProperty("catalina.base", cat.toString());        System.setProperty("STORAGE_DIR", cat.resolve("webapps").resolve("data").toString());        Db.check("T2.1 validateRoot: flags a storage dir under Tomcat webapps/", FileStorage.validateRoot(null).toString().contains("webapps"));        System.setProperty("STORAGE_DIR", cat.resolve("data").toString());        Db.check("T2.1 validateRoot: a sibling of webapps/ is fine", FileStorage.validateRoot(null).isEmpty());        System.clearProperty("catalina.base");        System.setProperty("STORAGE_DIR", storage.toString());
         Db.check("T2.1 validateRoot: flags a storage dir inside the webapp", !FileStorage.validateRoot(storage.getParent().toString()).isEmpty()
                 && !FileStorage.validateRoot(storage.toString()).isEmpty());
 
@@ -190,7 +196,7 @@ public class T2Test {
         r = upload(uc, A, "empty.pdf", new byte[0], sess);
         Db.check("T2.3 an empty file is rejected", err(r).contains("chọn một file") && filesOf(storage, A) == 0);
         r = upload(uc, A, "../../evil.pdf", PDF, sess);
-        String evilKey = (String) sess.get("pendingDocumentKey");
+        String evilKey = keyOf(sess);
         Db.check("T2.1 a path-like submitted name cannot influence the on-disk name", evilKey != null && evilKey.matches("^" + A + "/[0-9a-f-]{36}\\.pdf$")
                 && Db.count("SELECT COUNT(*) FROM documents WHERE user_id=? AND title='evil'", A) == 1);
         act(uc, A, sess, "action", "cancel");
@@ -202,10 +208,14 @@ public class T2Test {
         r = upload(uc, A, "ok-after-raise.pdf", concat(PDF, new byte[2 * 1024 * 1024]), sess);
         Db.check("T2.3 raising the tier limit in the DB takes effect immediately", r.redirect != null && r.redirect.contains("step=edit"));
         act(uc, A, sess, "action", "cancel");
+        Db.exec("UPDATE subscriptions SET max_storage_mb = 0 WHERE tier_id = 2");
+        r = upload(uc, A, "tiny.pdf", PDF, sess);
+        Db.check("T2.3 a tier whose limit is 0 means 'no uploads' (not the 100 MB maximum), nothing stored", err(r).contains("không cho phép") && filesOf(storage, A) == 0);
+        Db.exec("UPDATE subscriptions SET max_storage_mb = 50 WHERE tier_id = 2");
 
         // valid upload -> confirm
         r = upload(uc, A, "Lecture 1.pdf", PDF, sess);
-        String key1 = (String) sess.get("pendingDocumentKey");
+        String key1 = keyOf(sess);
         Integer pend1 = (Integer) sess.get("pendingDocumentId");
         Db.check("T2.1 valid pdf: redirect to step=edit, row holds a storage key (not a URL), file under STORAGE_DIR/<uid>/",
                 r.redirect != null && r.redirect.contains("step=edit") && key1 != null && key1.matches("^" + A + "/[0-9a-f-]{36}\\.pdf$")
@@ -218,7 +228,7 @@ public class T2Test {
 
         // duplicate title -> keepBoth
         upload(uc, A, "Lecture 1.pdf", concat(PDF, b("v2")), sess);
-        String key2 = (String) sess.get("pendingDocumentKey");
+        String key2 = keyOf(sess);
         int pend2 = (Integer) sess.get("pendingDocumentId");
         r = act(uc, A, sess, "action", "confirm", "title", "Lecture 1", "sharingPermission", "PRIVATE");
         Db.check("T2.1 duplicate title goes to the duplicate step", r.redirect != null && r.redirect.contains("step=duplicate"));
@@ -229,7 +239,7 @@ public class T2Test {
 
         // duplicate title -> replace
         upload(uc, A, "Lecture 1.pdf", concat(PDF, b("v3")), sess);
-        String key3 = (String) sess.get("pendingDocumentKey");
+        String key3 = keyOf(sess);
         int pend3 = (Integer) sess.get("pendingDocumentId");
         act(uc, A, sess, "action", "confirm", "title", "Lecture 1", "sharingPermission", "PRIVATE");
         r = act(uc, A, sess, "action", "replace");
@@ -240,9 +250,26 @@ public class T2Test {
 
         // cancel
         upload(uc, A, "Temp.pdf", PDF, sess);
-        String key4 = (String) sess.get("pendingDocumentKey");
+        String key4 = keyOf(sess);
         r = act(uc, A, sess, "action", "cancel");
         Db.check("T2.1 cancel removes the pending row and its file", Db.count("SELECT COUNT(*) FROM documents WHERE cloud_storage_url=?", key4) == 0 && !Files.exists(storage.resolve(key4)));
+
+        // A session that carries someone else's pending id must not delete or re-point anything (keys come from the DB row, owner-checked)
+        String kBsecret = FileStorage.save(B, new java.io.ByteArrayInputStream(PDF), "pdf");
+        int bPending = insertDoc(B, null, "b-pending", kBsecret);
+        Map<String, Object> hijack = new HashMap<>();
+        hijack.put("pendingDocumentId", bPending);
+        act(uc, A, hijack, "action", "cancel");
+        Db.check("T2.1 cancel with another user's pending id: B's row and file survive", Db.count("SELECT COUNT(*) FROM documents WHERE document_id=?", bPending) == 1 && Files.exists(storage.resolve(kBsecret)));
+        hijack.put("pendingDocumentId", bPending);
+        hijack.put("conflictTitle", "x");
+        r = act(uc, A, hijack, "action", "confirm", "title", "stolen", "sharingPermission", "PUBLIC");
+        Db.check("T2.1 confirm with another user's pending id is refused (session_expired), B's row unchanged",
+                r.redirect != null && r.redirect.contains("session_expired") && Db.count("SELECT COUNT(*) FROM documents WHERE document_id=? AND title='b-pending' AND sharing_permission='PRIVATE'", bPending) == 1);
+        hijack.put("pendingDocumentId", bPending);
+        hijack.put("conflictTitle", "x");
+        r = act(uc, A, hijack, "action", "keepBoth");
+        Db.check("T2.1 keepBoth with another user's pending id is refused, B's file survives", r.redirect != null && r.redirect.contains("session_expired") && Files.exists(storage.resolve(kBsecret)));
 
         // foreign folder still rejected before anything is written
         Db.exec("INSERT INTO folders (user_id, folder_name) VALUES (?,?)", B, "B-folder");
@@ -354,6 +381,7 @@ public class T2Test {
                 && rep.count(StorageMigration.Status.BAD_EXTENSION) == 1 && rep.count(StorageMigration.Status.BAD_CONTENT) == 1 && rep.count(StorageMigration.Status.UNSAFE_PATH) == 2);
         Db.check("T2.2 dry run writes nothing: no files in the new storage, rows unchanged",
                 !Files.exists(migStorage.resolve("" + A)) && Db.count("SELECT COUNT(*) FROM documents WHERE cloud_storage_url LIKE '/AIStudyHub/uploads/%'") == 6);
+        Db.check("T2.2 the report counts skipped file types by extension (jsp here), so the user can see what becomes unreachable", rep.skippedExtensions.size() == 1 && Integer.valueOf(1).equals(rep.skippedExtensions.get("jsp")));
         Db.check("T2.2 dry run lists the orphan .jsp under the legacy folder and the problem rows", rep.orphanFiles.size() == 1 && rep.orphanFiles.get(0).endsWith("orphan.jsp") && rep.problems.size() >= 5);
 
         try (Connection c = Utils.DBUtils.getConnection()) {

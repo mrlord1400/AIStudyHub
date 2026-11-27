@@ -71,6 +71,12 @@ public final class FileStorage {
                 problems.add(CONFIG_KEY + " must be outside the web application folder");
             }
         }
+        // Một thư mục dưới webapps/ của Tomcat bị tự triển khai thành một context riêng và sẽ được phục vụ thẳng
+        String catalinaBase = System.getProperty("catalina.base");
+        if (catalinaBase != null && !catalinaBase.isEmpty()
+                && root.startsWith(Paths.get(catalinaBase).toAbsolutePath().normalize().resolve("webapps"))) {
+            problems.add(CONFIG_KEY + " must not be inside Tomcat's webapps folder");
+        }
         return problems;
     }
 

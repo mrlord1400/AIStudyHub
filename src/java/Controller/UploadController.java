@@ -97,6 +97,8 @@ public class UploadController extends HttpServlet {
     private void handleUpload(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
+        String storedKey = null;
+        boolean rowInserted = false;
         try {
             HttpSession session = request.getSession();
             int userId = (int) session.getAttribute("userId");
@@ -174,22 +176,24 @@ public class UploadController extends HttpServlet {
             }
 
             int maxFileMb = perFileLimitMb(userId);
-            if (filePart.getSize() > maxFileMb * 1024L * 1024L) {
+            if (maxFileMb <= 0 || filePart.getSize() > maxFileMb * 1024L * 1024L) {
                 LOG.log(Level.WARNING, "upload rejected reason=file_size userId={0} limitMb={1}", new Object[]{userId, maxFileMb});
-                request.setAttribute("errorMessage", "File quá lớn. Gói của bạn cho phép tối đa " + maxFileMb + " MB cho mỗi file.");
+                request.setAttribute("errorMessage", maxFileMb <= 0
+                        ? "Gói của bạn hiện không cho phép tải tài liệu lên."
+                        : "File quá lớn. Gói của bạn cho phép tối đa " + maxFileMb + " MB cho mỗi file.");
                 request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
                 return;
             }
 
             // File nằm ngoài webapp, tên trên đĩa là UUID (Conv §9); cloud_storage_url lưu key
-            String storageKey;
+            // (storedKey khai báo ngoài try để catch dọn file nếu có lỗi bất ngờ trước khi dòng DB được tạo)
             try (InputStream in = filePart.getInputStream()) {
-                storageKey = FileStorage.save(userId, in, fileExtension);
+                storedKey = FileStorage.save(userId, in, fileExtension);
             }
 
             // Nội dung phải khớp đuôi khai báo (vd. file HTML đổi tên thành .pdf bị từ chối)
-            if (!FileTypes.contentMatches(fileExtension, FileStorage.resolve(storageKey))) {
-                FileStorage.delete(storageKey);
+            if (!FileTypes.contentMatches(fileExtension, FileStorage.resolve(storedKey))) {
+                FileStorage.delete(storedKey);
                 LOG.log(Level.WARNING, "upload rejected reason=content_mismatch userId={0} ext={1}", new Object[]{userId, fileExtension});
                 request.setAttribute("errorMessage", "Nội dung file không khớp với định dạng ." + fileExtension + ".");
                 request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
@@ -203,7 +207,7 @@ public class UploadController extends HttpServlet {
             doc.setFolderId(folderId);
             doc.setTitle(stripExtension(originalFileName));
             doc.setFileExtension(fileExtension);
-            doc.setCloudStorageUrl(storageKey);
+            doc.setCloudStorageUrl(storedKey);
             doc.setFileSizeMb(Math.round(fileSizeMb * 100.0) / 100.0);
             doc.setAiParsingStatus("PENDING");
             doc.setSharingPermission("PRIVATE");
@@ -214,16 +218,17 @@ public class UploadController extends HttpServlet {
 
             DocumentDAO dao = new DocumentDAO();
             int newDocumentId = dao.insertDocument(doc);
+            rowInserted = newDocumentId != -1;
 
             if (newDocumentId == -1) {
-                FileStorage.delete(storageKey);
+                FileStorage.delete(storedKey);
                 request.setAttribute("errorMessage", "Lỗi lưu cơ sở dữ liệu hệ thống.");
                 request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
                 return;
             }
 
             try {
-                String extractedText = extractTextFromFile(FileStorage.resolve(storageKey).toString(), fileExtension);
+                String extractedText = extractTextFromFile(FileStorage.resolve(storedKey).toString(), fileExtension);
                 if (extractedText != null && !extractedText.trim().isEmpty()) {
                     DocumentTextDAO documentTextDAO = new DocumentTextDAO();
                     boolean textSaved = documentTextDAO.saveExtractedText(newDocumentId, extractedText);
@@ -237,15 +242,17 @@ public class UploadController extends HttpServlet {
             }
 
             session.setAttribute("pendingDocumentId", newDocumentId);
-            session.setAttribute("pendingDocumentKey", storageKey);
             session.setAttribute("pendingDocumentTitle", doc.getTitle());
             session.setAttribute("pendingFileExtension", fileExtension);
 
             response.sendRedirect(request.getContextPath() + "/document_upload.jsp?step=edit&docId=" + newDocumentId);
 
         } catch (IllegalStateException e) {
-            // Hoặc thiếu cấu hình STORAGE_DIR (AppConfig), hoặc Tomcat báo vượt maxFileSize/maxRequestSize của @MultipartConfig.
-            if (e.getMessage() != null && e.getMessage().startsWith("Missing required config")) {
+            discardUnsaved(storedKey, rowInserted);
+            // Cấu hình sai (AppConfig: "Missing required config..." / "Config ... must be ...") hoặc Tomcat báo
+            // vượt maxFileSize/maxRequestSize của @MultipartConfig.
+            String msg = e.getMessage();
+            if (msg != null && (msg.startsWith("Missing required config") || msg.startsWith("Config "))) {
                 LOG.log(Level.SEVERE, "upload failed: storage is not configured", e);
                 request.setAttribute("errorMessage", MSG_SYSTEM_ERROR);
             } else {
@@ -254,6 +261,7 @@ public class UploadController extends HttpServlet {
             }
             request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
         } catch (Exception e) {
+            discardUnsaved(storedKey, rowInserted);
             LOG.log(Level.SEVERE, "upload failed", e);
             request.setAttribute("errorMessage", MSG_SYSTEM_ERROR);
             request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
@@ -315,12 +323,14 @@ public class UploadController extends HttpServlet {
             return;
         }
 
-        // File đã nằm đúng chỗ từ bước upload (tên UUID), chỉ cần giữ nguyên key
-        String newCloudUrl = (String) session.getAttribute("pendingDocumentKey");
-        if (newCloudUrl == null) {
+        // File đã nằm đúng chỗ từ bước upload (tên UUID), chỉ cần giữ nguyên key của CHÍNH dòng này.
+        // Key lấy từ DB (kèm kiểm tra chủ sở hữu), không lấy từ session: hai lần upload chồng nhau không được làm hai dòng dùng chung một file.
+        Document pendingDoc = dao.findById(documentId);
+        if (pendingDoc == null || pendingDoc.getUserId() != userId) {
             response.sendRedirect(request.getContextPath() + "/document_upload.jsp?error=session_expired");
             return;
         }
+        String newCloudUrl = pendingDoc.getCloudStorageUrl();
 
         boolean updated = dao.updateDocumentInfoForOwner(documentId, userId, newTitle, newFolderId, sharingPermission, newCloudUrl);
         clearPendingSession(session);
@@ -390,9 +400,14 @@ public class UploadController extends HttpServlet {
                     pendingDoc.getFileExtension(), conflictTitle, conflictFolderId, conflictSharingPermission);
 
             if (replaced) {
-                // Chỉ xóa file cũ sau khi DB đã trỏ sang file mới; dòng "pending" chỉ bị xóa khỏi DB (file đã chuyển sang tài liệu cũ)
-                dao.deleteDocumentForOwner(pendingDocId, userId);
-                FileStorage.delete(oldKey);
+                // Chỉ xóa file cũ sau khi DB đã trỏ sang file mới; dòng "pending" chỉ bị xóa khỏi DB (file đã chuyển sang tài liệu cũ).
+                // Nếu dòng pending chưa xóa được thì KHÔNG xóa file cũ (tránh hai dòng cùng trỏ một file rồi mất file khi xóa dòng còn lại).
+                boolean pendingRowGone = dao.deleteDocumentForOwner(pendingDocId, userId);
+                if (pendingRowGone && oldKey != null && !oldKey.equals(newKey)) {
+                    FileStorage.delete(oldKey);
+                } else if (!pendingRowGone) {
+                    LOG.log(Level.WARNING, "replace: pending row not removed docId={0}", pendingDocId);
+                }
 
                 try {
                     String newExtractedText = extractTextFromFile(FileStorage.resolve(newKey).toString(), pendingDoc.getFileExtension());
@@ -438,13 +453,12 @@ public class UploadController extends HttpServlet {
 
         HttpSession session = request.getSession(false);
         Integer pendingDocId = (Integer) session.getAttribute("pendingDocumentId");
-        String pendingKey = (String) session.getAttribute("pendingDocumentKey");
         String conflictTitle = (String) session.getAttribute("conflictTitle");
         Integer conflictFolderId = (Integer) session.getAttribute("conflictFolderId");
         String conflictSharingPermission = (String) session.getAttribute("conflictSharingPermission");
         int userId = (int) session.getAttribute("userId");
 
-        if (pendingDocId == null || pendingKey == null || conflictTitle == null) {
+        if (pendingDocId == null || conflictTitle == null) {
             response.sendRedirect(request.getContextPath() + "/document_upload.jsp?error=session_expired");
             return;
         }
@@ -456,9 +470,16 @@ public class UploadController extends HttpServlet {
         }
 
         DocumentDAO dao = new DocumentDAO();
+        Document pendingDoc = dao.findById(pendingDocId);
+        if (pendingDoc == null || pendingDoc.getUserId() != userId) {
+            clearPendingSession(session);
+            clearDuplicateSession(session);
+            response.sendRedirect(request.getContextPath() + "/document_upload.jsp?error=session_expired");
+            return;
+        }
         String uniqueTitle = generateUniqueTitle(dao, userId, conflictTitle, conflictFolderId, pendingDocId);
 
-        boolean updated = dao.updateDocumentInfoForOwner(pendingDocId, userId, uniqueTitle, conflictFolderId, conflictSharingPermission, pendingKey);
+        boolean updated = dao.updateDocumentInfoForOwner(pendingDocId, userId, uniqueTitle, conflictFolderId, conflictSharingPermission, pendingDoc.getCloudStorageUrl());
         clearPendingSession(session);
         clearDuplicateSession(session);
 
@@ -488,13 +509,15 @@ public class UploadController extends HttpServlet {
         }
 
         Integer documentId = (Integer) session.getAttribute("pendingDocumentId");
-        String pendingKey = (String) session.getAttribute("pendingDocumentKey");
 
-        // Xóa dòng DB (có điều kiện chủ sở hữu) trước; chỉ khi đúng 1 dòng bị xóa mới xóa file
+        // Xóa dòng DB (có điều kiện chủ sở hữu) trước; chỉ khi đúng 1 dòng bị xóa mới xóa file CỦA DÒNG ĐÓ (key đọc từ DB, không từ session)
         if (documentId != null) {
+            int userId = (int) session.getAttribute("userId");
             DocumentDAO dao = new DocumentDAO();
-            if (dao.deleteDocumentForOwner(documentId, (int) session.getAttribute("userId")) && pendingKey != null) {
-                FileStorage.delete(pendingKey);
+            Document pendingDoc = dao.findById(documentId);
+            if (pendingDoc != null && pendingDoc.getUserId() == userId
+                    && dao.deleteDocumentForOwner(documentId, userId)) {
+                FileStorage.delete(pendingDoc.getCloudStorageUrl());
             }
         }
 
@@ -545,17 +568,23 @@ public class UploadController extends HttpServlet {
         User user = new UserDAO().getUserById(userId);
         if (user != null) {
             for (Subscription s : new SubscriptionDAO().getAllSubscriptions()) {
-                if (s.getTierId() == user.getTierId() && s.getMaxStorageMb() > 0) {
-                    return Math.min(s.getMaxStorageMb(), HARD_MAX_UPLOAD_MB);
+                if (s.getTierId() == user.getTierId()) {
+                    return Math.max(0, Math.min(s.getMaxStorageMb(), HARD_MAX_UPLOAD_MB));
                 }
             }
         }
-        return HARD_MAX_UPLOAD_MB;
+        return 0;
+    }
+
+    /** Dọn file đã lưu khi có lỗi bất ngờ trước khi dòng DB được tạo (sau đó file không còn ai tham chiếu). */
+    private void discardUnsaved(String storedKey, boolean rowInserted) {
+        if (storedKey != null && !rowInserted) {
+            FileStorage.delete(storedKey);
+        }
     }
 
     private void clearPendingSession(HttpSession session) {
         session.removeAttribute("pendingDocumentId");
-        session.removeAttribute("pendingDocumentKey");
         session.removeAttribute("pendingDocumentTitle");
         session.removeAttribute("pendingFileExtension");
     }

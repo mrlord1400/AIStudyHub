@@ -48,6 +48,9 @@ public final class StorageMigration {
         /** File dưới uploads/ cũ không có dòng DB nào trỏ tới (có thể là file nguy hiểm, vd .jsp). */
         public final List<String> orphanFiles = new ArrayList<String>();
         public int legacyFilesDeleted;
+        final List<Path> legacyToDelete = new ArrayList<Path>();
+        /** Đuôi không được phép (vd. doc, zip) -> số dòng bị bỏ qua. Các tài liệu này sẽ không mở được nữa cho tới khi có quyết định (D-17). */
+        public final java.util.Map<String, Integer> skippedExtensions = new java.util.TreeMap<String, Integer>();
 
         Report(boolean apply) {
             this.apply = apply;
@@ -75,6 +78,7 @@ public final class StorageMigration {
         Report report = new Report(apply);
         Path legacyUploads = legacyWebroot.toAbsolutePath().normalize().resolve("uploads").normalize();
         Set<Path> referenced = new HashSet<Path>();
+        Set<Path> keep = new HashSet<Path>();
 
         List<long[]> ids = new ArrayList<long[]>();   // {document_id, user_id}
         List<String[]> rows = new ArrayList<String[]>();   // {extension, url}
@@ -96,6 +100,16 @@ public final class StorageMigration {
 
             Status st = migrateRow(conn, legacyUploads, storageRoot, apply, deleteOld, report, docId, userId, ext, url, referenced);
             report.counts[st.ordinal()]++;
+            Path lp = legacyPathOf(legacyUploads, url);
+            if (st != Status.MIGRATED && lp != null) {
+                keep.add(lp);   // một dòng chưa migrate được vẫn có thể cần file này
+            }
+        }
+
+        for (Path p : report.legacyToDelete) {
+            if (!keep.contains(p) && Files.deleteIfExists(p)) {
+                report.legacyFilesDeleted++;
+            }
         }
 
         if (Files.isDirectory(legacyUploads)) {
@@ -132,7 +146,9 @@ public final class StorageMigration {
             return Status.MISSING_FILE;
         }
         if (!FileTypes.isAllowedExtension(ext)) {
-            report.problems.add(docId + ": extension '" + ext + "' is not allowed (not copied; review and delete by hand)");
+            report.problems.add(docId + ": extension '" + ext + "' is not allowed (not copied, the document stays unreachable until D-17 is decided)");
+            Integer seen = report.skippedExtensions.get(ext.isEmpty() ? "(none)" : ext);
+            report.skippedExtensions.put(ext.isEmpty() ? "(none)" : ext, seen == null ? 1 : seen + 1);
             return Status.BAD_EXTENSION;
         }
         try {
@@ -167,14 +183,16 @@ public final class StorageMigration {
                 }
             }
             if (deleteOld) {
-                if (Files.deleteIfExists(legacyFile)) {
-                    report.legacyFilesDeleted++;
-                }
+                report.legacyToDelete.add(legacyFile);   // chỉ xóa sau khi MỌI dòng đã xử lý (nhiều dòng có thể trỏ cùng một file cũ)
             }
             return Status.MIGRATED;
         } catch (IOException | SQLException e) {
             if (key != null) {
-                FileStorage.delete(key);   // không để bản sao mồ côi khi DB chưa trỏ tới nó
+                try {
+                    Files.deleteIfExists(FileStorage.resolve(storageRoot, key));   // không để bản sao mồ côi khi DB chưa trỏ tới nó
+                } catch (IOException | RuntimeException ignored) {
+                    report.problems.add(docId + ": could not remove the partial copy " + key);
+                }
             }
             report.problems.add(docId + ": failed (" + e.getClass().getSimpleName() + ": " + e.getMessage() + ")");
             return Status.FAILED;
@@ -255,6 +273,10 @@ public final class StorageMigration {
         if (apply && deleteOld) {
             out.println("legacy files deleted        : " + r.legacyFilesDeleted);
         }
+        if (!r.skippedExtensions.isEmpty()) {
+            out.println();
+            out.println("Documents with a file type that is no longer accepted (NOT migrated, they will answer 404, decision D-17): " + r.skippedExtensions);
+        }
         if (!r.problems.isEmpty()) {
             out.println();
             out.println("Needs a human look (" + r.problems.size() + "):");
@@ -272,7 +294,8 @@ public final class StorageMigration {
             out.println("Dry run only. Re-run with --apply to copy files and update the rows.");
         } else {
             out.println();
-            out.println("Next: open a sample of old documents in the app, then delete the legacy uploads/ folder (or re-run with --delete-old).");
+            out.println("Next: open a sample of old documents in the app, then delete the old uploads/ folder by hand.");
+            out.println("(--delete-old only works in the same run as the migration; after a plain --apply the old paths are no longer recorded.)");
         }
     }
 }
