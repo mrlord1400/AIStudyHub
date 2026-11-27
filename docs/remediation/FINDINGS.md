@@ -37,6 +37,7 @@ Status of each finding lives in `TASKS.md` (the task that fixes it), not here. A
 - `toggleBookmark` (~596) works on any document id, including private ones (leaks existence + count).
 
 ### F-05 (C) Uploaded files stored inside the web root with user-controlled extension
+- **Status (2026-11-27): fixed in code by T2.1-T2.3, not yet run against Tomcat.** Files now live in `STORAGE_DIR` outside the webapp under UUID names, are served only through `DocumentController` after `canView`, only allow-listed extensions with matching content are accepted, `/uploads/**` answers 404, and `T2.2` migrates old files. The bullets below describe the original defect.
 - `src/java/Controller/UploadController.java:143-157` writes to `getRealPath("") + "/uploads/<userId>/"`; the extension comes from the submitted filename (`:136-141`, `renameToFinalName` `:505`).
 - Uploading `x.jsp` → Tomcat's JSP servlet executes it → **remote code execution**.
 - Every file (including PRIVATE) is publicly downloadable at `/AIStudyHub/uploads/<userId>/<title>.<ext>`, bypassing `viewDoc`/`downloadDoc` checks. User ids are sequential; titles are guessable.

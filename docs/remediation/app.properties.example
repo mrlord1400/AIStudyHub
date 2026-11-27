@@ -44,7 +44,9 @@ OTP_SEND_MAX_PER_HOUR=5
 OTP_VALID_SECONDS=120
 OTP_MAX_ATTEMPTS=3
 
-# --- File storage (REQUIRED from T2.1; not read yet, outside the web app folder) ---
+# --- File storage (REQUIRED, T2.1) ---
+# Absolute path, writable by the Tomcat user, OUTSIDE the web app folder (the app logs an error at startup otherwise).
+# Files are stored as STORAGE_DIR/<userId>/<uuid>.<ext>. Back this folder up together with the database.
 STORAGE_DIR=C:/aistudyhub-data/uploads
 
 # --- Money (T4.4) ---
