@@ -60,6 +60,11 @@ public class AuthFilter implements Filter {
         }
         String action = request.getParameter("action");
 
+        if (AccessRules.isRetiredUploadsPath(path)) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+
         AccessRules.Level required = AccessRules.classify(path, action);
         if (required == AccessRules.Level.PUBLIC) {
             chain.doFilter(request, response);

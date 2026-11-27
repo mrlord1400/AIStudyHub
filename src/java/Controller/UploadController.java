@@ -6,6 +6,10 @@ import Model.DAO.DocumentTextDAO;
 import Model.DAO.FolderDAO;
 import Model.DTO.User;
 import Model.DAO.UserDAO;
+import Model.DAO.SubscriptionDAO;
+import Model.DTO.Subscription;
+import Utils.FileStorage;
+import Utils.FileTypes;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.MultipartConfig;
@@ -17,10 +21,13 @@ import javax.servlet.http.HttpSession;
 import javax.servlet.http.Part;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
@@ -42,7 +49,11 @@ import org.apache.pdfbox.text.PDFTextStripper;
 )
 public class UploadController extends HttpServlet {
 
-    private static final String UPLOAD_DIR = "uploads";
+    private static final Logger LOG = Logger.getLogger(UploadController.class.getName());
+
+    private static final String MSG_SYSTEM_ERROR = "Đã xảy ra lỗi hệ thống. Vui lòng thử lại.";
+    /** Trần cứng, trùng với maxFileSize của @MultipartConfig; dùng khi gói không có giới hạn hợp lệ. */
+    private static final int HARD_MAX_UPLOAD_MB = 100;
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
@@ -86,6 +97,8 @@ public class UploadController extends HttpServlet {
     private void handleUpload(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
+        String storedKey = null;
+        boolean rowInserted = false;
         try {
             HttpSession session = request.getSession();
             int userId = (int) session.getAttribute("userId");
@@ -116,7 +129,7 @@ public class UploadController extends HttpServlet {
 
             Part filePart = request.getPart("file");
             if (filePart == null || filePart.getSize() == 0) {
-                System.err.println("[UploadController] Tải lên thất bại: File trống hoặc null.");
+                LOG.log(Level.WARNING, "upload rejected reason=empty_file userId={0}", userId);
                 request.setAttribute("errorMessage", "Vui lòng chọn một file hợp lệ.");
                 request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
                 return;
@@ -136,7 +149,7 @@ public class UploadController extends HttpServlet {
                 tierId = 2; // Mặc định là Free
             }
             if (tierId < 3 && (currentStorageMb + newFileSizeMb) > maxStorageMb) {
-                System.err.println("[UploadController] Chặn: File làm vượt mức 5GB. (Đã dùng: " + currentStorageMb + "MB)");
+                LOG.log(Level.WARNING, "upload rejected reason=quota userId={0} usedMb={1}", new Object[]{userId, currentStorageMb});
                 request.setAttribute("errorMessage", "Không đủ dung lượng trống! File của bạn ("
                         + String.format("%.2f", newFileSizeMb) + " MB) sẽ làm vượt quá giới hạn 5GB của tài khoản miễn phí.");
                 request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
@@ -147,40 +160,54 @@ public class UploadController extends HttpServlet {
             if (originalFileName == null || originalFileName.trim().isEmpty()) {
                 originalFileName = "document_" + System.currentTimeMillis();
             }
-
-            String fileExtension = "";
-            int dotIndex = originalFileName.lastIndexOf('.');
-            if (dotIndex > 0 && dotIndex < originalFileName.length() - 1) {
-                fileExtension = originalFileName.substring(dotIndex + 1).toLowerCase().trim();
-            } else {
-                fileExtension = "unknown";
+            // Chỉ lấy phần tên file (một số client gửi cả đường dẫn); tiêu đề lấy từ đây
+            originalFileName = originalFileName.substring(Math.max(originalFileName.lastIndexOf('/'), originalFileName.lastIndexOf('\\')) + 1);
+            if (originalFileName.trim().isEmpty()) {
+                originalFileName = "document_" + System.currentTimeMillis();
             }
 
-            String realPath = getServletContext().getRealPath("");
-            if (realPath == null) {
-                realPath = System.getProperty("java.io.tmpdir");
-            }
-            String uploadPath = realPath + File.separator + UPLOAD_DIR + File.separator + userId;
-
-            File uploadDir = new File(uploadPath);
-            if (!uploadDir.exists() && !uploadDir.mkdirs()) {
-                throw new IOException("Không thể khởi tạo thư mục lưu trữ tại: " + uploadPath);
+            // Danh sách đuôi cho phép (T2.3): kiểm tra trước khi ghi bất cứ thứ gì
+            String fileExtension = FileTypes.extensionOf(originalFileName);
+            if (!FileTypes.isAllowedExtension(fileExtension)) {
+                LOG.log(Level.WARNING, "upload rejected reason=extension userId={0}", userId);
+                request.setAttribute("errorMessage", "Định dạng file không được hỗ trợ. Chỉ chấp nhận: " + FileTypes.allowedList() + ".");
+                request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
+                return;
             }
 
-            String uuidPrefix = java.util.UUID.randomUUID().toString().substring(0, 8);
-            String savedFileName = "temp_" + uuidPrefix + "_" + sanitizeFileName(originalFileName);
-            String savedFilePath = uploadPath + File.separator + savedFileName;
-            filePart.write(savedFilePath);
+            int maxFileMb = perFileLimitMb(userId);
+            if (maxFileMb <= 0 || filePart.getSize() > maxFileMb * 1024L * 1024L) {
+                LOG.log(Level.WARNING, "upload rejected reason=file_size userId={0} limitMb={1}", new Object[]{userId, maxFileMb});
+                request.setAttribute("errorMessage", maxFileMb <= 0
+                        ? "Gói của bạn hiện không cho phép tải tài liệu lên."
+                        : "File quá lớn. Gói của bạn cho phép tối đa " + maxFileMb + " MB cho mỗi file.");
+                request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
+                return;
+            }
+
+            // File nằm ngoài webapp, tên trên đĩa là UUID (Conv §9); cloud_storage_url lưu key
+            // (storedKey khai báo ngoài try để catch dọn file nếu có lỗi bất ngờ trước khi dòng DB được tạo)
+            try (InputStream in = filePart.getInputStream()) {
+                storedKey = FileStorage.save(userId, in, fileExtension);
+            }
+
+            // Nội dung phải khớp đuôi khai báo (vd. file HTML đổi tên thành .pdf bị từ chối)
+            if (!FileTypes.contentMatches(fileExtension, FileStorage.resolve(storedKey))) {
+                FileStorage.delete(storedKey);
+                LOG.log(Level.WARNING, "upload rejected reason=content_mismatch userId={0} ext={1}", new Object[]{userId, fileExtension});
+                request.setAttribute("errorMessage", "Nội dung file không khớp với định dạng ." + fileExtension + ".");
+                request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
+                return;
+            }
 
             double fileSizeMb = filePart.getSize() / (1024.0 * 1024.0);
-            String cloudStorageUrl = request.getContextPath() + "/" + UPLOAD_DIR + "/" + userId + "/" + savedFileName;
 
             Document doc = new Document();
             doc.setUserId(userId);
             doc.setFolderId(folderId);
             doc.setTitle(stripExtension(originalFileName));
             doc.setFileExtension(fileExtension);
-            doc.setCloudStorageUrl(cloudStorageUrl);
+            doc.setCloudStorageUrl(storedKey);
             doc.setFileSizeMb(Math.round(fileSizeMb * 100.0) / 100.0);
             doc.setAiParsingStatus("PENDING");
             doc.setSharingPermission("PRIVATE");
@@ -191,16 +218,17 @@ public class UploadController extends HttpServlet {
 
             DocumentDAO dao = new DocumentDAO();
             int newDocumentId = dao.insertDocument(doc);
+            rowInserted = newDocumentId != -1;
 
             if (newDocumentId == -1) {
-                new File(savedFilePath).delete();
+                FileStorage.delete(storedKey);
                 request.setAttribute("errorMessage", "Lỗi lưu cơ sở dữ liệu hệ thống.");
                 request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
                 return;
             }
 
             try {
-                String extractedText = extractTextFromFile(savedFilePath, fileExtension);
+                String extractedText = extractTextFromFile(FileStorage.resolve(storedKey).toString(), fileExtension);
                 if (extractedText != null && !extractedText.trim().isEmpty()) {
                     DocumentTextDAO documentTextDAO = new DocumentTextDAO();
                     boolean textSaved = documentTextDAO.saveExtractedText(newDocumentId, extractedText);
@@ -210,20 +238,32 @@ public class UploadController extends HttpServlet {
                     }
                 }
             } catch (Throwable t) {
-                System.err.println("[UploadController] Text extraction failed for docId " + newDocumentId + " (File vẫn được upload an toàn): " + t.getMessage());
+                LOG.log(Level.WARNING, "text extraction failed docId=" + newDocumentId + " (the file is stored)", t);
             }
 
             session.setAttribute("pendingDocumentId", newDocumentId);
-            session.setAttribute("pendingDocumentPath", savedFilePath);
             session.setAttribute("pendingDocumentTitle", doc.getTitle());
             session.setAttribute("pendingFileExtension", fileExtension);
 
             response.sendRedirect(request.getContextPath() + "/document_upload.jsp?step=edit&docId=" + newDocumentId);
 
+        } catch (IllegalStateException e) {
+            discardUnsaved(storedKey, rowInserted);
+            // Cấu hình sai (AppConfig: "Missing required config..." / "Config ... must be ...") hoặc Tomcat báo
+            // vượt maxFileSize/maxRequestSize của @MultipartConfig.
+            String msg = e.getMessage();
+            if (msg != null && (msg.startsWith("Missing required config") || msg.startsWith("Config "))) {
+                LOG.log(Level.SEVERE, "upload failed: storage is not configured", e);
+                request.setAttribute("errorMessage", MSG_SYSTEM_ERROR);
+            } else {
+                LOG.log(Level.WARNING, "upload rejected reason=multipart_limit", e);
+                request.setAttribute("errorMessage", "File quá lớn. Kích thước tối đa là " + HARD_MAX_UPLOAD_MB + " MB.");
+            }
+            request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
         } catch (Exception e) {
-            System.err.println("[UploadController] CRITICAL UPLOAD ERROR: " + e.getMessage());
-            e.printStackTrace();
-            request.setAttribute("errorMessage", "Hệ thống trục trặc: " + e.getMessage());
+            discardUnsaved(storedKey, rowInserted);
+            LOG.log(Level.SEVERE, "upload failed", e);
+            request.setAttribute("errorMessage", MSG_SYSTEM_ERROR);
             request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
         }
     }
@@ -283,9 +323,14 @@ public class UploadController extends HttpServlet {
             return;
         }
 
-        String fileExt = (String) session.getAttribute("pendingFileExtension");
-        String pendingFilePath = (String) session.getAttribute("pendingDocumentPath");
-        String newCloudUrl = renameToFinalName(pendingFilePath, userId, newTitle, fileExt, request);
+        // File đã nằm đúng chỗ từ bước upload (tên UUID), chỉ cần giữ nguyên key của CHÍNH dòng này.
+        // Key lấy từ DB (kèm kiểm tra chủ sở hữu), không lấy từ session: hai lần upload chồng nhau không được làm hai dòng dùng chung một file.
+        Document pendingDoc = dao.findById(documentId);
+        if (pendingDoc == null || pendingDoc.getUserId() != userId) {
+            response.sendRedirect(request.getContextPath() + "/document_upload.jsp?error=session_expired");
+            return;
+        }
+        String newCloudUrl = pendingDoc.getCloudStorageUrl();
 
         boolean updated = dao.updateDocumentInfoForOwner(documentId, userId, newTitle, newFolderId, sharingPermission, newCloudUrl);
         clearPendingSession(session);
@@ -323,7 +368,6 @@ public class UploadController extends HttpServlet {
         }
 
         Integer pendingDocId = (Integer) session.getAttribute("pendingDocumentId");
-        String pendingFilePath = (String) session.getAttribute("pendingDocumentPath");
         Integer duplicateDocId = (Integer) session.getAttribute("duplicateDocId");
         String conflictTitle = (String) session.getAttribute("conflictTitle");
         Integer conflictFolderId = (Integer) session.getAttribute("conflictFolderId");
@@ -348,25 +392,40 @@ public class UploadController extends HttpServlet {
 
         if (oldDoc != null && pendingDoc != null
                 && oldDoc.getUserId() == userId && pendingDoc.getUserId() == userId) {
-            deletePhysicalFile(oldDoc.getCloudStorageUrl(), request);
+            // File mới của tài liệu cũ chính là file đã tải lên ở bước upload (cùng key)
+            String oldKey = oldDoc.getCloudStorageUrl();
+            String newKey = pendingDoc.getCloudStorageUrl();
 
-            String newCloudUrl = renameToFinalName(pendingFilePath, userId, conflictTitle, pendingDoc.getFileExtension(), request);
-
-            dao.replaceDocumentFileForOwner(duplicateDocId, userId, newCloudUrl, pendingDoc.getFileSizeMb(),
+            boolean replaced = dao.replaceDocumentFileForOwner(duplicateDocId, userId, newKey, pendingDoc.getFileSizeMb(),
                     pendingDoc.getFileExtension(), conflictTitle, conflictFolderId, conflictSharingPermission);
 
-            dao.deleteDocumentForOwner(pendingDocId, userId);
-
-            try {
-                String newExtractedText = extractTextFromFile(pendingFilePath, pendingDoc.getFileExtension());
-                if (newExtractedText != null && !newExtractedText.trim().isEmpty()) {
-                    DocumentTextDAO documentTextDAO = new DocumentTextDAO();
-                    documentTextDAO.deleteExtractedText(duplicateDocId);
-                    documentTextDAO.saveExtractedText(duplicateDocId, newExtractedText);
-                    dao.updateAiParsingStatus(duplicateDocId, "READY");
+            if (replaced) {
+                // Chỉ xóa file cũ sau khi DB đã trỏ sang file mới; dòng "pending" chỉ bị xóa khỏi DB (file đã chuyển sang tài liệu cũ).
+                // Nếu dòng pending chưa xóa được thì KHÔNG xóa file cũ (tránh hai dòng cùng trỏ một file rồi mất file khi xóa dòng còn lại).
+                boolean pendingRowGone = dao.deleteDocumentForOwner(pendingDocId, userId);
+                if (pendingRowGone && oldKey != null && !oldKey.equals(newKey)) {
+                    FileStorage.delete(oldKey);
+                } else if (!pendingRowGone) {
+                    LOG.log(Level.WARNING, "replace: pending row not removed docId={0}", pendingDocId);
                 }
-            } catch (Throwable t) {
-                System.err.println("[UploadController] Re-extraction failed: " + t.getMessage());
+
+                try {
+                    String newExtractedText = extractTextFromFile(FileStorage.resolve(newKey).toString(), pendingDoc.getFileExtension());
+                    if (newExtractedText != null && !newExtractedText.trim().isEmpty()) {
+                        DocumentTextDAO documentTextDAO = new DocumentTextDAO();
+                        documentTextDAO.deleteExtractedText(duplicateDocId);
+                        documentTextDAO.saveExtractedText(duplicateDocId, newExtractedText);
+                        dao.updateAiParsingStatus(duplicateDocId, "READY");
+                    }
+                } catch (Throwable t) {
+                    LOG.log(Level.WARNING, "re-extraction failed docId=" + duplicateDocId, t);
+                }
+            } else {
+                // Không ghi đè được: bỏ bản tải lên, giữ nguyên tài liệu cũ
+                LOG.log(Level.WARNING, "replace failed docId={0} userId={1}", new Object[]{duplicateDocId, userId});
+                if (dao.deleteDocumentForOwner(pendingDocId, userId)) {
+                    FileStorage.delete(newKey);
+                }
             }
         }
 
@@ -394,7 +453,6 @@ public class UploadController extends HttpServlet {
 
         HttpSession session = request.getSession(false);
         Integer pendingDocId = (Integer) session.getAttribute("pendingDocumentId");
-        String pendingFilePath = (String) session.getAttribute("pendingDocumentPath");
         String conflictTitle = (String) session.getAttribute("conflictTitle");
         Integer conflictFolderId = (Integer) session.getAttribute("conflictFolderId");
         String conflictSharingPermission = (String) session.getAttribute("conflictSharingPermission");
@@ -412,11 +470,16 @@ public class UploadController extends HttpServlet {
         }
 
         DocumentDAO dao = new DocumentDAO();
-        String fileExt = (String) session.getAttribute("pendingFileExtension");
+        Document pendingDoc = dao.findById(pendingDocId);
+        if (pendingDoc == null || pendingDoc.getUserId() != userId) {
+            clearPendingSession(session);
+            clearDuplicateSession(session);
+            response.sendRedirect(request.getContextPath() + "/document_upload.jsp?error=session_expired");
+            return;
+        }
         String uniqueTitle = generateUniqueTitle(dao, userId, conflictTitle, conflictFolderId, pendingDocId);
-        String newCloudUrl = renameToFinalName(pendingFilePath, userId, uniqueTitle, fileExt, request);
 
-        boolean updated = dao.updateDocumentInfoForOwner(pendingDocId, userId, uniqueTitle, conflictFolderId, conflictSharingPermission, newCloudUrl);
+        boolean updated = dao.updateDocumentInfoForOwner(pendingDocId, userId, uniqueTitle, conflictFolderId, conflictSharingPermission, pendingDoc.getCloudStorageUrl());
         clearPendingSession(session);
         clearDuplicateSession(session);
 
@@ -446,18 +509,16 @@ public class UploadController extends HttpServlet {
         }
 
         Integer documentId = (Integer) session.getAttribute("pendingDocumentId");
-        String savedFilePath = (String) session.getAttribute("pendingDocumentPath");
 
-        if (savedFilePath != null) {
-            File file = new File(savedFilePath);
-            if (file.exists()) {
-                file.delete();
-            }
-        }
-
+        // Xóa dòng DB (có điều kiện chủ sở hữu) trước; chỉ khi đúng 1 dòng bị xóa mới xóa file CỦA DÒNG ĐÓ (key đọc từ DB, không từ session)
         if (documentId != null) {
+            int userId = (int) session.getAttribute("userId");
             DocumentDAO dao = new DocumentDAO();
-            dao.deleteDocumentForOwner(documentId, (int) session.getAttribute("userId"));
+            Document pendingDoc = dao.findById(documentId);
+            if (pendingDoc != null && pendingDoc.getUserId() == userId
+                    && dao.deleteDocumentForOwner(documentId, userId)) {
+                FileStorage.delete(pendingDoc.getCloudStorageUrl());
+            }
         }
 
         clearPendingSession(session);
@@ -477,10 +538,6 @@ public class UploadController extends HttpServlet {
     // ─────────────────────────────────────────────────────────────────────────
     // HELPERS
     // ─────────────────────────────────────────────────────────────────────────
-    private String sanitizeFileName(String fileName) {
-        return fileName.replaceAll("[^a-zA-Z0-9.\\-_]", "_");
-    }
-
     /** null (thư mục gốc) luôn hợp lệ; id khác phải thuộc về userId. */
     private boolean isFolderUsable(Integer folderId, int userId) {
         return folderId == null || new FolderDAO().isOwnedBy(folderId, userId);
@@ -502,69 +559,32 @@ public class UploadController extends HttpServlet {
         return user != null && "SUSPENDED".equalsIgnoreCase(user.getStatus());
     }
 
-    private String renameToFinalName(String tempFilePath, int userId, String finalTitle,
-            String fileExtension, HttpServletRequest request) {
-        String realPath = getServletContext().getRealPath("");
-        if (realPath == null) {
-            realPath = System.getProperty("java.io.tmpdir");
+    /**
+     * Giới hạn kích thước MỘT file (MB) theo gói hiện tại của user, đọc từ DB (không tin session).
+     * Theo UI (user_dashboard.jsp) subscriptions.max_storage_mb là giới hạn mỗi file (Q-1, chờ xác nhận).
+     * Giá trị không hợp lệ (<= 0) hoặc không tìm thấy gói thì dùng trần cứng của @MultipartConfig.
+     */
+    private int perFileLimitMb(int userId) {
+        User user = new UserDAO().getUserById(userId);
+        if (user != null) {
+            for (Subscription s : new SubscriptionDAO().getAllSubscriptions()) {
+                if (s.getTierId() == user.getTierId()) {
+                    return Math.max(0, Math.min(s.getMaxStorageMb(), HARD_MAX_UPLOAD_MB));
+                }
+            }
         }
-
-        String userUploadPath = realPath + File.separator + UPLOAD_DIR + File.separator + userId;
-        File userDir = new File(userUploadPath);
-        if (!userDir.exists()) {
-            userDir.mkdirs();
-        }
-
-        String sanitizedName = sanitizeFileName(finalTitle);
-        String ext = "";
-        if (fileExtension != null && !fileExtension.trim().isEmpty() && !fileExtension.equals("unknown")) {
-            ext = fileExtension.startsWith(".") ? fileExtension : "." + fileExtension;
-        }
-
-        File targetFile = new File(userUploadPath + File.separator + sanitizedName + ext);
-        int dupCounter = 0;
-        while (targetFile.exists()) {
-            dupCounter++;
-            targetFile = new File(userUploadPath + File.separator + sanitizedName + "_dup" + dupCounter + ext);
-        }
-
-        String finalFileName = (dupCounter == 0)
-                ? sanitizedName + ext
-                : sanitizedName + "_dup" + dupCounter + ext;
-
-        File tempFile = new File(tempFilePath);
-        if (tempFile.exists()) {
-            tempFile.renameTo(targetFile);
-        }
-
-        return request.getContextPath() + "/" + UPLOAD_DIR + "/" + userId + "/" + finalFileName;
+        return 0;
     }
 
-    private void deletePhysicalFile(String cloudStorageUrl, HttpServletRequest request) {
-        if (cloudStorageUrl == null || cloudStorageUrl.trim().isEmpty()) {
-            return;
-        }
-        String relativePath = cloudStorageUrl;
-        String contextPath = request.getContextPath();
-        if (relativePath.startsWith(contextPath)) {
-            relativePath = relativePath.substring(contextPath.length());
-        }
-        if (relativePath.startsWith("/")) {
-            relativePath = relativePath.substring(1);
-        }
-
-        String realPath = getServletContext().getRealPath("");
-        if (realPath != null) {
-            File physicalFile = new File(realPath + File.separator + relativePath.replace("/", File.separator));
-            if (physicalFile.exists()) {
-                physicalFile.delete();
-            }
+    /** Dọn file đã lưu khi có lỗi bất ngờ trước khi dòng DB được tạo (sau đó file không còn ai tham chiếu). */
+    private void discardUnsaved(String storedKey, boolean rowInserted) {
+        if (storedKey != null && !rowInserted) {
+            FileStorage.delete(storedKey);
         }
     }
 
     private void clearPendingSession(HttpSession session) {
         session.removeAttribute("pendingDocumentId");
-        session.removeAttribute("pendingDocumentPath");
         session.removeAttribute("pendingDocumentTitle");
         session.removeAttribute("pendingFileExtension");
     }
@@ -626,11 +646,11 @@ public class UploadController extends HttpServlet {
                     return new String(Files.readAllBytes(Paths.get(filePath)), "UTF-8");
                 }
                 default:
-                    System.out.println("[UploadController] Unsupported file type for text extraction: " + fileExtension);
+                    LOG.log(Level.INFO, "no text extraction for file type {0}", fileExtension);
                     return null;
             }
         } catch (Throwable t) {
-            System.err.println("[UploadController] extractTextFromFile error for " + filePath + ": " + t.getMessage());
+            LOG.log(Level.WARNING, "text extraction error", t);
             return null;
         }
     }

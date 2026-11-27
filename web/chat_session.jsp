@@ -469,7 +469,7 @@
                         </div>
 
                         <form id="chatUploadForm" action="<%= request.getContextPath()%>/UploadController?action=upload&sessionId=${currentChat.sessionId}" method="POST" enctype="multipart/form-data" class="hidden">
-                            <input type="file" id="chatFileInput" name="file" accept=".docx, .doc, .pptx, .xlsx, .pdf, .txt" onchange="document.getElementById('chatUploadForm').submit();">
+                            <input type="file" id="chatFileInput" name="file" accept=".docx, .pptx, .xlsx, .pdf, .txt" onchange="document.getElementById('chatUploadForm').submit();">
                         </form>
 
                         <div class="flex items-center gap-3">

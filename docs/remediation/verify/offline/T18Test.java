@@ -6,18 +6,19 @@ import java.nio.charset.StandardCharsets;
 /** Controller-level checks for T1.2-T1.6 and T1.8 (real controllers + DAOs against H2, no Tomcat). */
 public class T18Test {
 
+    static final java.util.Map<String, String> KEYS = new java.util.HashMap<>();
+
+    /** Inserts a document whose file lives in the storage dir (T2.1): key = <owner>/<uuid>.txt. */
     static int doc(int owner, String title, String perm, boolean flagged, Integer folder) throws Exception {
+        String key = Utils.FileStorage.save(owner, new java.io.ByteArrayInputStream(("SECRET-" + title).getBytes(StandardCharsets.UTF_8)), "txt");
+        KEYS.put(owner + "/" + title, key);
         Db.exec("INSERT INTO documents (user_id, folder_id, title, file_extension, cloud_storage_url, file_size_mb, ai_parsing_status, sharing_permission, is_flagged, share_link_token) VALUES (?,?,?,?,?,1,'READY',?,?,?)",
-                owner, folder, title, "txt", "/AIStudyHub/uploads/" + owner + "/" + title + ".txt", perm, flagged, java.util.UUID.randomUUID().toString());
-        int id = (int) Db.count("SELECT MAX(document_id) FROM documents");
-        File f = new File(Http.webRoot + File.separator + "uploads" + File.separator + owner + File.separator + title + ".txt");
-        f.getParentFile().mkdirs();
-        Files.write(f.toPath(), ("SECRET-" + title).getBytes(StandardCharsets.UTF_8));
-        return id;
+                owner, folder, title, "txt", key, perm, flagged, java.util.UUID.randomUUID().toString());
+        return (int) Db.count("SELECT MAX(document_id) FROM documents");
     }
 
     static boolean fileExists(int owner, String title) {
-        return new File(Http.webRoot + File.separator + "uploads" + File.separator + owner + File.separator + title + ".txt").exists();
+        return Utils.FileStorage.fileOrNull(KEYS.get(owner + "/" + title)) != null;
     }
 
     static int folder(int owner, String name) throws Exception {
@@ -31,7 +32,7 @@ public class T18Test {
 
     public static void main(String[] a) throws Exception {
         Db.init();
-        Http.webRoot = Files.createTempDirectory("aish-web").toString();
+        System.setProperty("STORAGE_DIR", Files.createTempDirectory("aish-storage").toString());
         int A = Db.user("A", "STUDENT"), B = Db.user("B", "STUDENT"), F = Db.user("F", "STUDENT"), C = Db.user("C", "STUDENT"), ADM = Db.user("ADM", "ADMIN");
         Db.exec("INSERT INTO friendships (requester_id, addressee_id, status) VALUES (?,?, 'ACCEPTED')", F, B);   // F is B's friend
 

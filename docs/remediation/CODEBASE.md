@@ -50,7 +50,7 @@ src/java/
   Model/DTO/              10 POJOs
   Model/Service/SubscriptionRenewalService.java
   Model/Service/DocumentAccess.java   canView / canEdit: the one place that decides document visibility (T1.3)
-  Utils/                  AppConfig, Access (who is calling), StoredFiles (delete a stored file after the DB row is gone), AccessRules (public/admin/authenticated path lists),
+  Utils/                  AppConfig, Access (who is calling), FileStorage + FileTypes (where uploads live, allowed types, T2), StorageMigration (one-off CLI, T2.2), AccessRules (public/admin/authenticated path lists),
                           Validation (whitelists, ranged numbers), DBUtils, PasswordUtil, CookieUtil, EmailUtil, GeminiService,
                           LinkUtil, SubscriptionScheduler
 web/
@@ -59,7 +59,7 @@ web/
   WEB-INF/jspf/admin_error_banner.jspf   shared error banner included by admin_manageUser / admin_manageTrans / admin_report_config
   WEB-INF/tags/AdminLayout.tag   shared admin chrome
   WEB-INF/lib/            runtime jars
-  uploads/<userId>/...    created at runtime inside the exploded WAR (F-05)
+  (no uploads/ folder any more: files live in STORAGE_DIR outside the webapp, T2.1; /uploads/** answers 404)
 docs/remediation/         these docs
 docs/standards/           review checklist
 ```
@@ -100,8 +100,8 @@ Reviewed in T1.8 (2026-11-27). "Path gate" is `AuthFilter`/`AccessRules`. "In-co
 | `DocumentController` | `explore` | authenticated | ✅ SQL limits to PUBLIC (non-flagged) / accepted-friends' FRIENDS_ONLY |
 | | `viewPublicPage`, `viewDoc` | **public** (guests allowed, only these two actions) | ✅ `DocumentAccess.canView`; invisible = 404 / `not_found` |
 | | `downloadDoc`, `toggleBookmark` | authenticated | ✅ `DocumentAccess.canView` (bookmark answers a 404 JSON) |
-| | `viewPage`, `editDoc`, `updateDoc`, `deleteDoc`, `updatePermission` | authenticated | ✅ owner only (`canEdit`) + SQL `AND user_id = ?` (`*ForOwner` DAO methods); file deleted only after the DB delete matched 1 row; foreign `folderId` rejected. ⚠ file location/serving: T2.1 |
-| `UploadController` (multipart, 100 MB) | `upload`, `confirm`, `replace`, `keepBoth`, `cancel` | authenticated | ✅ ids come from the session wizard, DB writes are owner-scoped, `folderId` must be the caller's. ⚠ stored under the web root, any extension, quota literal: T2.1-T2.3, T6.4 |
+| | `viewPage`, `editDoc`, `updateDoc`, `deleteDoc`, `updatePermission` | authenticated | ✅ owner only (`canEdit`) + SQL `AND user_id = ?` (`*ForOwner` DAO methods); file deleted only after the DB delete matched 1 row; foreign `folderId` rejected. |
+| `UploadController` (multipart, 100 MB) | `upload`, `confirm`, `replace`, `keepBoth`, `cancel` | authenticated | ✅ ids come from the session wizard, DB writes are owner-scoped, `folderId` must be the caller's. ✅ (T2) file saved to `STORAGE_DIR/<uid>/<uuid>.<ext>`, extension allow-list + magic bytes, per-file cap from the tier. ⚠ total-quota literal: T6.4 |
 | `FolderController` | `createFolder`, `deleteFolder`, `viewFolder`, `editFolder`, `updateFolder` | authenticated | ✅ DAO SQL owner-scoped; parent/current/edit folder ids must be the caller's (T1.6); a folder cannot be its own parent. ⚠ deeper cycles (A under its own descendant): not prevented |
 | `ChatBotController` | POST message (text/plain) | authenticated (401 text) | ✅ session must belong to the caller before quota/storage; `VIEW/<id>` uses `canView`; `GETLINK/<id>` needs an owned folder. ⚠ quota race, error text, Gemini hardening: T4.5, T5.3, T6.2 |
 | `SessionController` | `chatMain`, `createSession`, `viewSession`, `deleteSession` | authenticated | ✅ owner-checked (as before) |
@@ -112,10 +112,10 @@ Reviewed in T1.8 (2026-11-27). "Path gate" is `AuthFilter`/`AccessRules`. "In-co
 | `TransactionController` | `createTransaction`, `listTransactions`, `buyPremium` | authenticated | ✅ `listTransactions` scoped to the caller. ⚠ type/amount unvalidated, balance races, non-atomic Premium: T4.1-T4.4 |
 | | `adminListTransactions`, `adminUpdateTransaction` | **admin** (any `admin*` action on this URL) | ✅ also `Access.isAdmin`; status whitelist `PROCESSING/SUCCESS/CANCELLED`. ⚠ double approval: T4.2 |
 | `AdminController` | all (`listUsers`, `listDashboard`, `listTransactions`, `profile`, `listPublicDocs`, `adminViewDoc`, `updateAdminProfile`, `createUser`, `updateUser`, `deleteUser`) | **admin** | ✅ also `Access.isAdmin`; role/status/tier/balance/name/email/password validated; an admin cannot demote, ban or delete themself |
-| `AdminReportController` | `adminReportList`, `adminUpdateReportStatus`, `adminDeleteReport`, `adminDeleteDocument` | **admin** | ✅ also `Access.isAdmin`; status whitelisted; `adminDeleteDocument` removes the physical file after the DB delete (`Utils.StoredFiles`). ⚠ mutations are GET-able: T3.2 |
+| `AdminReportController` | `adminReportList`, `adminUpdateReportStatus`, `adminDeleteReport`, `adminDeleteDocument` | **admin** | ✅ also `Access.isAdmin`; status whitelisted; `adminDeleteDocument` removes the physical file after the DB delete (`Utils.FileStorage`). ⚠ mutations are GET-able: T3.2 |
 | `ReportConfigController` (`/admin/report-config`, `/ReportConfigController`) | GET `reportConfigList`; POST `reportConfigAdd/Update/Delete` | **admin** | ✅ also `Access.isAdmin`; code/severity/scores validated; delete is POST-only (GET answers 405) |
 | `SystemConfigController` (`/admin/system-config`, mapped in web.xml **and** by annotation) | GET list tiers; POST update tiers | **admin** | ✅ also `Access.isAdmin`; every row validated first, then one DB transaction |
-| `/uploads/**` (static files) | direct file URLs | authenticated (default) | ⚠ any logged-in user can still fetch any file by URL: T2.1 |
+| `/uploads/**` (legacy folder) | any URL | everyone | ✅ `AuthFilter` answers 404 for all callers (`AccessRules.isRetiredUploadsPath`); files are no longer stored there (T2.1) |
 
 `MainController` action → controller routing is the `switch` in `MainController.processRequest` (~line 42). Notable entries:
 `listUsers/createUser/updateUser/deleteUser/listDashboard` → AdminController; `reportConfig*` → ReportConfigController;
@@ -128,7 +128,7 @@ Reviewed in T1.8 (2026-11-27). "Path gate" is `AuthFilter`/`AccessRules`. "In-co
 | `userId` | Integer | AuthController login, `login.jsp` remember-me | the acting user. **The only trusted identity** |
 | `username`, `role` (`STUDENT`/`ADMIN`), `tierId`, `balance` | String/Integer | login; refreshed by SessionSyncFilter every 60 s | `balance`/`tierId` in the session can be ~60 s stale; re-read the DB for decisions |
 | `lastSessionSync` | Long | SessionSyncFilter | sync throttle |
-| `pendingDocumentId`, `pendingDocumentPath`, `pendingDocumentTitle`, `pendingFileExtension` | | UploadController | the upload wizard between steps |
+| `pendingDocumentId`, `pendingDocumentTitle`, `pendingFileExtension` | | UploadController | the upload wizard between steps |
 | `conflictTitle`, `conflictFolderId`, `conflictSharingPermission`, `duplicateDocId` | | UploadController.confirm | duplicate-title resolution step |
 | `returnChatSessionId`, `newAttachedDocTitle` | String | UploadController | return to chat after uploading from chat |
 | `RECOVERY_OTP_<email>`, `RECOVERY_TIME_<email>`, `ALLOW_RESET_<email>` | | ForgotPasswordController | password-reset flow |
@@ -142,7 +142,7 @@ Cookie `remember_token` = Base64url(`email|expiry|hmac`) signed by `CookieUtil`.
 | `subscriptions` | `tier_id` IDENTITY: **1 Guest, 2 Free, 3 Premium** (seed order). `max_storage_mb`, `ai_prompt_limit_per_day`, `price DECIMAL(10,2)`, `total_storage_mb` (Free 5120, Premium 51200) |
 | `users` | `role` CHECK GUEST/STUDENT/ADMIN; `status` CHECK ACTIVE/SUSPENDED/BANNED; `tier_id` FK, default 2; **`balance INT`**; `ai_prompts_today`, `last_prompt_reset`; `expires_at` (Premium expiry), `expiry_notified`, `downgrade_notice_pending`; `email` UNIQUE NULL |
 | `folders` | `user_id`, self-FK `parent_folder_id`, `folder_name`, `sharing_permission`. No uniqueness constraint on name |
-| `documents` | `user_id`, `folder_id`, `title`, `file_extension`, **`cloud_storage_url`** (currently `/AIStudyHub/uploads/<uid>/<name>.<ext>`), `file_size_mb DECIMAL(5,2)`, `ai_parsing_status` PENDING/PROCESSING/READY/FAILED, `sharing_permission`, `share_link_token` UNIQUE, `total_report_score`, `is_flagged`, `bookmark_count`, `download_count` |
+| `documents` | `user_id`, `folder_id`, `title`, `file_extension`, **`cloud_storage_url`** (a **storage key** `<uid>/<uuid>.<ext>` since T2; rows not yet migrated by T2.2 still hold `/AIStudyHub/uploads/...` and answer 404), `file_size_mb DECIMAL(5,2)`, `ai_parsing_status` PENDING/PROCESSING/READY/FAILED, `sharing_permission`, `share_link_token` UNIQUE, `total_report_score`, `is_flagged`, `bookmark_count`, `download_count` |
 | `bookmarks` | `UQ_user_document (user_id, document_id)` |
 | `chat_sessions` | `session_id`, `session_name`, `user_id`, `is_pinned` |
 | `chat_messages` | `session_id`, `sender` USER/BOT, `message_content NVARCHAR(MAX)`, `display` bit (hidden system/tool messages have `display=0`) |
@@ -179,9 +179,9 @@ Triggers maintain `updated_at` on `users`, `documents` and `friendships`.
 ## 9. Feature flows worth knowing
 
 **Upload wizard** (`UploadController` + `document_upload.jsp`):
-1. `upload` saves `temp_<uuid8>_<sanitized name>` and inserts a `documents` row (PRIVATE, PENDING). It extracts text inline (PDFBox/POI) into `document_extracted_text` and marks READY, then redirects to `?step=edit`.
+1. `upload` checks the extension (allow-list) and the per-file cap, saves the file as `STORAGE_DIR/<uid>/<uuid>.<ext>`, checks the magic bytes (deletes it again on a mismatch), and inserts a `documents` row (PRIVATE, PENDING) whose `cloud_storage_url` is that key. It extracts text inline (PDFBox/POI) into `document_extracted_text` and marks READY, then redirects to `?step=edit`.
 2. `confirm` sets the title/folder/sharing. If a same-title document exists in that folder it goes to `?step=duplicate`.
-3. `replace` overwrites the old document's file and metadata and deletes the pending row. `keepBoth` renames to `"Title (n)"`. `cancel` deletes the pending row and file.
+3. `replace` points the old document at the new file (DB first), removes the pending row, and only then deletes the old file. `keepBoth` renames the title to `"Title (n)"`. `cancel` deletes the pending row, then its file. The file is never renamed: only the title changes.
 4. Suspended users can't set PUBLIC (they're silently downgraded to PRIVATE).
 
 **Chatbot** (`ChatBotController`):
@@ -206,7 +206,7 @@ Triggers maintain `updated_at` on `users`, `documents` and `friendships`.
 - On a FORWARD, `request.getServletPath()` is the forward target. The `action` parameter is the original one unless the forward URL has its own query string (e.g. `DocumentController` forwards to `/MainController?action=editDoc&docId=...`), in which case the forward's value wins; `AuthFilter` re-reads it on every dispatch, so it classifies what the target will actually see.
 - `SystemConfigController` is mapped twice (annotation + `web.xml`). That works because the mappings are identical, but keep it in mind.
 - `getFolderById`, `DocumentDAO.findById`, `ChatSessionDAO.getSessionById` are **unscoped lookups**. Always follow them with an ownership/`DocumentAccess` check.
-- `DocumentController` derives the on-disk path from `cloud_storage_url` by stripping the context path. Any change to storage must update `viewDoc`, `downloadDoc`, `deleteDoc`, `UploadController.deletePhysicalFile`/`renameToFinalName`, `AdminReportController.adminDeleteDocument`, and `UserDAO.deleteUserAndAssociatedData` (verify the last two when you get there).
+- **Files are only touched through `Utils.FileStorage`** (`resolve`/`fileOrNull`/`delete`/`deleteUserFiles`). Never build a path from `cloud_storage_url` yourself, never call `getRealPath` for uploads. Delete the DB row first and the file after (`deleteDoc`, `adminDeleteDocument`, `deleteFolder`, account deletion all do). New code that stores a file must use `FileStorage.save` and `FileTypes` (extension allow-list + `contentMatches`).
 - Comments are a mix of Vietnamese and English. User-facing strings are Vietnamese, so keep them Vietnamese.
 - Many JSPs contain scriptlets that call DAOs directly (e.g. `user_dashboard.jsp`, `login.jsp`). Grep JSPs too when you change a DAO signature.
 - The seeded `user@gmail.com` uses tier 1 (Guest), but registration uses tier 2. The tier ids are magic numbers (F-70).

@@ -20,6 +20,8 @@ import java.util.List;
 @WebServlet(name = "AdminReportController", urlPatterns = {"/AdminReportController"})
 public class AdminReportController extends HttpServlet {
 
+    private static final java.util.logging.Logger LOG = java.util.logging.Logger.getLogger(AdminReportController.class.getName());
+
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         request.setCharacterEncoding("UTF-8");
@@ -131,7 +133,7 @@ public class AdminReportController extends HttpServlet {
                 if (isDeleted) {
                     // Chỉ xóa file vật lý sau khi DB đã xóa thành công (như DocumentController.deleteDoc)
                     if (toDelete != null) {
-                        Utils.StoredFiles.delete(getServletContext(), request.getContextPath(), toDelete.getCloudStorageUrl());
+                        Utils.FileStorage.delete(toDelete.getCloudStorageUrl());
                     }
                     response.sendRedirect(request.getContextPath() + "/MainController?action=listDashboard");
                 } else {
@@ -139,7 +141,7 @@ public class AdminReportController extends HttpServlet {
                 }
             }
         } catch (Exception e) {
-            System.err.println("[AdminReportController Error] " + e.getMessage());
+            LOG.log(java.util.logging.Level.SEVERE, "request failed", e);
             response.sendRedirect(request.getContextPath() + "/MainController?action=listDashboard&error=system_error");
         }
     }

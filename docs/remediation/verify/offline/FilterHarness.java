@@ -101,7 +101,9 @@ public class FilterHarness {
         check("/DocumentController", "explore", "anon", L);
         check("/user_dashboard.jsp", null, "anon", L);
         check("/FileExplore.jsp", null, "anon", L);
-        check("/uploads/1/secret.pdf", null, "anon", L);
+        check("/uploads/1/secret.pdf", null, "anon", "ERROR:404");      // T2.1: legacy uploads folder is dead for everyone
+        check("/uploads/1/secret.pdf", null, "student", "ERROR:404");
+        check("/UPLOADS/1/x.jsp", null, "admin", "ERROR:404");
         check("/ChatBotController", null, "anon", "STATUS:401");
         check("/SessionController", "pinSession", "anon", "STATUS:401");
         check("/SessionController", "chatMain", "anon", L);
