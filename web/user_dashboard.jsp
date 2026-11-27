@@ -811,6 +811,10 @@
                         showToast("Tên thư mục đã tồn tại ở vị trí này. Vui lòng chọn tên khác!", "error");
                     } else if (errorType === 'create_folder_failed') {
                         showToast("Có lỗi xảy ra khi tạo thư mục hệ thống.", "error");
+                    } else if (errorType === 'invalid_folder') {
+                        showToast("Thư mục không hợp lệ.", "error");
+                    } else if (errorType === 'not_found') {
+                        showToast("Không tìm thấy nội dung yêu cầu.", "error");
                     }
                 }
                 if (<%= storagePercent%> >= 85.0) {

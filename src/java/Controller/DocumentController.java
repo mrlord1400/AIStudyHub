@@ -184,6 +184,13 @@ public class DocumentController extends HttpServlet {
                     return;
                 }
 
+                // folderId đến từ request: phải là thư mục của chính người dùng
+                if (folderId != null && !new FolderDAO().isOwnedBy(folderId, userId)) {
+                    request.setAttribute("errorMessage", "Thư mục không hợp lệ.");
+                    request.getRequestDispatcher("/MainController?action=editDoc&docId=" + docId).forward(request, response);
+                    return;
+                }
+
                 boolean updated = dao.updateDocumentInfoForOwner(docId, userId, newTitle, folderId, sharingPerm,
                         existingDoc.getCloudStorageUrl());
 

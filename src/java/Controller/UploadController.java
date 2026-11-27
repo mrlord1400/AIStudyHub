@@ -3,6 +3,7 @@ package Controller;
 import Model.DTO.Document;
 import Model.DAO.DocumentDAO;
 import Model.DAO.DocumentTextDAO;
+import Model.DAO.FolderDAO;
 import Model.DTO.User;
 import Model.DAO.UserDAO;
 
@@ -98,6 +99,21 @@ public class UploadController extends HttpServlet {
             clearPendingSession(session);
             clearDuplicateSession(session);
 
+            // folderId đến từ request: phải là thư mục của chính người dùng (F-05), nếu không thì từ chối trước khi ghi file
+            Integer folderId = null;
+            String folderIdParam = request.getParameter("folderId");
+            if (folderIdParam != null && !folderIdParam.trim().isEmpty() && !folderIdParam.equals("null")) {
+                try {
+                    folderId = Integer.parseInt(folderIdParam);
+                } catch (NumberFormatException ignored) {
+                }
+            }
+            if (!isFolderUsable(folderId, userId)) {
+                request.setAttribute("errorMessage", "Thư mục không hợp lệ.");
+                request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
+                return;
+            }
+
             Part filePart = request.getPart("file");
             if (filePart == null || filePart.getSize() == 0) {
                 System.err.println("[UploadController] Tải lên thất bại: File trống hoặc null.");
@@ -158,15 +174,6 @@ public class UploadController extends HttpServlet {
 
             double fileSizeMb = filePart.getSize() / (1024.0 * 1024.0);
             String cloudStorageUrl = request.getContextPath() + "/" + UPLOAD_DIR + "/" + userId + "/" + savedFileName;
-
-            Integer folderId = null;
-            String folderIdParam = request.getParameter("folderId");
-            if (folderIdParam != null && !folderIdParam.trim().isEmpty() && !folderIdParam.equals("null")) {
-                try {
-                    folderId = Integer.parseInt(folderIdParam);
-                } catch (NumberFormatException ignored) {
-                }
-            }
 
             Document doc = new Document();
             doc.setUserId(userId);
@@ -255,6 +262,12 @@ public class UploadController extends HttpServlet {
                 newFolderId = Integer.parseInt(folderIdParam);
             } catch (NumberFormatException ignored) {
             }
+        }
+
+        if (!isFolderUsable(newFolderId, userId)) {
+            request.setAttribute("errorMessage", "Thư mục không hợp lệ.");
+            request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
+            return;
         }
 
         DocumentDAO dao = new DocumentDAO();
@@ -466,6 +479,11 @@ public class UploadController extends HttpServlet {
     // ─────────────────────────────────────────────────────────────────────────
     private String sanitizeFileName(String fileName) {
         return fileName.replaceAll("[^a-zA-Z0-9.\\-_]", "_");
+    }
+
+    /** null (thư mục gốc) luôn hợp lệ; id khác phải thuộc về userId. */
+    private boolean isFolderUsable(Integer folderId, int userId) {
+        return folderId == null || new FolderDAO().isOwnedBy(folderId, userId);
     }
 
     private String stripExtension(String fileName) {
