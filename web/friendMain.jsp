@@ -108,6 +108,7 @@
                 }
             }
         </style>
+    <%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>
     </head>
     <body class="page-body">
 
@@ -158,19 +159,19 @@
                     <div class="flex items-center justify-between w-full gap-1">
                         
                         <a href="<%= request.getContextPath()%>/MainController?action=profile" class="flex items-center space-x-3 px-2 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex-1 min-w-0">
-                            <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 flex-shrink-0 font-bold text-xs uppercase"><%= username != null && !username.trim().isEmpty() ? username.trim().substring(0, 1) : "U"%></div>
+                            <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 flex-shrink-0 font-bold text-xs uppercase"><%= Utils.Html.esc(username != null && !username.trim().isEmpty() ? username.trim().substring(0, 1) : "U") %></div>
                             
                             <div class="user-info truncate">
                                 <!-- Đã bổ sung thẻ Tier PRO/FREE -->
                                 <div class="flex items-center gap-1.5 min-w-0">
-                                    <p class="text-sm font-bold text-gray-900 dark:text-white truncate"><%= username != null ? username : "Học viên"%></p>
+                                    <p class="text-sm font-bold text-gray-900 dark:text-white truncate"><%= Utils.Html.esc(username != null ? username : "Học viên") %></p>
                                     <% if (isPremiumUser) { %>
                                     <span class="flex-shrink-0 px-1.5 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-[9px] rounded-full shadow-sm scale-90 origin-left">PRO</span>
                                     <% } else { %>
                                     <span class="flex-shrink-0 px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-400 dark:border-emerald-700 font-bold text-[10px] rounded-full shadow-sm scale-90 origin-left tracking-wide">FREE</span>
                                     <% }%>
                                 </div>
-                                <p class="text-[11px] text-gray-400 font-medium">Quyền: <%= role%></p>
+                                <p class="text-[11px] text-gray-400 font-medium">Quyền: <%= Utils.Html.esc(role) %></p>
                             </div>
                         </a>
 
@@ -187,7 +188,7 @@
                     </div>
 
                     <!-- Nút Đăng xuất đã được điều chỉnh class Tailwind để khớp màu với trang gốc -->
-                    <a href="<%= request.getContextPath()%>/MainController?action=logout" class="w-full flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 dark:text-gray-400 dark:hover:bg-red-900/30 dark:hover:text-red-400 transition-colors text-left">
+                    <a href="<%= request.getContextPath()%>/MainController?action=logout" data-post class="w-full flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 dark:text-gray-400 dark:hover:bg-red-900/30 dark:hover:text-red-400 transition-colors text-left">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
                         <span>Đăng xuất</span>
                     </a>
@@ -240,13 +241,13 @@
                     <% } else {
                         for (User f : friends) {%>
                     <div class="user-card">
-                        <div class="avatar-lg"><%= f.getUsername().substring(0, 1).toUpperCase()%></div>
-                        <h3 class="font-bold text-gray-900 dark:text-white text-lg truncate w-full px-2"><%= f.getUsername()%></h3>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-5 truncate w-full px-2"><%= f.getEmail()%></p>
+                        <div class="avatar-lg"><%= Utils.Html.esc(f.getUsername().substring(0, 1).toUpperCase()) %></div>
+                        <h3 class="font-bold text-gray-900 dark:text-white text-lg truncate w-full px-2"><%= Utils.Html.esc(f.getUsername()) %></h3>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-5 truncate w-full px-2"><%= Utils.Html.esc(f.getEmail()) %></p>
 
                         <div class="flex space-x-2 w-full mt-auto">
-                            <a href="<%= request.getContextPath()%>/FriendController?action=deleteFriendship&targetUserId=<%= f.getUserId()%>&returnPath=friendList" onclick="return confirm('Bạn có chắc chắn muốn hủy kết bạn?');" class="flex-1 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm font-semibold rounded-xl transition-colors">Hủy kết bạn</a>
-                            <a href="<%= request.getContextPath()%>/FriendController?action=updateFriendshipStatus&status=BLOCKED&targetUserId=<%= f.getUserId()%>" onclick="return confirm('Xác nhận chặn người dùng này?');" class="flex-1 py-2 border border-red-200 dark:border-red-900/50 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm font-semibold rounded-xl transition-colors">Chặn</a>
+                            <a data-post href="<%= request.getContextPath()%>/FriendController?action=deleteFriendship&targetUserId=<%= f.getUserId()%>&returnPath=friendList" data-confirm="Bạn có chắc chắn muốn hủy kết bạn?" class="flex-1 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm font-semibold rounded-xl transition-colors">Hủy kết bạn</a>
+                            <a data-post href="<%= request.getContextPath()%>/FriendController?action=updateFriendshipStatus&status=BLOCKED&targetUserId=<%= f.getUserId()%>" data-confirm="Xác nhận chặn người dùng này?" class="flex-1 py-2 border border-red-200 dark:border-red-900/50 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm font-semibold rounded-xl transition-colors">Chặn</a>
                         </div>
                     </div>
                     <%      }
@@ -262,19 +263,19 @@
                     <% } else {
                         for (User p : pendingRequests) {%>
                     <div class="user-card">
-                        <a href="<%= request.getContextPath()%>/FriendController?action=updateFriendshipStatus&status=BLOCKED&targetUserId=<%= p.getUserId()%>" onclick="return confirm('Xác nhận chặn người dùng này?');" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 transition-colors bg-white dark:bg-gray-800 rounded-full" title="Chặn người dùng này">
+                        <a data-post href="<%= request.getContextPath()%>/FriendController?action=updateFriendshipStatus&status=BLOCKED&targetUserId=<%= p.getUserId()%>" data-confirm="Xác nhận chặn người dùng này?" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 transition-colors bg-white dark:bg-gray-800 rounded-full" title="Chặn người dùng này">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                             <circle cx="12" cy="12" r="10"></circle>
                             <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
                             </svg>
                         </a>
-                        <div class="avatar-lg"><%= p.getUsername().substring(0, 1).toUpperCase()%></div>
-                        <h3 class="font-bold text-gray-900 dark:text-white text-lg truncate w-full px-2"><%= p.getUsername()%></h3>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-5 truncate w-full px-2"><%= p.getEmail()%></p>
+                        <div class="avatar-lg"><%= Utils.Html.esc(p.getUsername().substring(0, 1).toUpperCase()) %></div>
+                        <h3 class="font-bold text-gray-900 dark:text-white text-lg truncate w-full px-2"><%= Utils.Html.esc(p.getUsername()) %></h3>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-5 truncate w-full px-2"><%= Utils.Html.esc(p.getEmail()) %></p>
 
                         <div class="flex space-x-2 w-full mt-auto">
-                            <a href="<%= request.getContextPath()%>/FriendController?action=updateFriendshipStatus&status=ACCEPTED&targetUserId=<%= p.getUserId()%>" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors">Chấp nhận</a>
-                            <a href="<%= request.getContextPath()%>/FriendController?action=deleteFriendship&targetUserId=<%= p.getUserId()%>&returnPath=pendingList" class="flex-1 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm font-semibold rounded-xl transition-colors">Từ chối</a>
+                            <a data-post href="<%= request.getContextPath()%>/FriendController?action=updateFriendshipStatus&status=ACCEPTED&targetUserId=<%= p.getUserId()%>" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors">Chấp nhận</a>
+                            <a data-post href="<%= request.getContextPath()%>/FriendController?action=deleteFriendship&targetUserId=<%= p.getUserId()%>&returnPath=pendingList" class="flex-1 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm font-semibold rounded-xl transition-colors">Từ chối</a>
                         </div>
                     </div>
                     <%      }
@@ -290,12 +291,12 @@
                     <% } else {
                         for (User b : blockedUsers) {%>
                     <div class="user-card opacity-70 hover:opacity-100 transition-opacity">
-                        <div class="avatar-lg bg-gradient-to-tr from-gray-500 to-gray-700"><%= b.getUsername().substring(0, 1).toUpperCase()%></div>
-                        <h3 class="font-bold text-gray-900 dark:text-white text-lg truncate w-full px-2 line-through"><%= b.getUsername()%></h3>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-5 truncate w-full px-2"><%= b.getEmail()%></p>
+                        <div class="avatar-lg bg-gradient-to-tr from-gray-500 to-gray-700"><%= Utils.Html.esc(b.getUsername().substring(0, 1).toUpperCase()) %></div>
+                        <h3 class="font-bold text-gray-900 dark:text-white text-lg truncate w-full px-2 line-through"><%= Utils.Html.esc(b.getUsername()) %></h3>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-5 truncate w-full px-2"><%= Utils.Html.esc(b.getEmail()) %></p>
 
                         <div class="flex space-x-2 w-full mt-auto">
-                            <a href="<%= request.getContextPath()%>/FriendController?action=deleteFriendship&targetUserId=<%= b.getUserId()%>&returnPath=blockedList" class="w-full py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-semibold rounded-xl transition-colors">Bỏ chặn</a>
+                            <a data-post href="<%= request.getContextPath()%>/FriendController?action=deleteFriendship&targetUserId=<%= b.getUserId()%>&returnPath=blockedList" class="w-full py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-semibold rounded-xl transition-colors">Bỏ chặn</a>
                         </div>
                     </div>
                     <%      }
@@ -339,15 +340,15 @@
 
                 <% if (searchError != null) {%>
                 <div class="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl text-red-600 dark:text-red-400 text-sm font-medium mb-4">
-                    <%= searchError%>
+                    <%= Utils.Html.esc(searchError) %>
                 </div>
                 <button onclick="document.getElementById('searchResultModal').classList.add('hidden'); document.getElementById('addFriendModal').classList.remove('hidden');" class="btn-secondary w-full py-2">Thử lại</button>
                 <% } else if (searchedUser != null) {%>
                 <div class="flex flex-col items-center justify-center p-4 border border-gray-100 dark:border-gray-700 rounded-2xl mb-6 bg-gray-50 dark:bg-gray-900/50">
-                    <div class="avatar-lg mb-3"><%= searchedUser.getUsername().substring(0, 1).toUpperCase()%></div>
-                    <h3 class="font-bold text-gray-900 dark:text-white text-lg"><%= searchedUser.getUsername()%></h3>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-2"><%= searchedUser.getEmail()%></p>
-                    <span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 rounded text-[10px] font-bold uppercase"><%= searchedUser.getRole()%></span>
+                    <div class="avatar-lg mb-3"><%= Utils.Html.esc(searchedUser.getUsername().substring(0, 1).toUpperCase()) %></div>
+                    <h3 class="font-bold text-gray-900 dark:text-white text-lg"><%= Utils.Html.esc(searchedUser.getUsername()) %></h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-2"><%= Utils.Html.esc(searchedUser.getEmail()) %></p>
+                    <span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 rounded text-[10px] font-bold uppercase"><%= Utils.Html.esc(searchedUser.getRole()) %></span>
                 </div>
 
                 <% if ("NONE".equals(friendshipStatus)) {%>
@@ -366,13 +367,12 @@
                 <% } else if ("PENDING_RECEIVED".equals(friendshipStatus)) {%>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Người này đã gửi cho bạn một lời mời kết bạn.</p>
                 <div class="flex flex-col space-y-2">
-                    <a href="<%= request.getContextPath()%>/FriendController?action=updateFriendshipStatus&status=ACCEPTED&targetUserId=<%= searchedUser.getUserId()%>"
+                    <a data-post href="<%= request.getContextPath()%>/FriendController?action=updateFriendshipStatus&status=ACCEPTED&targetUserId=<%= searchedUser.getUserId()%>"
                        class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors text-center">Chấp nhận</a>
                     <div class="flex space-x-2">
-                        <a href="<%= request.getContextPath()%>/FriendController?action=deleteFriendship&targetUserId=<%= searchedUser.getUserId()%>&returnPath=pendingList"
+                        <a data-post href="<%= request.getContextPath()%>/FriendController?action=deleteFriendship&targetUserId=<%= searchedUser.getUserId()%>&returnPath=pendingList"
                            class="flex-1 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm font-semibold rounded-xl transition-colors text-center">Từ chối</a>
-                        <a href="<%= request.getContextPath()%>/FriendController?action=updateFriendshipStatus&status=BLOCKED&targetUserId=<%= searchedUser.getUserId()%>"
-                           onclick="return confirm('Xác nhận chặn người dùng này?');"
+                        <a data-post href="<%= request.getContextPath()%>/FriendController?action=updateFriendshipStatus&status=BLOCKED&targetUserId=<%= searchedUser.getUserId()%>" data-confirm="Xác nhận chặn người dùng này?"
                            class="flex-1 py-2 border border-red-200 dark:border-red-900/50 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm font-semibold rounded-xl transition-colors text-center">Chặn</a>
                     </div>
                 </div>
@@ -382,7 +382,7 @@
 
                 <% } else if ("BLOCKED_BY_ME".equals(friendshipStatus)) {%>
                 <p class="text-sm text-red-500 font-medium mb-3">Bạn đã chặn người dùng này.</p>
-                <a href="<%= request.getContextPath()%>/FriendController?action=deleteFriendship&targetUserId=<%= searchedUser.getUserId()%>&returnPath=blockedList"
+                <a data-post href="<%= request.getContextPath()%>/FriendController?action=deleteFriendship&targetUserId=<%= searchedUser.getUserId()%>&returnPath=blockedList"
                    class="w-full py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-semibold rounded-xl transition-colors block text-center">Bỏ chặn</a>
 
                 <% } else if ("BLOCKED_BY_THEM".equals(friendshipStatus)) { %>
@@ -411,7 +411,11 @@
                     iconHtml = `<div class="p-1.5 bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rounded-xl"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>`;
                 }
 
-                toast.innerHTML = iconHtml + '<span class="text-sm font-semibold tracking-tight">' + message + '</span>';
+                const msgSpan = document.createElement('span');
+                msgSpan.className = 'text-sm font-semibold tracking-tight';
+                msgSpan.textContent = message;
+                toast.innerHTML = iconHtml;
+                toast.appendChild(msgSpan);
                 container.appendChild(toast);
 
                 setTimeout(() => toast.classList.remove('translate-x-20', 'opacity-0'), 50);
@@ -446,7 +450,7 @@
 
                 // Clean URL
                 if (urlParams.has('success') || urlParams.has('error')) {
-                    const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?action=<%= currentAction%>";
+                    const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?action=" + encodeURIComponent(<%= new com.google.gson.Gson().toJson(currentAction)%>);
                     window.history.replaceState({}, document.title, cleanUrl);
                 }
             });

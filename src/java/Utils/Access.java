@@ -26,6 +26,15 @@ public final class Access {
         return (id instanceof Integer) ? (Integer) id : null;
     }
 
+    /** Ghi danh tính vào session đã tạo; dùng chung cho đăng nhập bằng mật khẩu và bằng cookie ghi nhớ. */
+    public static void signIn(HttpSession session, Model.DTO.User user) {
+        session.setAttribute("userId", user.getUserId());
+        session.setAttribute("username", user.getUsername());
+        session.setAttribute("role", user.getRole());
+        session.setAttribute("tierId", user.getTierId());
+        session.setAttribute("balance", user.getBalance());
+    }
+
     public static boolean isLoggedIn(HttpServletRequest request) {
         return currentUserId(request) != null;
     }

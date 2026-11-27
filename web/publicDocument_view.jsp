@@ -35,7 +35,7 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title><%= doc.getTitle() != null ? doc.getTitle() : "Xem tài liệu"%> - AI Study Hub</title>
+        <title><%= Utils.Html.esc(doc.getTitle() != null ? doc.getTitle() : "Xem tài liệu")%> - AI Study Hub</title>
 
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
@@ -81,6 +81,7 @@
                 .community-banner { @apply flex items-center gap-3 px-5 py-3 bg-emerald-50 border-b border-emerald-200 text-emerald-700 text-sm font-medium; }
             }
         </style>
+    <%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>
     </head>
     <body>
 
@@ -90,9 +91,9 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
                 <div class="min-w-0">
-                    <h1 class="doc-title"><%= doc.getTitle() != null ? doc.getTitle() : "Tài liệu"%></h1>
+                    <h1 class="doc-title"><%= Utils.Html.esc(doc.getTitle() != null ? doc.getTitle() : "Tài liệu")%></h1>
                     <p class="text-xs text-gray-400 font-medium mt-0.5">
-                        <%= doc.getFileExtension() != null ? doc.getFileExtension().toUpperCase() : ""%>
+                        <%= Utils.Html.esc(doc.getFileExtension() != null ? doc.getFileExtension().toUpperCase() : "")%>
                         &middot; <%= doc.getFileSizeMb()%> MB
                     </p>
                 </div>
@@ -124,7 +125,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
             </svg>
             <span>
-                Tài liệu cộng đồng &mdash; được chia sẻ bởi <strong><%= authorName %></strong>
+                Tài liệu cộng đồng &mdash; được chia sẻ bởi <strong><%= Utils.Html.esc(authorName) %></strong>
             </span>
             <%
                 String permBadgeClass = "badge-public";
@@ -153,15 +154,15 @@
 
                 <div class="meta-row">
                     <span class="meta-label">Tên tài liệu</span>
-                    <span class="meta-value"><%= doc.getTitle() != null ? doc.getTitle() : "—"%></span>
+                    <span class="meta-value"><%= Utils.Html.esc(doc.getTitle() != null ? doc.getTitle() : "—")%></span>
                 </div>
                 <div class="meta-row">
                     <span class="meta-label">Tác giả</span>
-                    <span class="meta-value"><%= authorName %></span>
+                    <span class="meta-value"><%= Utils.Html.esc(authorName) %></span>
                 </div>
                 <div class="meta-row">
                     <span class="meta-label">Định dạng file</span>
-                    <span class="meta-value"><%= ext.isEmpty() ? "—" : ext.toUpperCase()%></span>
+                    <span class="meta-value"><%= Utils.Html.esc(ext.isEmpty() ? "—" : ext.toUpperCase())%></span>
                 </div>
                 <div class="meta-row">
                     <span class="meta-label">Dung lượng</span>
@@ -175,7 +176,7 @@
                 </div>
                 <div class="meta-row">
                     <span class="meta-label">Trạng thái xử lý AI</span>
-                    <span class="meta-value"><%= doc.getAiParsingStatus() != null ? doc.getAiParsingStatus() : "—"%></span>
+                    <span class="meta-value"><%= Utils.Html.esc(doc.getAiParsingStatus() != null ? doc.getAiParsingStatus() : "—")%></span>
                 </div>
                 <div class="meta-row">
                     <span class="meta-label">Ngày tạo</span>

@@ -260,6 +260,8 @@ public class DocumentController extends HttpServlet {
                         // 🔥 ĐÃ CHỈNH SỬA LẠI UI BÁO LỖI DỊU NHẤT VÀ CHUYÊN NGHIỆP HƠN
                         if (!isSupported) {
                             response.setContentType("text/html; charset=UTF-8");
+                            // Bản xem trước chỉ là chữ + CSS: cấm script và mọi tài nguyên ngoài (nếu escape sót thì vẫn không chạy được JS).
+                            response.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'");
                             java.io.PrintWriter pw = response.getWriter();
                             pw.println("<!DOCTYPE html><html><head><meta charset='UTF-8'>");
                             pw.println("<style>");
@@ -275,7 +277,7 @@ public class DocumentController extends HttpServlet {
                             // Icon SVG hình file thông tin nhẹ nhàng
                             pw.println("<svg class='icon' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'></path></svg>");
                             pw.println("<h2>Chưa hỗ trợ xem trước định dạng này</h2>");
-                            pw.println("<p>Hệ thống hiện tại chưa thể hiển thị trực tiếp file <strong>." + ext + "</strong> trên trình duyệt.</p>");
+                            pw.println("<p>Hệ thống hiện tại chưa thể hiển thị trực tiếp file <strong>." + Utils.Html.esc(ext) + "</strong> trên trình duyệt.</p>");
                             pw.println("<p>Bạn vui lòng đóng tab này và sử dụng chức năng <strong>Tải về</strong> để xem trên máy tính nhé.</p>");
                             pw.println("</div></body></html>");
                             pw.flush();
@@ -285,6 +287,8 @@ public class DocumentController extends HttpServlet {
                         // FILE OFFICE: Convert sang HTML bằng Apache POI
                         if ("docx".equals(ext) || "xlsx".equals(ext) || "pptx".equals(ext)) {
                             response.setContentType("text/html; charset=UTF-8");
+                            // Bản xem trước chỉ là chữ + CSS: cấm script và mọi tài nguyên ngoài (nếu escape sót thì vẫn không chạy được JS).
+                            response.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'");
                             java.io.PrintWriter pw = response.getWriter();
 
                             pw.println("<!DOCTYPE html><html><head><meta charset='UTF-8'>");
@@ -316,7 +320,7 @@ public class DocumentController extends HttpServlet {
                                                 String text = para.getText();
                                                 if (text != null && !text.trim().isEmpty()) {
                                                     String style = para.getStyle();
-                                                    String escapedText = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+                                                    String escapedText = Utils.Html.esc(text);
                                                     if ("Heading1".equals(style) || "heading 1".equalsIgnoreCase(style)) {
                                                         pw.println("<h1>" + escapedText + "</h1>");
                                                     } else if ("Heading2".equals(style) || "heading 2".equalsIgnoreCase(style)) {
@@ -353,7 +357,7 @@ public class DocumentController extends HttpServlet {
                                         org.apache.poi.xssf.usermodel.XSSFWorkbook workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(fis);
                                         for (int s = 0; s < workbook.getNumberOfSheets(); s++) {
                                             org.apache.poi.ss.usermodel.Sheet sheet = workbook.getSheetAt(s);
-                                            pw.println("<h2>" + sheet.getSheetName().replace("&", "&amp;").replace("<", "&lt;") + "</h2>");
+                                            pw.println("<h2>" + Utils.Html.esc(sheet.getSheetName()) + "</h2>");
                                             pw.println("<table>");
 
                                             int lastRow = sheet.getLastRowNum();
@@ -408,7 +412,7 @@ public class DocumentController extends HttpServlet {
                                                             }
                                                         }
                                                     }
-                                                    cellValue = cellValue.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+                                                    cellValue = Utils.Html.esc(cellValue);
                                                     pw.println("<" + tag + ">" + cellValue + "</" + tag + ">");
                                                 }
                                                 pw.println("</tr>");
@@ -435,7 +439,7 @@ public class DocumentController extends HttpServlet {
                                                     org.apache.poi.xslf.usermodel.XSLFTextShape textShape = (org.apache.poi.xslf.usermodel.XSLFTextShape) shape;
                                                     String shapeText = textShape.getText();
                                                     if (shapeText != null && !shapeText.trim().isEmpty()) {
-                                                        String escaped = shapeText.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>");
+                                                        String escaped = Utils.Html.esc(shapeText).replace("\n", "<br>");
                                                         pw.println("<p>" + escaped + "</p>");
                                                     }
                                                 }
@@ -446,7 +450,7 @@ public class DocumentController extends HttpServlet {
                                     }
                                 }
                             } catch (Exception poiEx) {
-                                pw.println("<p style='color: #ef4444;'>Lỗi khi đọc file: " + poiEx.getMessage() + "</p>");
+                                pw.println("<p style='color: #ef4444;'>Không thể đọc nội dung file này. Vui lòng tải về để xem.</p>");
                                 LOG.log(java.util.logging.Level.WARNING, "office preview failed", poiEx);
                             }
 

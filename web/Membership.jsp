@@ -268,6 +268,7 @@
                 }
             }
         </style>
+    <%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>
     </head>
     <body class="page-body">
 
@@ -316,18 +317,18 @@
                     <div class="flex items-center justify-between w-full">
                         <a href="<%= request.getContextPath()%>/MainController?action=profile" class="user-profile-link flex-1 min-w-0">
                             <div class="user-avatar">
-                                <%= username != null && !username.isEmpty() ? username.substring(0, 1) : "U"%>
+                                <%= Utils.Html.esc(username != null && !username.isEmpty() ? username.substring(0, 1) : "U") %>
                             </div>
                             <div class="user-info">
                                 <div class="flex items-center gap-1.5 min-w-0">
-                                    <p class="user-name"><%= username != null ? username : "Khách"%></p>
+                                    <p class="user-name"><%= Utils.Html.esc(username != null ? username : "Khách") %></p>
                                     <% if (isPremiumUser) { %>
                                     <span class="flex-shrink-0 px-1.5 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-[9px] rounded-full shadow-sm scale-90 origin-left">PRO</span>
                                     <% } else { %>
                                     <span class="flex-shrink-0 px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-400 dark:border-emerald-700 font-bold text-[10px] rounded-full shadow-sm scale-90 origin-left tracking-wide">FREE</span>
                                     <% }%>
                                 </div>
-                                <p class="user-role">Quyền: <%= role != null ? role : "Free"%></p>
+                                <p class="user-role">Quyền: <%= Utils.Html.esc(role != null ? role : "Free") %></p>
                             </div>
                         </a>
 
@@ -343,7 +344,7 @@
                         </a>
                     </div>
 
-                    <a href="<%= request.getContextPath()%>/MainController?action=logout" class="logout-btn">
+                    <a href="<%= request.getContextPath()%>/MainController?action=logout" data-post class="logout-btn">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
                         <span>Đăng xuất</span>
                     </a>
@@ -378,7 +379,7 @@
                     <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden dark:bg-gray-800 dark:border-gray-700">
                         <div class="bg-gray-50 dark:bg-gray-700/50 p-8 text-gray-900 dark:text-white relative border-b border-gray-100 dark:border-gray-700">
                             <svg class="w-12 h-12 text-gray-400 dark:text-purple-300/40 mb-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                            <h3 class="text-2xl font-bold mb-1">${freePlan.tierName}</h3>
+                            <h3 class="text-2xl font-bold mb-1"><c:out value="${freePlan.tierName}"/></h3>
                             <p class="text-gray-500 dark:text-gray-400 text-xs mb-4">Dành cho sinh viên mới bắt đầu</p>
                             <div class="flex items-end"><span class="text-4xl font-extrabold tracking-tight"><fmt:formatNumber value="${freePlan.price}" pattern="#,###"/> Coin</span><span class="text-sm ml-1.5 mb-1 text-gray-400 dark:text-gray-400">/tháng</span></div>
                         </div>
@@ -400,7 +401,7 @@
                         <div class="absolute top-0 right-0 bg-gradient-to-tr from-purple-500 to-indigo-600 text-white px-4 py-1 text-xs font-bold rounded-bl-xl">Phổ biến nhất</div>
                         <div class="bg-gradient-to-tr from-purple-500 to-indigo-600 p-8 text-white">
                             <svg xmlns="http://www.w3.org/2000/svg" width="36" height="32" viewBox="0 0 24 24" fill="none" stroke="gold" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z"/><path d="M5 20h14"/></svg>
-                            <h3 class="text-2xl font-bold mb-1">${premiumPlan.tierName}</h3>
+                            <h3 class="text-2xl font-bold mb-1"><c:out value="${premiumPlan.tierName}"/></h3>
                             <p class="text-purple-100 text-xs mb-4">Dành cho những bước tiến xa hơn</p>
                             <div class="flex items-end">
                                 <span class="text-4xl font-extrabold tracking-tight"><fmt:formatNumber value="${premiumPlan.price}" pattern="#,###"/> Coin</span>

@@ -8,21 +8,6 @@
     response.setHeader("Pragma", "no-cache");
     response.setDateHeader("Expires", 0);
 %>
-<%!
-    private String escapeJs(String input) {
-        if (input == null) {
-            return "";
-        }
-        return input
-                .replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("'", "\\'")
-                .replace("\r\n", " ")
-                .replace("\n", " ")
-                .replace("\r", " ")
-                .replace("</", "<\\/");
-    }
-%>
 <%
     HttpSession userSession = request.getSession(false);
     if (userSession == null || userSession.getAttribute("userId") == null) {
@@ -78,6 +63,7 @@
         <title>Khám phá tài liệu - AI Study Hub</title>
 
         <script src="https://cdn.tailwindcss.com"></script>
+        <script src="<%= request.getContextPath()%>/js/security.js"></script>
         <script>
             tailwind.config = {
                 darkMode: 'class'
@@ -136,6 +122,7 @@
                 .doc-card { @apply bg-white border border-gray-100 rounded-2xl p-5 hover:shadow-md transition-all flex flex-col justify-between; }
             }
         </style>
+    <%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>
     </head>
     <body class="page-body" onclick="closeMenuOnClickOutside(event)">
 
@@ -184,18 +171,18 @@
                     <div class="flex items-center justify-between w-full">
                         <a href="<%= request.getContextPath()%>/MainController?action=profile" class="user-profile-link flex-1 min-w-0">
                             <div class="user-avatar">
-                                <%= username != null && !username.trim().isEmpty() ? username.trim().substring(0, 1).toUpperCase() : "U"%>
+                                <%= Utils.Html.esc(username != null && !username.trim().isEmpty() ? username.trim().substring(0, 1).toUpperCase() : "U")%>
                             </div>
                             <div class="user-info">
                                 <div class="flex items-center gap-1.5 min-w-0">
-                                    <p class="user-name"><%= username != null && !username.trim().isEmpty() ? username : "Học viên"%></p>
+                                    <p class="user-name"><%= Utils.Html.esc(username != null && !username.trim().isEmpty() ? username : "Học viên")%></p>
                                     <% if (isPremiumUser) { %>
                                     <span class="flex-shrink-0 px-1.5 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-[9px] rounded-full shadow-sm scale-90 origin-left">PRO</span>
                                     <% } else { %>
                                     <span class="flex-shrink-0 px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-400 dark:border-emerald-700 font-bold text-[10px] rounded-full shadow-sm scale-90 origin-left tracking-wide">FREE</span>
                                     <% }%>
                                 </div>
-                                <p class="user-role">Quyền: <%= role%></p>
+                                <p class="user-role">Quyền: <%= Utils.Html.esc(role)%></p>
                             </div>
                         </a>
 
@@ -211,7 +198,7 @@
                         </a>
                     </div>
 
-                    <a href="<%= request.getContextPath()%>/MainController?action=logout" class="logout-btn">
+                    <a href="<%= request.getContextPath()%>/MainController?action=logout" data-post class="logout-btn">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
                         <span>Đăng xuất</span>
                     </a>
@@ -243,13 +230,13 @@
                 <form action="<%= request.getContextPath()%>/MainController" method="GET" class="relative">
                     <input type="hidden" name="action" value="explore">
                     <input type="hidden" name="view" value="<%= isFriendsView ? "friends" : "public" %>">
-                    <input type="hidden" name="sort" id="sort-input" value="<%= escapeJs(currentSortBy) %>">
+                    <input type="hidden" name="sort" id="sort-input" value="<%= Utils.Html.esc(currentSortBy) %>">
 
                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                     </span>
 
-                    <input type="text" name="query" value="<%= currentSearchQuery != null ? escapeJs(currentSearchQuery) : "" %>" placeholder="Nhập từ khóa và nhấn Enter để tìm..." class="search-bar w-full pl-9 pr-14 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none shadow-sm transition-all">
+                    <input type="text" name="query" value="<%= Utils.Html.esc(currentSearchQuery) %>" placeholder="Nhập từ khóa và nhấn Enter để tìm..." class="search-bar w-full pl-9 pr-14 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none shadow-sm transition-all">
 
                     <button type="button" onclick="toggleSortMenu(event)" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center text-gray-500 transition-colors" title="Sắp xếp tài liệu">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0L17 4m4 4h-14"></path></svg>
@@ -325,20 +312,13 @@
             const isFriendsView = <%= isFriendsView %>;
 
             // Khởi tạo mảng dữ liệu (đã được backend lọc theo query & sắp xếp theo sort)
-            const internalDocs = [
-            <%
-                if (publicDocuments != null && !publicDocuments.isEmpty()) {
-                    for (int i = 0; i < publicDocuments.size(); i++) {
-                        Document doc = publicDocuments.get(i);
-                        String title = escapeJs(doc.getTitle());
-                        String fileExt = doc.getFileExtension() != null ? doc.getFileExtension().toUpperCase() : "FILE";
-                        String authorName = escapeJs(
-                                (doc.getAuthorUsername() != null && !doc.getAuthorUsername().trim().isEmpty())
-                                ? doc.getAuthorUsername()
-                                : "Người dùng #" + doc.getUserId()
-                        );
-
-                        long dateMillis = 0;
+            // Dữ liệu từ server đi qua Gson (đã escape < > & ' và U+2028/2029), không nối chuỗi bằng tay (Conv §3).
+            const internalDocs = <%
+                java.util.List<java.util.Map<String, Object>> docRows = new java.util.ArrayList<java.util.Map<String, Object>>();
+                if (publicDocuments != null) {
+                    for (Document doc : publicDocuments) {
+                        java.util.Map<String, Object> row = new java.util.LinkedHashMap<String, Object>();
+                        long dateMillis;
                         if (doc.getUpdatedAt() != null) {
                             dateMillis = java.sql.Timestamp.valueOf(doc.getUpdatedAt()).getTime();
                         } else if (doc.getCreatedAt() != null) {
@@ -346,27 +326,26 @@
                         } else {
                             dateMillis = System.currentTimeMillis();
                         }
-            %>
-            {
-            id: "<%= doc.getDocumentId()%>",
-                    title: "<%= title%>",
-                    author: "<%= authorName%>",
-                    authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=user<%= doc.getUserId()%>",
-                    fileType: "<%= fileExt%>",
-                    downloads: <%= doc.getDownloadCount() != null ? doc.getDownloadCount() : 0%>,
-                    bookmarks: <%= doc.getBookmarkCount() != null ? doc.getBookmarkCount() : 0%>,
-                    isBookmarked: <%= doc.isIsBookmarked()%>,
-                    isFlagged: <%= doc.isFlagged()%>,
-                    dateMillis: <%= dateMillis%>,
-                    size: "<%= doc.getFileSizeMb()%> MB",
-                    description: "Tài liệu học tập được chia sẻ bởi cộng đồng sinh viên.",
-                    tags: ["<%= fileExt%>"]
-            }<%= (i < publicDocuments.size() - 1) ? "," : ""%>
-            <%
+                        String fileExt = doc.getFileExtension() != null ? doc.getFileExtension().toUpperCase() : "FILE";
+                        row.put("id", String.valueOf(doc.getDocumentId()));
+                        row.put("title", doc.getTitle() == null ? "" : doc.getTitle());
+                        row.put("author", (doc.getAuthorUsername() != null && !doc.getAuthorUsername().trim().isEmpty())
+                                ? doc.getAuthorUsername() : "Người dùng #" + doc.getUserId());
+                        row.put("authorAvatar", "https://api.dicebear.com/7.x/avataaars/svg?seed=user" + doc.getUserId());
+                        row.put("fileType", fileExt);
+                        row.put("downloads", doc.getDownloadCount() != null ? doc.getDownloadCount() : 0);
+                        row.put("bookmarks", doc.getBookmarkCount() != null ? doc.getBookmarkCount() : 0);
+                        row.put("isBookmarked", doc.isIsBookmarked());
+                        row.put("isFlagged", doc.isFlagged());
+                        row.put("dateMillis", dateMillis);
+                        row.put("size", doc.getFileSizeMb() + " MB");
+                        row.put("description", "Tài liệu học tập được chia sẻ bởi cộng đồng sinh viên.");
+                        row.put("tags", java.util.Collections.singletonList(fileExt));
+                        docRows.add(row);
                     }
                 }
-            %>
-            ];
+                out.print(new com.google.gson.Gson().toJson(docRows));
+            %>;
 
             // Sắp xếp lại theo đúng thứ tự ưu tiên: tài liệu đã Bookmark lên đầu,
             // tài liệu thường ở giữa, tài liệu bị report (flagged) luôn xuống cuối.
@@ -415,15 +394,15 @@
 
                             <div>
                                 <div class="flex items-start justify-between mb-2 pr-8">
-                                    <h3 class="doc-title font-bold text-[15px] leading-snug text-gray-400 dark:text-gray-500 line-through">\${doc.title}</h3>
+                                    <h3 class="doc-title font-bold text-[15px] leading-snug text-gray-400 dark:text-gray-500 line-through">\${escapeHtml(doc.title)}</h3>
                                 </div>
                                 <p class="doc-desc text-xs font-semibold text-red-500 mb-4">Tài liệu đã bị cấm do có nhiều báo cáo vi phạm.</p>
                             </div>
                             <div>
                                 <div class="author-box flex items-center mb-1 p-2 rounded-xl border border-red-100 dark:border-red-900/20 bg-white/50 dark:bg-gray-800/50">
-                                    <img src="\${doc.authorAvatar}" class="w-7 h-7 rounded-full mr-2 border bg-white dark:border-gray-600 grayscale opacity-70">
+                                    <img src="\${escapeHtml(doc.authorAvatar)}" class="w-7 h-7 rounded-full mr-2 border bg-white dark:border-gray-600 grayscale opacity-70">
                                     <div class="flex-1 min-w-0">
-                                        <p class="author-name text-xs font-bold truncate text-gray-400">Người đăng: \${doc.author}</p>
+                                        <p class="author-name text-xs font-bold truncate text-gray-400">Người đăng: \${escapeHtml(doc.author)}</p>
                                     </div>
                                 </div>
                             </div>
@@ -433,13 +412,13 @@
                     else {
                         // === Ở view "Bạn bè chia sẻ": ẩn số lượng bookmark, số lượt tải,
                         //     icon download nhỏ và nút report. Ở view "Công khai" thì vẫn giữ nguyên đầy đủ. ===
-                        const bookmarkCountHtml = isFriendsView ? '' : `<span>\${doc.bookmarks}</span>`;
+                        const bookmarkCountHtml = isFriendsView ? '' : `<span>\${escapeHtml(doc.bookmarks)}</span>`;
 
                         const downloadsBlockHtml = isFriendsView ? '' : `
-                                        <div class="flex items-center" title="Downloads"><svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>\${doc.downloads}</div>`;
+                                        <div class="flex items-center" title="Downloads"><svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>\${escapeHtml(doc.downloads)}</div>`;
 
                         const reportButtonHtml = isFriendsView ? '' : `
-                                        <button onclick="handleReport('\${doc.id}')" class="flex items-center text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors cursor-pointer" title="Báo cáo tài liệu này">
+                                        <button onclick="handleReport('\${escapeHtml(doc.id)}')" class="flex items-center text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors cursor-pointer" title="Báo cáo tài liệu này">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
                                                 <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
                                                 <line x1="12" y1="9" x2="12" y2="13"></line>
@@ -451,22 +430,22 @@
                         <div class="doc-card border shadow-sm transition-all duration-200 relative">
                             <div>
                                 <div class="flex items-start justify-between mb-2 pr-6">
-                                    <h3 class="doc-title font-bold text-[15px] leading-snug">\${doc.title}</h3>
-                                    <span class="ml-2 flex-shrink-0 px-2 py-0.5 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 font-mono text-[10px] font-bold rounded">\${doc.fileType}</span>
+                                    <h3 class="doc-title font-bold text-[15px] leading-snug">\${escapeHtml(doc.title)}</h3>
+                                    <span class="ml-2 flex-shrink-0 px-2 py-0.5 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 font-mono text-[10px] font-bold rounded">\${escapeHtml(doc.fileType)}</span>
                                 </div>
-                                <p class="doc-desc text-xs font-medium line-clamp-2 leading-relaxed mb-4">\${doc.description}</p>
+                                <p class="doc-desc text-xs font-medium line-clamp-2 leading-relaxed mb-4">\${escapeHtml(doc.description)}</p>
                             </div>
                             <div>
                                 <div class="author-box flex items-center mb-3 p-2 rounded-xl border">
-                                    <img src="\${doc.authorAvatar}" class="w-7 h-7 rounded-full mr-2 border bg-white dark:border-gray-600">
+                                    <img src="\${escapeHtml(doc.authorAvatar)}" class="w-7 h-7 rounded-full mr-2 border bg-white dark:border-gray-600">
                                     <div class="flex-1 min-w-0">
-                                        <p class="author-name text-xs font-bold truncate">Người đăng: \${doc.author}</p>
+                                        <p class="author-name text-xs font-bold truncate">Người đăng: \${escapeHtml(doc.author)}</p>
                                     </div>
                                 </div>
                                 <div class="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
                                     <div class="flex items-center space-x-4 text-[11px] font-semibold text-gray-400">
 
-                                        <button onclick="toggleBookmark('\${doc.id}')" class="flex items-center space-x-1 \${doc.isBookmarked ? 'text-amber-500' : 'hover:text-amber-500'} transition-all cursor-pointer" title="\${doc.isBookmarked ? 'Bỏ lưu' : 'Lưu tài liệu'}">
+                                        <button onclick="toggleBookmark('\${escapeHtml(doc.id)}')" class="flex items-center space-x-1 \${doc.isBookmarked ? 'text-amber-500' : 'hover:text-amber-500'} transition-all cursor-pointer" title="\${doc.isBookmarked ? 'Bỏ lưu' : 'Lưu tài liệu'}">
                                             <svg class="w-4 h-4" fill="\${doc.isBookmarked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
                                                 <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
                                             </svg>
@@ -474,14 +453,14 @@
                                         </button>
                                         \${downloadsBlockHtml}
                                         \${reportButtonHtml}
-                                        <div><span>\${doc.size}</span></div>
+                                        <div><span>\${escapeHtml(doc.size)}</span></div>
                                     </div>
                                                 <div class="flex items-center space-x-2">
-                                    <a href="<%= request.getContextPath()%>/MainController?action=viewPublicPage&docId=\${doc.id}" target="_blank" class="flex items-center space-x-2 px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 transition-all text-xs font-bold shadow-sm cursor-pointer">
+                                    <a href="<%= request.getContextPath()%>/MainController?action=viewPublicPage&docId=\${escapeHtml(doc.id)}" target="_blank" class="flex items-center space-x-2 px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 transition-all text-xs font-bold shadow-sm cursor-pointer">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                         <span>Xem</span>
                                     </a>
-                                    <button onclick="handleDownload('\${doc.id}')" class="flex items-center space-x-2 px-4 py-2 bg-[#5c3cf5] text-white rounded-xl hover:bg-indigo-700 transition-all text-xs font-bold shadow-sm cursor-pointer">
+                                    <button onclick="handleDownload('\${escapeHtml(doc.id)}')" class="flex items-center space-x-2 px-4 py-2 bg-[#5c3cf5] text-white rounded-xl hover:bg-indigo-700 transition-all text-xs font-bold shadow-sm cursor-pointer">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                                         <span>Tải</span>
                                     </button>

@@ -117,6 +117,7 @@
                 .btn-secondary { @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm shadow-sm cursor-pointer; }
             }
         </style>
+    <%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>
     </head>
     <body class="page-body">
 
@@ -142,10 +143,10 @@
                 </div>
                 <div class="user-area">
                     <div class="user-profile-link">
-                        <div class="user-avatar"><%= username != null ? username.trim().substring(0, 1).toUpperCase() : "U"%></div>
+                        <div class="user-avatar"><%= Utils.Html.esc(username != null ? username.trim().substring(0, 1).toUpperCase() : "U") %></div>
                         <div class="user-info">
-                            <p class="user-name"><%= username %></p>
-                            <p class="user-role">Quyền: <%= role %></p>
+                            <p class="user-name"><%= Utils.Html.esc(username) %></p>
+                            <p class="user-role">Quyền: <%= Utils.Html.esc(role) %></p>
                         </div>
                     </div>
                 </div>
@@ -163,7 +164,7 @@
 
             <% if (errorMessage != null) { %>
             <div class="max-w-3xl mb-6 p-4 bg-red-950/40 border border-red-800 text-red-400 rounded-xl text-sm font-medium">
-                <%= errorMessage %>
+                <%= Utils.Html.esc(errorMessage) %>
             </div>
             <% } %>
 
@@ -185,7 +186,7 @@
                     <div class="space-y-5">
                         <div>
                             <label class="form-label">Tên thư mục <span class="text-red-500">*</span></label>
-                            <input type="text" name="folderName" value="<%= folder.getFolderName().replace("\"", "&quot;") %>" required class="form-input" placeholder="Nhập tên thư mục mới..." />
+                            <input type="text" name="folderName" value="<%= Utils.Html.esc(folder.getFolderName()) %>" required class="form-input" placeholder="Nhập tên thư mục mới..." />
                         </div>
 
                         <div>
@@ -201,7 +202,7 @@
                                             String fullPath = getFolderPath(f, myFolders);
                                 %>
                                 <option value="<%= f.getFolderId() %>" <%= isSelected ? "selected" : "" %>>
-                                    <%= fullPath.replace("<", "&lt;").replace(">", "&gt;") %>
+                                    <%= Utils.Html.esc(fullPath) %>
                                 </option>
                                 <%      }
                                 } %>

@@ -10,7 +10,7 @@
         if (s == null) {
             return "";
         }
-        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+        return Utils.Html.esc(s);
     }
 %>
 <%
@@ -64,6 +64,7 @@
                 color: #fff;
             }
         </style>
+    <%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>
     </head>
     <body class="bg-[#f8f9fa] min-h-screen">
         <div class="max-w-5xl mx-auto px-6 py-8">

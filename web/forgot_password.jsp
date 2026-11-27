@@ -18,6 +18,7 @@
             .bg-brand-gradient { background: linear-gradient(135deg, #4f22ffd1 0%, #7c3aed 100%); }
             .otp-box { width: 3rem; height: 3.5rem; text-align: center; font-size: 1.5rem; font-weight: 600; }
         </style>
+    <%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>
     </head>
 
     <body class="flex min-h-screen w-full text-gray-800 dark:text-gray-100 bg-[#f8fafc]">

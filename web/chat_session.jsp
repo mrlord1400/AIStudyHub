@@ -43,7 +43,7 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${currentChat.sessionName} - AI Study Hub</title>
+        <title><c:out value="${currentChat.sessionName}"/> - AI Study Hub</title>
 
         <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
         <script>
@@ -51,7 +51,11 @@
                 darkMode: 'class'
             }
         </script>
-        <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+        <script src="${pageContext.request.contextPath}/js/security.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"
+                integrity="sha384-/TQbtLCAerC3jgaim+N78RZSDYV7ryeoBCVqTuzRrFec2akfBkHS7ACQ3PQhvMVi" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/dompurify@3.5.0/dist/purify.min.js"
+                integrity="sha384-DOUwTXbuiiQxlONuue5N42674XXDfjIJ/LTPtJMZ2ZV1Ir4NRQ3OnM/yM505YQAc" crossorigin="anonymous"></script>
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -274,6 +278,7 @@
                 }
             }
         </style>
+    <%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>
     </head>
     <body class="page-body h-screen overflow-hidden select-none">
 
@@ -322,18 +327,18 @@
                     <div class="flex items-center justify-between w-full">
                         <a href="<%= request.getContextPath()%>/MainController?action=profile" class="user-profile-link flex-1 min-w-0">
                             <div class="user-avatar">
-                                <%= username != null && !username.isEmpty() ? username.substring(0, 1) : "U"%>
+                                <%= Utils.Html.esc(username != null && !username.isEmpty() ? username.substring(0, 1) : "U")%>
                             </div>
                             <div class="user-info">
                                 <div class="flex items-center gap-1.5 min-w-0">
-                                    <p class="user-name"><%= username != null ? username : "Khách"%></p>
+                                    <p class="user-name"><%= Utils.Html.esc(username != null ? username : "Khách")%></p>
                                     <% if (isPremiumUser) { %>
                                     <span class="flex-shrink-0 px-1.5 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-[9px] rounded-full shadow-sm scale-90 origin-left">PRO</span>
                                     <% } else { %>
                                     <span class="flex-shrink-0 px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-400 dark:border-emerald-700 font-bold text-[10px] rounded-full shadow-sm scale-90 origin-left tracking-wide">FREE</span>
                                     <% }%>
                                 </div>
-                                <p class="user-role">Quyền: <%= role != null ? role : "Free"%></p>
+                                <p class="user-role">Quyền: <%= Utils.Html.esc(role != null ? role : "Free")%></p>
                             </div>
                         </a>
 
@@ -348,7 +353,7 @@
                             </svg>
                         </a>
                     </div>
-                    <a href="<%= request.getContextPath()%>/MainController?action=logout" class="logout-btn">
+                    <a href="<%= request.getContextPath()%>/MainController?action=logout" data-post class="logout-btn">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
                         <span>Đăng xuất</span>
                     </a>
@@ -372,8 +377,8 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.886L4.2 10.8 10.088 12.714 12 18.6l1.912-5.886L19.8 10.8l-5.886-1.914Z"/></svg>
                         </div>
                         <div>
-                            <h3 class="text-sm font-bold" id="currentSessionTitle">${currentChat.sessionName}</h3>
-                            <p class="text-xs text-gray-400 font-medium mt-0.5">Tạo lúc: ${currentChat.createdAt}</p>
+                            <h3 class="text-sm font-bold" id="currentSessionTitle"><c:out value="${currentChat.sessionName}"/></h3>
+                            <p class="text-xs text-gray-400 font-medium mt-0.5">Tạo lúc: <c:out value="${currentChat.createdAt}"/></p>
                         </div>
                     </div>
 
@@ -398,7 +403,7 @@
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.886L4.2 10.8 10.088 12.714 12 18.6l1.912-5.886L19.8 10.8l-5.886-1.914Z"/></svg>
                                     </div>
                                     <div class="bot-msg-box">
-                                        <p class="leading-relaxed font-medium">Xin chào! Bạn đang ở chủ đề <b>${currentChat.sessionName}</b>. Tôi có thể giúp bạn giải đáp thắc mắc về tài liệu học tập, hoặc hỗ trợ làm bài tập. Bạn cần tôi giúp gì?</p>
+                                        <p class="leading-relaxed font-medium">Xin chào! Bạn đang ở chủ đề <b><c:out value="${currentChat.sessionName}"/></b>. Tôi có thể giúp bạn giải đáp thắc mắc về tài liệu học tập, hoặc hỗ trợ làm bài tập. Bạn cần tôi giúp gì?</p>
                                     </div>
                                 </div>
                             </c:when>
@@ -410,7 +415,7 @@
                                             <div id="msg-container-${msg.messageId}" class="flex items-start gap-3 justify-end msg-container group" data-msg-id="${msg.messageId}">
                                                 <div class="flex flex-col items-end gap-1 max-w-[85%]">
                                                     <div class="bg-indigo-600 text-white rounded-2xl p-4 text-sm shadow-sm relative msg-content">
-                                                        <p class="leading-relaxed font-medium">${msg.messageContent}</p>
+                                                        <p class="leading-relaxed font-medium"><c:out value="${msg.messageContent}"/></p>
                                                     </div>
                                                     <div class="flex items-center gap-3 mr-1 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                                         <button onclick="editPrompt(this)" class="flex items-center gap-1 hover:text-indigo-400 transition-colors text-[11px] font-medium" title="Sửa lời nhắc">
@@ -424,7 +429,7 @@
                                                     </div>
                                                 </div>
                                                 <div class="w-8 h-8 rounded-full bg-indigo-900/60 text-indigo-300 flex items-center justify-center font-bold text-xs uppercase flex-shrink-0 shadow-sm">
-                                                    <%= username != null && !username.isEmpty() ? username.substring(0, 1) : "U"%>
+                                                    <%= Utils.Html.esc(username != null && !username.isEmpty() ? username.substring(0, 1) : "U")%>
                                                 </div>
                                             </div>
                                         </c:when>
@@ -436,7 +441,7 @@
                                                 </div>
                                                 <div class="flex flex-col items-start gap-1 max-w-[85%]">
                                                     <div class="bot-msg-box border rounded-2xl p-4 shadow-sm relative transition-colors duration-200">
-                                                        <div class="prose prose-sm prose-invert max-w-none leading-relaxed font-medium markdown-content msg-content">${msg.messageContent}</div>
+                                                        <div class="prose prose-sm prose-invert max-w-none leading-relaxed font-medium markdown-content msg-content"><c:out value="${msg.messageContent}"/></div>
                                                     </div>
                                                     <div class="flex items-center gap-2 ml-2 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                                         <button onclick="copyMessageContent(this)" class="flex items-center gap-1 hover:text-emerald-400 transition-colors text-[11px] font-medium" title="Copy câu trả lời">
@@ -456,11 +461,12 @@
 
                 <div class="chat-footer-input">
                     <div class="max-w-4xl mx-auto">
+                        <div id="chatConfig" class="hidden" data-attachment="<c:out value="${attachedDocName}"/>" data-initial="<%= Utils.Html.esc(username != null && !username.isEmpty() ? username.substring(0, 1) : "U")%>"></div>
                         <div id="filePreviewContainer" class="mb-2.5 flex flex-wrap gap-2 ${empty attachedDocName ? 'hidden' : ''}">
                             <c:if test="${not empty attachedDocName}">
                                 <div id="attachment-chip" class="flex items-center space-x-2 bg-indigo-900/50 border border-indigo-500 text-indigo-300 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
-                                    <span class="max-w-[200px] truncate">${attachedDocName}</span>
+                                    <span class="max-w-[200px] truncate"><c:out value="${attachedDocName}"/></span>
                                     <button onclick="removeAttachedFile()" class="hover:text-red-400 transition-colors ml-1 p-0.5 rounded-full hover:bg-gray-700">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
                                     </button>
@@ -562,12 +568,12 @@
                                 <c:set var="isActive" value="${sessionItem.sessionId == currentChat.sessionId}" />
 
                                 <div class="session-row p-3 rounded-xl border transition-all flex items-center justify-between group ${isActive ? 'bg-gray-800 border-gray-700' : 'bg-[#111827] border-transparent hover:border-gray-700 hover:bg-gray-800'}" 
-                                     data-name="${sessionItem.sessionName.toLowerCase()}">
+                                     data-name="<c:out value="${sessionItem.sessionName.toLowerCase()}"/>">
 
                                     <div id="display-area-${sessionItem.sessionId}" class="flex-1 min-w-0 flex items-start space-x-3 cursor-pointer" onclick="selectHistorySession('${sessionItem.sessionId}')">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500 mt-0.5 group-hover:text-indigo-400 flex-shrink-0"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                                         <div class="flex-1 min-w-0 pr-2">
-                                            <p id="title-text-${sessionItem.sessionId}" class="text-sm font-semibold ${isActive ? 'text-indigo-400' : 'text-gray-200'} truncate mb-0.5">${sessionItem.sessionName}</p>
+                                            <p id="title-text-${sessionItem.sessionId}" class="text-sm font-semibold ${isActive ? 'text-indigo-400' : 'text-gray-200'} truncate mb-0.5"><c:out value="${sessionItem.sessionName}"/></p>
                                             
                                             <c:if test="${sessionItem.pinned}">
                                                 <span id="pin-badge-${sessionItem.sessionId}"
@@ -590,12 +596,12 @@
                                                     Đã ghim
                                                 </span>
                                             </c:if>
-                                            <span class="text-[10px] text-gray-500 font-medium block">${sessionItem.createdAt}</span>
+                                            <span class="text-[10px] text-gray-500 font-medium block"><c:out value="${sessionItem.createdAt}"/></span>
                                         </div>
                                     </div>
 
                                     <div id="edit-area-${sessionItem.sessionId}" class="hidden flex-1 items-center space-x-2">
-                                        <input type="text" id="edit-input-${sessionItem.sessionId}" value="${sessionItem.sessionName}" 
+                                        <input type="text" id="edit-input-${sessionItem.sessionId}" value="<c:out value="${sessionItem.sessionName}"/>" 
                                                class="w-full bg-[#1f2937] border border-indigo-500 text-white text-sm rounded px-2 py-1 focus:outline-none" 
                                                onblur="handleBlurEdit('${sessionItem.sessionId}')" 
                                                onkeydown="handleKeyEdit(event, '${sessionItem.sessionId}')">
@@ -620,7 +626,7 @@
                                         <button onclick="startEditSession('${sessionItem.sessionId}')" class="p-1.5 text-gray-400 hover:text-blue-400 rounded-md hover:bg-gray-700 transition-colors" title="Đổi tên">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                                         </button>
-                                        <button onclick="deleteSession('${sessionItem.sessionId}', '${sessionItem.sessionName}')" class="p-1.5 text-gray-400 hover:text-red-400 rounded-md hover:bg-gray-700 transition-colors" title="Xóa">
+                                        <button data-name="<c:out value="${sessionItem.sessionName}"/>" onclick="deleteSession('${sessionItem.sessionId}', this.dataset.name)" class="p-1.5 text-gray-400 hover:text-red-400 rounded-md hover:bg-gray-700 transition-colors" title="Xóa">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                                         </button>
                                     </div>
@@ -791,7 +797,9 @@
             // CÁC HÀM XỬ LÝ GIAO DIỆN VÀ GỬI TIN NHẮN (ĐÃ CHUYỂN LOGIC ATTACHMENT SANG BACK-END)
             // ==============================================================================
 
-            let currentAttachment = "${attachedDocName}";
+            // Giá trị dạng chữ đi qua thuộc tính data-* (đã escape), không nối vào chuỗi JS.
+            const chatConfig = document.getElementById('chatConfig').dataset;
+            let currentAttachment = chatConfig.attachment;
 
             // Trạng thái giữ Id tin nhắn đang chỉnh sửa
             let editingMessageId = null;
@@ -805,7 +813,7 @@
             document.addEventListener("DOMContentLoaded", function () {
                 document.querySelectorAll('.markdown-content').forEach(el => {
                     const rawText = el.textContent || el.innerText;
-                    el.innerHTML = marked.parse(rawText);
+                    el.innerHTML = renderMarkdown(rawText);
                 });
                 scrollToBottom();
             });
@@ -885,10 +893,10 @@
                     editingContainer = null;
                 }
 
-                let displayMessage = messageText;
+                let displayMessage = escapeHtml(messageText);
                 if (attachmentToSend) {
-                    const attachmentNote = '<span class="text-indigo-300 text-xs block mt-1">📎 Đã đính kèm: ' + attachmentToSend + '</span>';
-                    displayMessage = messageText ? (messageText + attachmentNote) : attachmentNote;
+                    const attachmentNote = '<span class="text-indigo-300 text-xs block mt-1">📎 Đã đính kèm: ' + escapeHtml(attachmentToSend) + '</span>';
+                    displayMessage = messageText ? (escapeHtml(messageText) + attachmentNote) : attachmentNote;
                 }
 
                 // Nhãn định danh tạm thời để gán ID thật sau đó
@@ -912,7 +920,7 @@
                         </div>
                     </div>
                     <div class="w-8 h-8 rounded-full bg-indigo-900/60 text-indigo-300 flex items-center justify-center font-bold text-xs uppercase flex-shrink-0 shadow-sm">
-                        <%= username != null && !username.isEmpty() ? username.substring(0, 1) : "U"%>
+                        ` + escapeHtml(chatConfig.initial) + `
                     </div>
                 </div>`;
                 
@@ -958,14 +966,14 @@
                 .then(data => {
                     // Ánh xạ ngầm ID thật vào DOM để sẵn sàng cho lần Edit tiếp theo
                     if (msgIdFromServer) {
-                        const tempContainer = document.getElementById(`msg-container-${tempMsgId}`);
+                        const tempContainer = document.getElementById(`msg-container-\${tempMsgId}`);
                         if (tempContainer) {
-                            tempContainer.id = `msg-container-${msgIdFromServer}`;
+                            tempContainer.id = `msg-container-\${msgIdFromServer}`;
                             tempContainer.setAttribute('data-msg-id', msgIdFromServer);
                         }
                     }
 
-                    const parsedHTML = marked.parse(data);
+                    const parsedHTML = renderMarkdown(data);
 
                     const botMsgHtml = `
                     <div class="flex items-start gap-3 msg-container group">
@@ -991,9 +999,9 @@
                     console.error('Error:', error);
                     let displayError = "Đã xảy ra lỗi khi kết nối với máy chủ.";
                     if (error.message.startsWith("RATE_LIMIT:")) {
-                        displayError = error.message.replace("RATE_LIMIT:", "").replace(/\n/g, "<br>");
+                        displayError = escapeHtml(error.message.replace("RATE_LIMIT:", "")).replace(/\n/g, "<br>");
                     } else if (error.message) {
-                        displayError = error.message;
+                        displayError = escapeHtml(error.message);
                     }
 
                     const errorMsgHtml = `

@@ -58,6 +58,7 @@
                 }
             }
         </style>
+    <%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>
     </head>
     <body class="page-body">
 
@@ -99,13 +100,13 @@
 
             <div class="pt-4 border-t border-gray-100 dark:border-gray-700">
                 <a href="<%= request.getContextPath()%>/admin_profile.jsp" class="flex items-center space-x-3 px-2 py-2 mb-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group">
-                    <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs uppercase group-hover:bg-red-200 transition-colors"><%= currentUsername != null && !currentUsername.isEmpty() ? currentUsername.substring(0, 1) : "A"%></div>
+                    <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs uppercase group-hover:bg-red-200 transition-colors"><%= Utils.Html.esc(currentUsername != null && !currentUsername.isEmpty() ? currentUsername.substring(0, 1) : "A")%></div>
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-bold text-gray-900 truncate dark:text-white group-hover:text-red-600 transition-colors"><%= currentUsername != null ? currentUsername : "Admin"%></p>
+                        <p class="text-sm font-bold text-gray-900 truncate dark:text-white group-hover:text-red-600 transition-colors"><%= Utils.Html.esc(currentUsername != null ? currentUsername : "Admin")%></p>
                         <p class="text-[11px] text-gray-400 font-medium">Hồ sơ cá nhân</p>
                     </div>
                 </a>
-                <a href="<%= request.getContextPath()%>/MainController?action=logout" class="flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors w-full dark:hover:bg-red-900/30">
+                <a href="<%= request.getContextPath()%>/MainController?action=logout" data-post class="flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors w-full dark:hover:bg-red-900/30">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
                     <span>Đăng xuất</span>
                 </a>
@@ -197,28 +198,30 @@
                             <tbody class="text-sm divide-y divide-gray-100 dark:divide-gray-700">
                                 <c:forEach items="${reasonList}" var="reason">
                                     <tr class="hover:bg-gray-50 transition-colors dark:hover:bg-gray-700/50">
-                                        <td class="p-4 font-bold text-gray-900 dark:text-white">${reason.reasonCode}</td>
+                                        <td class="p-4 font-bold text-gray-900 dark:text-white"><c:out value="${reason.reasonCode}"/></td>
                                         <td class="p-4">
                                             <span class="px-2 py-1 text-[10px] font-bold uppercase rounded-md 
                                                   ${reason.severityLevel eq 'CRITICAL' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 
                                                     reason.severityLevel eq 'HIGH' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 
                                                     reason.severityLevel eq 'MEDIUM' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 
                                                     'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}">
-                                                      ${reason.severityLevel}
+                                                      <c:out value="${reason.severityLevel}"/>
                                                   </span>
                                             </td>
-                                            <td class="p-4 text-gray-600 dark:text-gray-300 font-semibold">${reason.baseScore}</td>
-                                            <td class="p-4 text-gray-600 dark:text-gray-300">${reason.autoFlagThreshold}</td>
-                                            <td class="p-4 text-gray-500 dark:text-gray-400">${reason.description}</td>
+                                            <td class="p-4 text-gray-600 dark:text-gray-300 font-semibold"><c:out value="${reason.baseScore}"/></td>
+                                            <td class="p-4 text-gray-600 dark:text-gray-300"><c:out value="${reason.autoFlagThreshold}"/></td>
+                                            <td class="p-4 text-gray-500 dark:text-gray-400"><c:out value="${reason.description}"/></td>
                                             <td class="p-4 text-center space-x-2 flex items-center justify-center min-h-[50px]">
-                                                <button type="button" class="btn-edit" 
-                                                        onclick="enterEditMode('${reason.reasonCode}', '${reason.severityLevel}', '${reason.baseScore}', '${reason.autoFlagThreshold}', '${reason.description}')">
+                                                <button type="button" class="btn-edit js-edit-reason"
+                                                        data-code="<c:out value="${reason.reasonCode}"/>" data-severity="<c:out value="${reason.severityLevel}"/>"
+                                                        data-base-score="<c:out value="${reason.baseScore}"/>" data-threshold="<c:out value="${reason.autoFlagThreshold}"/>"
+                                                        data-description="<c:out value="${reason.description}"/>">
                                                     Sửa
                                                 </button>
 
                                                 <%-- Xóa làm thay đổi dữ liệu nên dùng POST (Conv §4) --%>
-                                                <form action="${pageContext.request.contextPath}/ReportConfigController" method="POST" class="inline"
-                                                      onsubmit="return confirm('Bạn có chắc muốn xóa lý do [${reason.reasonCode}] không?');">
+                                                <form action="${pageContext.request.contextPath}/ReportConfigController" method="POST" class="inline js-delete-reason"
+                                                      data-code="<c:out value="${reason.reasonCode}"/>">
                                                     <input type="hidden" name="action" value="reportConfigDelete">
                                                     <input type="hidden" name="reasonCode" value="<c:out value='${reason.reasonCode}'/>">
                                                     <button type="submit" class="btn-danger">Xóa</button>
@@ -242,6 +245,20 @@
             </main>
 
             <script>
+                document.querySelectorAll('.js-edit-reason').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        const d = btn.dataset;
+                        enterEditMode(d.code, d.severity, d.baseScore, d.threshold, d.description);
+                    });
+                });
+                document.querySelectorAll('form.js-delete-reason').forEach(function (form) {
+                    form.addEventListener('submit', function (e) {
+                        if (!confirm('Bạn có chắc muốn xóa lý do [' + form.dataset.code + '] không?')) {
+                            e.preventDefault();
+                        }
+                    });
+                });
+
                 function enterEditMode(code, severity, baseScore, threshold, desc) {
                     // 1. Thay đổi tiêu đề form và nút bấm submit
                     document.getElementById('formTitle').innerText = "Chỉnh Sửa Quy Tắc Báo Cáo: [" + code + "]";

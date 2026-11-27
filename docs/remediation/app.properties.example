@@ -31,18 +31,10 @@ GEMINI_READ_TIMEOUT_MS=30000
 GEMINI_MAX_HISTORY_MESSAGES=40
 
 # --- Auth / sessions ---
-# REQUIRED: long random string, e.g. 64 chars from a password manager
-REMEMBER_ME_SECRET=
+# Remember-me lifetime in days (1..365). The cookie is a revocable random token stored hashed in remember_tokens (T3.4).
 REMEMBER_ME_DAYS=30
 # Set true when served over HTTPS (adds the Secure flag to cookies)
 APP_HTTPS=false
-
-# --- Rate limits (T3.5) ---
-LOGIN_MAX_FAILURES_PER_MINUTE=5
-OTP_SEND_MIN_INTERVAL_SECONDS=60
-OTP_SEND_MAX_PER_HOUR=5
-OTP_VALID_SECONDS=120
-OTP_MAX_ATTEMPTS=3
 
 # --- File storage (REQUIRED, T2.1) ---
 # Absolute path, writable by the Tomcat user, OUTSIDE the web app folder (the app logs an error at startup otherwise).
@@ -60,3 +52,16 @@ PAGE_SIZE_MAX=100
 # When true the app creates user@gmail.com and admin@gmail.com at startup using DEV_SEED_PASSWORD.
 DEV_SEED_TEST_USERS=false
 DEV_SEED_PASSWORD=
+
+# --- Rate limits and OTP (T3.5; all optional, defaults shown) ---
+# Login failures allowed per (IP, email) and per IP within LOGIN_WINDOW_SECONDS; the next attempt is refused without checking the password.
+LOGIN_MAX_FAILURES_PER_ACCOUNT_IP=5
+LOGIN_MAX_FAILURES_PER_IP=20
+LOGIN_WINDOW_SECONDS=60
+# Password-reset OTP: minimum gap between two sends for the same (IP, email), hourly caps, wrong guesses allowed per issued code, code lifetime.
+OTP_SEND_COOLDOWN_SECONDS=60
+OTP_SEND_MAX_PER_ACCOUNT_IP_HOUR=5
+OTP_SEND_MAX_PER_EMAIL_HOUR=10
+OTP_SEND_MAX_PER_IP_HOUR=20
+OTP_MAX_ATTEMPTS=3
+OTP_VALID_SECONDS=120

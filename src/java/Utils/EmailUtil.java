@@ -73,7 +73,7 @@ public class EmailUtil {
         String subject = "Gói Premium sắp hết hạn - AI Study Hub";
         String html = buildSimpleNoticeHtml(
                 "Gói Premium sắp hết hạn",
-                "Xin chào " + username + ",<br><br>"
+                "Xin chào " + Html.esc(username) + ",<br><br>"
                 + "Gói Premium của bạn sẽ hết hạn trong khoảng <strong>" + hoursLeft + " giờ</strong> tới. "
                 + "Số dư trong ví hiện không đủ để hệ thống tự động gia hạn.<br><br>"
                 + "Vui lòng nạp thêm Coin vào ví để tiếp tục sử dụng Premium không bị gián đoạn."
@@ -85,7 +85,7 @@ public class EmailUtil {
         String subject = "Gói Premium đã bị huỷ - AI Study Hub";
         String html = buildSimpleNoticeHtml(
                 "Gói Premium đã bị huỷ",
-                "Xin chào " + username + ",<br><br>"
+                "Xin chào " + Html.esc(username) + ",<br><br>"
                 + "Gói Premium của bạn đã hết hạn và không thể tự động gia hạn do số dư trong ví không đủ. "
                 + "Tài khoản của bạn đã được chuyển về gói Free.<br><br>"
                 + "Bạn có thể nạp Coin và nâng cấp lại Premium bất cứ lúc nào."
@@ -140,7 +140,7 @@ public class EmailUtil {
                 // Khối OTP
                 + "<tr><td style=\"padding:0 32px;\">"
                 + "<div style=\"background-color:#f5f3ff; border:1px solid #ddd6fe; border-radius:12px; padding:20px; text-align:center;\">"
-                + "<span style=\"font-size:34px; font-weight:700; letter-spacing:10px; color:#5c3cf5;\">" + otp + "</span>"
+                + "<span style=\"font-size:34px; font-weight:700; letter-spacing:10px; color:#5c3cf5;\">" + Html.esc(otp) + "</span>"
                 + "</div>"
                 + "</td></tr>"
                 // Lưu ý thời gian

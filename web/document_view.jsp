@@ -57,7 +57,7 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title><%= doc.getTitle() != null ? doc.getTitle() : "Xem tài liệu"%> - AI Study Hub</title>
+        <title><%= Utils.Html.esc(doc.getTitle() != null ? doc.getTitle() : "Xem tài liệu")%> - AI Study Hub</title>
 
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
@@ -198,6 +198,7 @@
                 }
             }
         </style>
+    <%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>
     </head>
     <body>
 
@@ -208,9 +209,9 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
                 <div class="min-w-0">
-                    <h1 class="doc-title"><%= doc.getTitle() != null ? doc.getTitle() : "Tài liệu"%></h1>
+                    <h1 class="doc-title"><%= Utils.Html.esc(doc.getTitle() != null ? doc.getTitle() : "Tài liệu")%></h1>
                     <p class="text-xs text-gray-400 font-medium mt-0.5">
-                        <%= doc.getFileExtension() != null ? doc.getFileExtension().toUpperCase() : ""%>
+                        <%= Utils.Html.esc(doc.getFileExtension() != null ? doc.getFileExtension().toUpperCase() : "")%>
                         &middot; <%= doc.getFileSizeMb()%> MB
                     </p>
                 </div>
@@ -265,11 +266,11 @@
 
                 <div class="meta-row">
                     <span class="meta-label">Tên tài liệu</span>
-                    <span class="meta-value"><%= doc.getTitle() != null ? doc.getTitle() : "—"%></span>
+                    <span class="meta-value"><%= Utils.Html.esc(doc.getTitle() != null ? doc.getTitle() : "—")%></span>
                 </div>
                 <div class="meta-row">
                     <span class="meta-label">Định dạng file</span>
-                    <span class="meta-value"><%= ext.isEmpty() ? "—" : ext.toUpperCase()%></span>
+                    <span class="meta-value"><%= Utils.Html.esc(ext.isEmpty() ? "—" : ext.toUpperCase())%></span>
                 </div>
                 <div class="meta-row">
                     <span class="meta-label">Dung lượng</span>
@@ -289,7 +290,7 @@
                                 }
                             }
                         %>
-                        <%= folderPath%>
+                        <%= Utils.Html.esc(folderPath)%>
                     </span>
                 </div>
                 <div class="meta-row">
@@ -311,7 +312,7 @@
                 </div>
                 <div class="meta-row">
                     <span class="meta-label">Trạng thái xử lý AI</span>
-                    <span class="meta-value"><%= doc.getAiParsingStatus() != null ? doc.getAiParsingStatus() : "—"%></span>
+                    <span class="meta-value"><%= Utils.Html.esc(doc.getAiParsingStatus() != null ? doc.getAiParsingStatus() : "—")%></span>
                 </div>
                 <div class="meta-row">
                     <span class="meta-label">Ngày tạo</span>
@@ -338,7 +339,7 @@
 
                     <div>
                         <label class="form-label">Tên tài liệu <span class="text-red-500">*</span></label>
-                        <input type="text" name="title" value="<%= doc.getTitle() != null ? doc.getTitle().replace("\"", "&quot;") : ""%>" required class="form-input" placeholder="Nhập tên tài liệu..." />
+                        <input type="text" name="title" value="<%= Utils.Html.esc(doc.getTitle())%>" required class="form-input" placeholder="Nhập tên tài liệu..." />
                     </div>
 
                     <div>
@@ -351,7 +352,7 @@
                                         String fullPath = getFolderPath(f, myFolders);
                             %>
                             <option value="<%= f.getFolderId()%>" <%= isSelected ? "selected" : ""%>>
-                                <%= fullPath.replace("<", "&lt;").replace(">", "&gt;")%>
+                                <%= Utils.Html.esc(fullPath)%>
                             </option>
                             <%      }
                                 }%>
@@ -386,7 +387,7 @@
                     </div>
                     <div>
                         <h2 class="text-lg font-bold text-gray-900 dark:text-white">Xác nhận xóa tài liệu</h2>
-                        <p class="text-sm text-gray-400 mt-1">Bạn có chắc chắn muốn xóa <strong class="text-gray-700 dark:text-gray-200">"<%= doc.getTitle()%>"</strong>? Hành động này không thể hoàn tác.</p>
+                        <p class="text-sm text-gray-400 mt-1">Bạn có chắc chắn muốn xóa <strong class="text-gray-700 dark:text-gray-200">"<%= Utils.Html.esc(doc.getTitle())%>"</strong>? Hành động này không thể hoàn tác.</p>
                     </div>
                 </div>
 
@@ -394,7 +395,7 @@
                     <button type="button" onclick="closeDeleteModal()" class="btn-secondary">Hủy</button>
                     <a href="<%= isOwner
                             ? request.getContextPath() + "/DocumentController?action=deleteDoc&docId=" + doc.getDocumentId()
-                            : request.getContextPath() + "/MainController?action=adminDeleteDocument&documentId=" + doc.getDocumentId()%>" class="btn-danger !bg-red-600 !text-white !border-transparent hover:!bg-red-700">
+                            : request.getContextPath() + "/MainController?action=adminDeleteDocument&documentId=" + doc.getDocumentId()%>" data-post class="btn-danger !bg-red-600 !text-white !border-transparent hover:!bg-red-700">
                         Xóa tài liệu
                     </a>
                 </div>

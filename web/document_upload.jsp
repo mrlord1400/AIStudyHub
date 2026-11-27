@@ -276,6 +276,7 @@
                 }
             }
         </style>
+    <%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>
     </head>
     <body class="page-body">
 
@@ -324,18 +325,18 @@
                     <div class="flex items-center justify-between w-full">
                         <a href="<%= request.getContextPath()%>/MainController?action=profile" class="user-profile-link flex-1 min-w-0">
                             <div class="user-avatar">
-                                <%= username != null && !username.trim().isEmpty() ? username.trim().substring(0, 1).toUpperCase() : "U"%>
+                                <%= Utils.Html.esc(username != null && !username.trim().isEmpty() ? username.trim().substring(0, 1).toUpperCase() : "U")%>
                             </div>
                             <div class="user-info">
                                 <div class="flex items-center gap-1.5 min-w-0">
-                                    <p class="user-name truncate"><%= username != null && !username.trim().isEmpty() ? username : "Học viên"%></p>
+                                    <p class="user-name truncate"><%= Utils.Html.esc(username != null && !username.trim().isEmpty() ? username : "Học viên")%></p>
                                     <% if (isPremiumUser) { %>
                                     <span class="flex-shrink-0 px-1.5 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-[9px] rounded-full shadow-sm scale-90 origin-left">PRO</span>
                                     <% } else { %>
                                     <span class="flex-shrink-0 px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-400 dark:border-emerald-700 font-bold text-[10px] rounded-full shadow-sm scale-90 origin-left tracking-wide">FREE</span>
                                     <% }%>
                                 </div>
-                                <p class="user-role">Quyền: <%= role%></p>
+                                <p class="user-role">Quyền: <%= Utils.Html.esc(role)%></p>
                             </div>
                         </a>
 
@@ -351,7 +352,7 @@
                         </a>
                     </div>
 
-                    <a href="<%= request.getContextPath()%>/MainController?action=logout" class="logout-btn">
+                    <a href="<%= request.getContextPath()%>/MainController?action=logout" data-post class="logout-btn">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
                         <span>Đăng xuất</span>
                     </a>
@@ -370,7 +371,7 @@
 
             <% if (errorMessage != null) {%>
             <div class="max-w-3xl mb-6 p-4 bg-red-950/40 border border-red-800 text-red-400 rounded-xl text-sm font-medium">
-                <%= errorMessage%>
+                <%= Utils.Html.esc(errorMessage)%>
             </div>
             <% } %>
 
@@ -389,7 +390,7 @@
                     <div>
                         <h2 class="text-lg font-bold text-white">Phát hiện tài liệu trùng tên</h2>
                         <p class="text-sm text-gray-400 mt-1">
-                            <strong class="text-amber-400">"<%= conflictTitle.replace("<", "&lt;").replace(">", "&gt;")%>"</strong> đã tồn tại ở vị trí hiện tại. Vui lòng chọn một trong hai cách xử lý bên dưới.
+                            <strong class="text-amber-400">"<%= Utils.Html.esc(conflictTitle)%>"</strong> đã tồn tại ở vị trí hiện tại. Vui lòng chọn một trong hai cách xử lý bên dưới.
                         </p>
                     </div>
                 </div>
@@ -416,7 +417,7 @@
                             </div>
                             <div class="text-left">
                                 <p class="font-semibold text-white text-sm">Giữ lại cả hai</p>
-                                <p class="text-xs text-gray-400 mt-0.5">Tài liệu mới sẽ được đổi tên thành "<%= keepBothPreview.replace("<", "&lt;").replace(">", "&gt;")%>"</p>
+                                <p class="text-xs text-gray-400 mt-0.5">Tài liệu mới sẽ được đổi tên thành "<%= Utils.Html.esc(keepBothPreview)%>"</p>
                             </div>
                         </button>
                     </form>
@@ -452,9 +453,9 @@
                         <div>
                             <label class="form-label">Tên tài liệu <span class="text-red-500">*</span></label>
                             <div class="relative flex items-center">
-                                <input type="text" id="docTitleInput" name="title" value="<%= pendingTitle != null ? (pendingTitle.lastIndexOf('.') > 0 ? pendingTitle.substring(0, pendingTitle.lastIndexOf('.')).replace("\"", "&quot;") : pendingTitle.replace("\"", "&quot;")) : ""%>" required class="form-input pr-20" placeholder="Nhập tên tài liệu (VD: Báo cáo bài tập lớn)" />
+                                <input type="text" id="docTitleInput" name="title" value="<%= Utils.Html.esc(pendingTitle != null ? (pendingTitle.lastIndexOf('.') > 0 ? pendingTitle.substring(0, pendingTitle.lastIndexOf('.')) : pendingTitle) : "")%>" required class="form-input pr-20" placeholder="Nhập tên tài liệu (VD: Báo cáo bài tập lớn)" />
                                 <div class="absolute right-3 text-xs font-bold uppercase tracking-wider text-indigo-400 bg-indigo-950/80 px-2.5 py-1.5 rounded-lg pointer-events-none select-none border border-indigo-800/80">
-                                    <%= detectedExt%>
+                                    <%= Utils.Html.esc(detectedExt)%>
                                 </div>
                             </div>
                         </div>
@@ -470,7 +471,7 @@
                                             String fullPath = getFolderPath(f, myFolders);
                                 %>
                                 <option value="<%= f.getFolderId()%>" <%= isSelected ? "selected" : ""%>>
-                                    <%= fullPath.replace("<", "&lt;").replace(">", "&gt;")%>
+                                    <%= Utils.Html.esc(fullPath)%>
                                 </option>
                                 <%      }
                                     }%>
@@ -516,7 +517,7 @@
 
         <script>
             // Lấy định dạng file được Server ghi nhận qua xử lý luồng
-            const CURRENT_FILE_EXT = "<%= detectedExt%>";
+            const CURRENT_FILE_EXT = <%= new com.google.gson.Gson().toJson(detectedExt)%>;
 
             function handleFormSubmitAppend() {
                 const titleInput = document.getElementById('docTitleInput');

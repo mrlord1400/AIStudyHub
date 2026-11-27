@@ -53,7 +53,7 @@
                 out.print("<div class='space-y-1'>");
                 out.print("  <a href='" + contextPath + "/FolderController?action=viewFolder&folderId=" + f.getFolderId() + "' class='flex items-center space-x-2 px-2.5 py-1.5 rounded-xl text-sm font-medium transition-colors " + activeClass + "'>");
                 out.print("    <svg class='w-4 h-4 text-amber-500 flex-shrink-0' fill='currentColor' viewBox='0 0 20 20'><path d='M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z'></path></svg>");
-                out.print("    <span class='truncate flex-1'>" + f.getFolderName() + "</span>");
+                out.print("    <span class='truncate flex-1'>" + Utils.Html.esc(f.getFolderName()) + "</span>");
                 out.print("  </a>");
 
                 if (activePathIds != null && activePathIds.contains(f.getFolderId())) {
@@ -75,7 +75,7 @@
                     out.print("<div class='space-y-0.5'>");
                     out.print("  <button onclick=\"window.open('" + contextPath + "/DocumentController?action=viewPage&docId=" + doc.getDocumentId() + "', '_blank')\" class='w-full flex items-center space-x-2 px-2.5 py-1 text-xs text-gray-500 hover:text-indigo-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-gray-700/40 transition-colors text-left rounded-lg'>");
                     out.print("    <svg class='w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex-shrink-0' fill='none' stroke='currentColor' stroke-width='2' viewBox='0 0 24 24'><path d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'></path></svg>");
-                    out.print("    <span class='truncate flex-1'>" + doc.getTitle() + "</span>");
+                    out.print("    <span class='truncate flex-1'>" + Utils.Html.esc(doc.getTitle()) + "</span>");
                     out.print("  </button>");
                     out.print("</div>");
                 }
@@ -237,6 +237,7 @@
         <title>Tài liệu của tôi - AI Study Hub</title>
 
         <script src="https://cdn.tailwindcss.com"></script>
+        <script src="<%= request.getContextPath()%>/js/security.js"></script>
         <script>
             tailwind.config = {
                 darkMode: 'class'
@@ -435,6 +436,7 @@
                 }
             }
         </style>
+    <%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>
     </head>
     <body class="page-body">
 
@@ -486,18 +488,18 @@
 
                         <a href="<%= request.getContextPath()%>/MainController?action=profile" class="user-profile-link flex-1 min-w-0">
                             <div class="user-avatar">
-                                <%= username != null && !username.trim().isEmpty() ? username.trim().substring(0, 1).toUpperCase() : "U"%>
+                                <%= Utils.Html.esc(username != null && !username.trim().isEmpty() ? username.trim().substring(0, 1).toUpperCase() : "U")%>
                             </div>
                             <div class="user-info">
                                 <div class="flex items-center gap-1.5 min-w-0">
-                                    <p class="user-name"><%= username != null && !username.trim().isEmpty() ? username : "Học viên"%></p>
+                                    <p class="user-name"><%= Utils.Html.esc(username != null && !username.trim().isEmpty() ? username : "Học viên")%></p>
                                     <% if (isPremiumUser) { %>
                                     <span class="flex-shrink-0 px-1.5 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-[9px] rounded-full shadow-sm scale-90 origin-left">PRO</span>
                                     <% } else { %>
                                     <span class="flex-shrink-0 px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-400 dark:border-emerald-700 font-bold text-[10px] rounded-full shadow-sm scale-90 origin-left tracking-wide">FREE</span>
                                     <% }%>
                                 </div>
-                                <p class="user-role">Quyền: <%= role%></p>
+                                <p class="user-role">Quyền: <%= Utils.Html.esc(role)%></p>
                             </div>
                         </a>
 
@@ -514,7 +516,7 @@
 
                     </div>
 
-                    <a href="<%= request.getContextPath()%>/MainController?action=logout" class="logout-btn">
+                    <a href="<%= request.getContextPath()%>/MainController?action=logout" data-post class="logout-btn">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
                         <span>Đăng xuất</span>
                     </a>
@@ -529,7 +531,7 @@
                     <a href="<%= request.getContextPath()%>/FolderController?action=viewFolder" class="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-600 transition-colors dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
                     </a>
-                    <h1 class="page-title dark:text-white">Thư mục: <span class="text-indigo-500"><%= currentFolder != null ? currentFolder.getFolderName() : "Đang tải..."%></span></h1>
+                    <h1 class="page-title dark:text-white">Thư mục: <span class="text-indigo-500"><%= Utils.Html.esc(currentFolder != null ? currentFolder.getFolderName() : "Đang tải...")%></span></h1>
                         <% } else { %>
                     <h1 class="page-title dark:text-white">Tài liệu của tôi (Gốc)</h1>
                     <% }%>
@@ -564,7 +566,7 @@
 
             <div class="mb-6 bg-white border border-gray-100 rounded-2xl p-5 shadow-sm transition-colors duration-200 dark:bg-gray-800 dark:border-gray-700 flex-shrink-0">
                 <div class="flex items-center justify-between mb-2">
-                    <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Dung lượng đã sử dụng (<%= tierNameDisplay%>)</span>
+                    <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Dung lượng đã sử dụng (<%= Utils.Html.esc(tierNameDisplay)%>)</span>
                     <span class="text-sm font-bold text-black dark:text-white"><%= String.format("%.2f", totalSizeGb)%> GB / <%= String.format("%.2f", maxStorageGb).replace(".00", "")%> GB</span>
                 </div>
                 <div class="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
@@ -642,7 +644,7 @@
                 </div>
 
                 <h2 class="text-2xl font-extrabold text-gray-900 mb-2 tracking-tight">
-                    Chào mừng bạn, <span class="text-indigo-600"><%= username != null && !username.trim().isEmpty() ? username : "Học viên"%></span>! 👋
+                    Chào mừng bạn, <span class="text-indigo-600"><%= Utils.Html.esc(username != null && !username.trim().isEmpty() ? username : "Học viên")%></span>! 👋
                 </h2>
                 <p class="text-sm text-gray-500 mb-6 font-medium">Khám phá không gian học tập công nghệ mới của riêng bạn tại AI Study Hub</p>
 
@@ -684,41 +686,43 @@
         <script>
             // --- JAVASCRIPT ĐÃ ĐƯỢC KHỬ HARDCODE HOÀN TOÀN ---
             const MAX_FILE_SIZE_BYTES = <%= maxUploadSizeBytes%>;
-            const USER_ROLE_STR = "<%= tierNameDisplay%>";
+            const USER_ROLE_STR = <%= new com.google.gson.Gson().toJson(tierNameDisplay)%>;
             const LIMIT_MB = <%= limitUploadMb%>;
             const CURRENT_USER_ID = "<%= userId%>";
 
-            const dbItems = [
-            <%
+            // Dữ liệu từ server đi qua Gson (đã escape < > & '), không nối chuỗi bằng tay (Conv §3).
+            const dbItems = <%
                 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+                java.util.List<java.util.Map<String, Object>> itemRows = new java.util.ArrayList<java.util.Map<String, Object>>();
                 if (childFolders != null) {
-                    for (int i = 0; i < childFolders.size(); i++) {
-                        Folder f = childFolders.get(i);
-                        String safeName = f.getFolderName().replace("\\", "\\\\").replace("\"", "\\\"");
-                        String safeDate = f.getCreatedAt() != null ? f.getCreatedAt().format(formatter) : "N/A";
-
-                        // SỬ DỤNG HÀM ĐỆ QUY TÍNH TOÁN DATA
+                    for (Folder f : childFolders) {
                         int fileCount = getRecursiveDocCount(f.getFolderId(), allFolders, allDocs);
                         double sizeMb = getRecursiveSizeMb(f.getFolderId(), allFolders, allDocs);
-                        String sizeDisplay = sizeMb > 0 ? String.format("%.2f MB", sizeMb) : "--";
-            %>
-            { id: "<%= f.getFolderId()%>", name: "<%= safeName%>", type: "folder", size: "<%= sizeDisplay%>", uploadDate: "<%= safeDate%>", isFolder: true, fileCount: <%= fileCount%> },
-            <%      }
+                        java.util.Map<String, Object> row = new java.util.LinkedHashMap<String, Object>();
+                        row.put("id", String.valueOf(f.getFolderId()));
+                        row.put("name", f.getFolderName() == null ? "" : f.getFolderName());
+                        row.put("type", "folder");
+                        row.put("size", sizeMb > 0 ? String.format("%.2f MB", sizeMb) : "--");
+                        row.put("uploadDate", f.getCreatedAt() != null ? f.getCreatedAt().format(formatter) : "N/A");
+                        row.put("isFolder", true);
+                        row.put("fileCount", fileCount);
+                        itemRows.add(row);
+                    }
                 }
-
                 if (myDocuments != null) {
-                    for (int i = 0; i < myDocuments.size(); i++) {
-                        Document doc = myDocuments.get(i);
-                        String ext = (doc.getFileExtension() != null) ? doc.getFileExtension().toLowerCase().trim() : "file";
-                        String rawTitle = doc.getTitle() != null ? doc.getTitle() : "Tài liệu";
-                        String safeTitle = rawTitle.replace("\\", "\\\\").replace("\"", "\\\"");
-                        String safeDate = doc.getCreatedAt() != null ? doc.getCreatedAt().format(formatter) : "N/A";
-            %>
-            { id: "<%= doc.getDocumentId()%>", name: "<%= safeTitle%>", type: "<%= ext%>", size: "<%= doc.getFileSizeMb()%> MB", uploadDate: "<%= safeDate%>", isFolder: false }<%= (i < myDocuments.size() - 1) ? "," : ""%>
-            <%      }
+                    for (Document doc : myDocuments) {
+                        java.util.Map<String, Object> row = new java.util.LinkedHashMap<String, Object>();
+                        row.put("id", String.valueOf(doc.getDocumentId()));
+                        row.put("name", doc.getTitle() != null ? doc.getTitle() : "Tài liệu");
+                        row.put("type", (doc.getFileExtension() != null) ? doc.getFileExtension().toLowerCase().trim() : "file");
+                        row.put("size", doc.getFileSizeMb() + " MB");
+                        row.put("uploadDate", doc.getCreatedAt() != null ? doc.getCreatedAt().format(formatter) : "N/A");
+                        row.put("isFolder", false);
+                        itemRows.add(row);
+                    }
                 }
-            %>
-            ];
+                out.print(new com.google.gson.Gson().toJson(itemRows));
+            %>;
 
             function showToast(message, type = 'success') {
                 const container = document.getElementById('toastContainer');
@@ -738,7 +742,11 @@
                     iconHtml = `<div class="p-1.5 bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rounded-xl"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>`;
                 }
 
-                toast.innerHTML = iconHtml + '<span class="text-sm font-semibold tracking-tight">' + message + '</span>';
+                const msgSpan = document.createElement('span');
+                msgSpan.className = 'text-sm font-semibold tracking-tight';
+                msgSpan.textContent = message;
+                toast.innerHTML = iconHtml;
+                toast.appendChild(msgSpan);
                 container.appendChild(toast);
 
                 setTimeout(() => {
@@ -871,25 +879,25 @@
 
                     if (item.isFolder) {
                         return `
-                    <div onclick="window.location.href='<%= request.getContextPath()%>/FolderController?action=viewFolder&folderId=\${item.id}'" class="file-card group">
+                    <div onclick="window.location.href='<%= request.getContextPath()%>/FolderController?action=viewFolder&folderId=\${escapeHtml(item.id)}'" class="file-card group">
                         <div class="file-icon-box \${style.bg}">\${style.icon}</div>
-                        <h3 class="file-title dark:text-gray-200" title="\${item.name}">\${item.name}</h3>
-                        <p class="text-[11px] font-bold text-indigo-500 dark:text-indigo-400">\${item.fileCount} tài liệu \${item.size !== '--' ? ' • ' + item.size : ''}</p>
+                        <h3 class="file-title dark:text-gray-200" title="\${escapeHtml(item.name)}">\${escapeHtml(item.name)}</h3>
+                        <p class="text-[11px] font-bold text-indigo-500 dark:text-indigo-400">\${escapeHtml(item.fileCount)} tài liệu \${item.size !== '--' ? ' • ' + escapeHtml(item.size) : ''}</p>
                         
-                        <p class="file-date">\${item.uploadDate}</p>
+                        <p class="file-date">\${escapeHtml(item.uploadDate)}</p>
                         
                         <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                            <a href="<%= request.getContextPath()%>/FolderController?action=deleteFolder&folderId=\${item.id}" onclick="event.stopPropagation(); return confirm('CẢNH BÁO: Thao tác này sẽ xóa sạch thư mục con này và toàn bộ file bên trong. Xác nhận xóa?');" class="p-1.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl block shadow-sm">
+                            <a data-post href="<%= request.getContextPath()%>/FolderController?action=deleteFolder&folderId=\${escapeHtml(item.id)}" data-confirm="CẢNH BÁO: Thao tác này sẽ xóa sạch thư mục con này và toàn bộ file bên trong. Xác nhận xóa?" class="p-1.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl block shadow-sm">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                             </a>
                         </div>
                                                 
                         <div class="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                            <a href="<%= request.getContextPath()%>/FolderController?action=editFolder&folderId=\${item.id}" onclick="event.stopPropagation();" class="p-1.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-400 hover:text-indigo-600 rounded-xl shadow-sm" title="Sửa thư mục">
+                            <a href="<%= request.getContextPath()%>/FolderController?action=editFolder&folderId=\${escapeHtml(item.id)}" onclick="event.stopPropagation();" class="p-1.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-400 hover:text-indigo-600 rounded-xl shadow-sm" title="Sửa thư mục">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                             </a>
     
-                            <a href="<%= request.getContextPath()%>/FolderController?action=deleteFolder&folderId=\${item.id}" onclick="event.stopPropagation(); return confirm('CẢNH BÁO: Thao tác này sẽ xóa sạch thư mục con này và toàn bộ file bên trong. Xác nhận xóa?');" class="p-1.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl block shadow-sm">
+                            <a data-post href="<%= request.getContextPath()%>/FolderController?action=deleteFolder&folderId=\${escapeHtml(item.id)}" data-confirm="CẢNH BÁO: Thao tác này sẽ xóa sạch thư mục con này và toàn bộ file bên trong. Xác nhận xóa?" class="p-1.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl block shadow-sm">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                             </a>
                         </div>
@@ -897,17 +905,17 @@
                     }
 
                     return `
-                <div onclick="window.open('<%= request.getContextPath()%>/DocumentController?action=viewPage&docId=\${item.id}', '_blank')" class="file-card group">
+                <div onclick="window.open('<%= request.getContextPath()%>/DocumentController?action=viewPage&docId=\${escapeHtml(item.id)}', '_blank')" class="file-card group">
                     <div class="file-icon-box \${style.bg}">\${style.icon}</div>
-                    <h3 class="file-title dark:text-gray-200" title="\${item.name}">\${item.name}</h3>
-                    <p class="file-size">\${item.size}</p>
-                    <p class="file-date">\${item.uploadDate}</p>
+                    <h3 class="file-title dark:text-gray-200" title="\${escapeHtml(item.name)}">\${escapeHtml(item.name)}</h3>
+                    <p class="file-size">\${escapeHtml(item.size)}</p>
+                    <p class="file-date">\${escapeHtml(item.uploadDate)}</p>
                     
                     <div class="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                        <a href="<%= request.getContextPath()%>/DocumentController?action=editDoc&docId=\${item.id}" onclick="event.stopPropagation();" class="p-1.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-400 hover:text-indigo-600 rounded-xl shadow-sm" title="Sửa tên">
+                        <a href="<%= request.getContextPath()%>/DocumentController?action=editDoc&docId=\${escapeHtml(item.id)}" onclick="event.stopPropagation();" class="p-1.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-400 hover:text-indigo-600 rounded-xl shadow-sm" title="Sửa tên">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                         </a>
-                        <a href="<%= request.getContextPath()%>/DocumentController?action=deleteDoc&docId=\${item.id}" onclick="event.stopPropagation(); return confirm('Xác nhận xóa tài liệu này khỏi hệ thống?');" class="p-1.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-400 hover:text-red-600 rounded-xl shadow-sm" title="Xóa file">
+                        <a data-post href="<%= request.getContextPath()%>/DocumentController?action=deleteDoc&docId=\${escapeHtml(item.id)}" data-confirm="Xác nhận xóa tài liệu này khỏi hệ thống?" class="p-1.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-400 hover:text-red-600 rounded-xl shadow-sm" title="Xóa file">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                         </a>
                     </div>

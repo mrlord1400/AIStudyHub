@@ -1,41 +1,9 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-<%@ page import="Model.DAO.UserDAO" %>
-<%@ page import="Model.DTO.User" %>
-<%@ page import="Utils.CookieUtil" %>
 <%
-    // ==============================================================
-    // LOGIC ĐỌC COOKIE: Tự động đăng nhập nếu có "remember_token"
-    // ==============================================================
+    // Đăng nhập tự động bằng cookie "remember_token" do Filter.RememberMeFilter xử lý (T3.4).
+    // Ở đây chỉ cần: đã đăng nhập thì chuyển thẳng vào trang chủ.
     HttpSession userSession = request.getSession(false);
-    if (userSession == null || userSession.getAttribute("userId") == null) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if ("remember_token".equals(cookie.getName())) {
-                    String token = cookie.getValue();
-                    // Giải mã và kiểm tra token
-                    String userEmail = CookieUtil.verifyRememberToken(token);
-                    if (userEmail != null) {
-                        UserDAO dao = new UserDAO();
-                        User u = dao.getUserByEmail(userEmail);
-                        if (u != null) {
-                            // Tạo lại Session
-                            HttpSession newSession = request.getSession(true);
-                            newSession.setAttribute("userId", u.getUserId());
-                            newSession.setAttribute("username", u.getUsername());
-                            newSession.setAttribute("role", u.getRole());
-                            newSession.setAttribute("tierId", u.getTierId());
-                            newSession.setAttribute("balance", u.getBalance());
-
-                            // Redirect thẳng vào trang chủ
-                            response.sendRedirect(request.getContextPath() + "/MainController?action=explore");
-                            return;
-                        }
-                    }
-                }
-            }
-        }
-    } else {
+    if (userSession != null && userSession.getAttribute("userId") != null) {
         response.sendRedirect(request.getContextPath() + "/MainController?action=explore");
         return;
     }
@@ -61,6 +29,7 @@
             html.dark .tab-bg { background-color: #1f2937; }
             .bg-brand-gradient { background: linear-gradient(135deg, #4f22ffd1 0%, #7c3aed 100%); }
         </style>
+    <%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>
     </head>
 
     <body class="flex min-h-screen w-full text-gray-800 dark:text-gray-100 bg-[#f8fafc]">
@@ -94,6 +63,10 @@
                         if ("invalid_credentials".equals(error)) {
                     %>
                     <div class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-sm text-center rounded-lg border border-red-100 dark:border-red-900/50">Sai email hoặc mật khẩu. Vui lòng thử lại!</div>
+                    <% } else if ("too_many_attempts".equals(error)) { %>
+                    <div class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-sm text-center rounded-lg border border-red-100 dark:border-red-900/50">Bạn đã thử đăng nhập sai quá nhiều lần. Vui lòng đợi một phút rồi thử lại.</div>
+                    <% } else if ("session_expired".equals(error)) { %>
+                    <div class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-sm text-center rounded-lg border border-red-100 dark:border-red-900/50">Phiên làm việc đã hết hạn. Vui lòng thử lại.</div>
                     <% } else if ("register_failed".equals(error)) { %>
                     <div class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-sm text-center rounded-lg border border-red-100 dark:border-red-900/50">Đăng ký thất bại. Email có thể đã tồn tại!</div>
                     <% } else if ("weak_password".equals(error)) { %>

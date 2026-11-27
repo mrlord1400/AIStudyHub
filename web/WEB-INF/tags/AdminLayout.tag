@@ -4,6 +4,7 @@
 --%>
 
 <%@ tag language="java" pageEncoding="UTF-8"%>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
 <%@ attribute name="title" required="true" type="java.lang.String" description="Tiêu đề của trang" %>
 <%@ attribute name="activeMenu" required="true" type="java.lang.String" description="Đánh dấu menu đang active (users, documents, transactions)" %>
 
@@ -12,7 +13,7 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${title} - AI Study Hub Admin</title>
+        <title>${fn:escapeXml(title)} - AI Study Hub Admin</title>
 
         <script src="https://cdn.tailwindcss.com"></script>
 
@@ -128,7 +129,7 @@
                         </button>
 
                         <div class="flex-1 lg:ml-0 ml-4">
-                            <h1 class="text-xl font-semibold text-gray-900">${title}</h1>
+                            <h1 class="text-xl font-semibold text-gray-900">${fn:escapeXml(title)}</h1>
                         </div>
 
                         <div class="flex items-center space-x-4">

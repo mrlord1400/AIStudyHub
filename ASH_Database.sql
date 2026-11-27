@@ -270,3 +270,21 @@ CREATE TABLE document_reports (
     FOREIGN KEY (resolved_by_admin_id) REFERENCES users(user_id)
 );
 GO
+
+-- -----------------------------------------------------
+-- 11. REMEMBER-ME TOKENS (T3.4; same as db/migrations/001_remember_tokens.sql)
+-- Cookie = "<selector>.<validator>"; only SHA-256(validator) is stored.
+-- -----------------------------------------------------
+CREATE TABLE remember_tokens (
+    token_id INT IDENTITY(1,1) PRIMARY KEY,
+    user_id INT NOT NULL,
+    selector VARCHAR(32) NOT NULL,
+    validator_hash CHAR(64) NOT NULL,
+    expires_at DATETIME2 NOT NULL,
+    created_at DATETIME2 NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_used_at DATETIME2 NULL,
+    CONSTRAINT UQ_remember_tokens_selector UNIQUE (selector),
+    CONSTRAINT FK_remember_tokens_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+CREATE INDEX IX_remember_tokens_user ON remember_tokens(user_id);
+GO

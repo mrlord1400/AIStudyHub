@@ -52,6 +52,7 @@
             .tab-btn-inactive { @apply px-5 py-2.5 text-gray-600 hover:bg-gray-100 font-medium text-sm rounded-xl transition-all dark:text-gray-400 dark:hover:bg-gray-700; }
         }
     </style>
+    <%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>
 </head>
 <body class="page-body">
 
@@ -94,13 +95,13 @@
 
         <div class="pt-4 border-t border-gray-100 dark:border-gray-700">
             <a href="<%= request.getContextPath()%>/admin_profile.jsp" class="flex items-center space-x-3 px-2 py-2 mb-2 rounded-xl bg-gray-50 dark:bg-gray-700/50 transition-colors cursor-pointer group">
-                <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs uppercase"><%= currentUsername != null && !currentUsername.isEmpty() ? currentUsername.substring(0, 1) : "A"%></div>
+                <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs uppercase"><%= Utils.Html.esc(currentUsername != null && !currentUsername.isEmpty() ? currentUsername.substring(0, 1) : "A")%></div>
                 <div class="flex-1 min-w-0">
-                    <p class="text-sm font-bold text-red-600 truncate dark:text-red-400"><%= currentUsername != null ? currentUsername : "Admin"%></p>
+                    <p class="text-sm font-bold text-red-600 truncate dark:text-red-400"><%= Utils.Html.esc(currentUsername != null ? currentUsername : "Admin")%></p>
                     <p class="text-[11px] text-gray-400 font-medium">Hồ sơ cá nhân</p>
                 </div>
             </a>
-            <a href="<%= request.getContextPath()%>/MainController?action=logout" class="flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors w-full dark:hover:bg-red-900/30">
+            <a href="<%= request.getContextPath()%>/MainController?action=logout" data-post class="flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors w-full dark:hover:bg-red-900/30">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
                 <span>Đăng xuất</span>
             </a>
@@ -150,11 +151,11 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
                     <div>
                         <label class="form-label">Tên đăng nhập Admin</label>
-                        <input type="text" name="username" value="<%= currentUser.getUsername()%>" required class="form-input" />
+                        <input type="text" name="username" value="<%= Utils.Html.esc(currentUser.getUsername())%>" required class="form-input" />
                     </div>
                     <div>
                         <label class="form-label">Email tiếp nhận</label>
-                        <input type="email" name="email" value="<%= currentUser.getEmail() != null ? currentUser.getEmail() : ""%>" required class="form-input" />
+                        <input type="email" name="email" value="<%= Utils.Html.esc(currentUser.getEmail())%>" required class="form-input" />
                     </div>
                 </div>
 
