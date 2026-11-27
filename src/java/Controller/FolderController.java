@@ -4,19 +4,21 @@ import Model.DTO.Document;
 import Model.DAO.DocumentDAO;
 import Model.DTO.Folder;
 import Model.DAO.FolderDAO;
+import Utils.FileStorage;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @WebServlet(name = "FolderController", urlPatterns = {"/FolderController"})
 public class FolderController extends HttpServlet {
+
+    private static final java.util.logging.Logger LOG = java.util.logging.Logger.getLogger(FolderController.class.getName());
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -91,40 +93,16 @@ public class FolderController extends HttpServlet {
             } else if ("deleteFolder".equals(action)) {
                 int folderId = Integer.parseInt(request.getParameter("folderId"));
 
-                // ─── CASCADE OPERATIONS: DỌN SẠCH FILE TRÊN ĐĨA CỨNG TRƯỚC ───
-                // 1. Gọi hàm đệ quy CTE mới để lấy TOÀN BỘ tài liệu trong thư mục hiện tại và các thư mục con sâu bên trong
+                // 1. Lấy TOÀN BỘ tài liệu trong thư mục và các thư mục con (CTE có điều kiện user_id) để biết file nào cần xóa
                 List<Document> allDocsInTree = folderDao.getRecursiveDocumentsInFolder(folderId, userId);
 
-                String realPath = getServletContext().getRealPath("");
-                if (realPath == null) {
-                    realPath = System.getProperty("java.io.tmpdir");
-                }
-
-                // 2. Quét vòng lặp xóa triệt để từng file vật lý trên máy chủ
-                for (Document doc : allDocsInTree) {
-                    String cloudUrl = doc.getCloudStorageUrl();
-                    if (cloudUrl != null && !cloudUrl.trim().isEmpty()) {
-                        String relativePath = cloudUrl;
-                        String contextPath = request.getContextPath();
-                        if (relativePath.startsWith(contextPath)) {
-                            relativePath = relativePath.substring(contextPath.length());
-                        }
-                        if (relativePath.startsWith("/")) {
-                            relativePath = relativePath.substring(1);
-                        }
-
-                        File physicalFile = new File(realPath + File.separator + relativePath.replace("/", File.separator));
-                        if (physicalFile.exists()) {
-                            boolean fileDeleted = physicalFile.delete();
-                            System.out.println("[FolderController] Xóa file đệ quy thành công: " + physicalFile.getName() + " -> " + fileDeleted);
-                        }
-                    }
-                }
-
-                // 3. Thực thi hàm xóa đệ quy sạch sẽ toàn bộ dữ liệu trong cơ sở dữ liệu
+                // 2. Xóa đệ quy trong DB trước; chỉ khi DB xóa thành công mới xóa file trên đĩa
                 boolean success = folderDao.deleteFolderAndDocumentsRecursive(folderId, userId);
 
                 if (success) {
+                    for (Document doc : allDocsInTree) {
+                        FileStorage.delete(doc.getCloudStorageUrl());
+                    }
                     response.sendRedirect(request.getContextPath() + "/FolderController?action=viewFolder&folderSuccess=deleted");
                 } else {
                     response.sendRedirect(request.getContextPath() + "/FolderController?action=viewFolder&error=delete_folder_failed");
@@ -221,7 +199,7 @@ public class FolderController extends HttpServlet {
             }
 
         } catch (Exception e) {
-            System.err.println("[FolderController Error] " + e.getMessage());
+            LOG.log(java.util.logging.Level.SEVERE, "request failed", e);
             response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=system_error");
         }
     }

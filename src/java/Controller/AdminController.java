@@ -314,7 +314,9 @@ public class AdminController extends HttpServlet {
                     response.sendRedirect(request.getContextPath() + "/AdminController?action=listUsers&error=self_modify");
                     return;
                 }
-                userDAO.deleteUserAndAssociatedData(deleteId);
+                if (userDAO.deleteUserAndAssociatedData(deleteId)) {
+                    Utils.FileStorage.deleteUserFiles(deleteId);
+                }
                 break;
         }
 

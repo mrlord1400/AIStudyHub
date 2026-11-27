@@ -56,6 +56,12 @@ public class Db {
         }
     }
 
+    public static String str(String sql) throws Exception {
+        try (Connection c = Utils.DBUtils.getConnection(); Statement st = c.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+            return rs.next() ? rs.getString(1) : null;
+        }
+    }
+
     public static void exec(String sql, Object... args) throws Exception {
         try (Connection c = Utils.DBUtils.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             for (int i = 0; i < args.length; i++) {

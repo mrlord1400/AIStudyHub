@@ -35,6 +35,21 @@ public class Http {
     }
 
     public static String webRoot;
+
+    /** Optional: reuse one session map across calls (wizard flows). Reset to null when done. */
+    public static Map<String, Object> sharedSession;
+
+    /** Optional multipart file for request.getPart("file"). */
+    public static class UploadPart {
+        public final String fileName;
+        public final byte[] data;
+
+        public UploadPart(String fileName, byte[] data) {
+            this.fileName = fileName;
+            this.data = data;
+        }
+    }
+    public static UploadPart part;
     public static final ServletContext CONTEXT = (ServletContext) Proxy.newProxyInstance(Http.class.getClassLoader(), new Class<?>[]{ServletContext.class}, (p, m, a) -> {
         switch (m.getName()) {
             case "getRealPath": return webRoot;
@@ -54,7 +69,7 @@ public class Http {
 
     /** who: null = anonymous; otherwise session attributes userId/role. */
     public static Result call(HttpServlet servlet, String method, Map<String, String[]> params, Integer userId, String role) throws Exception {
-        final Map<String, Object> sess = new HashMap<>();
+        final Map<String, Object> sess = sharedSession != null ? sharedSession : new HashMap<String, Object>();
         if (userId != null) {
             sess.put("userId", userId);
             sess.put("role", role);
@@ -76,6 +91,18 @@ public class Http {
                 case "getParameterValues": return params.get(a[0]);
                 case "getSession": return (userId == null && a.length == 1 && Boolean.FALSE.equals(a[0])) ? null : session;
                 case "getContextPath": return "/AIStudyHub";
+                case "getPart": {
+                    final UploadPart up = part;
+                    if (up == null) return null;
+                    return Proxy.newProxyInstance(Http.class.getClassLoader(), new Class<?>[]{javax.servlet.http.Part.class}, (p3, m3, a3) -> {
+                        switch (m3.getName()) {
+                            case "getSize": return (long) up.data.length;
+                            case "getSubmittedFileName": return up.fileName;
+                            case "getInputStream": return new java.io.ByteArrayInputStream(up.data);
+                            default: return null;
+                        }
+                    });
+                }
                 case "getCharacterEncoding": return "UTF-8";
                 case "setAttribute": r.requestAttrs.put((String) a[0], a[1]); return null;
                 case "getAttribute": return r.requestAttrs.get(a[0]);

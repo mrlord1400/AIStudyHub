@@ -16,7 +16,7 @@ Nothing is written into the repo.
 
 | Piece | How |
 |---|---|
-| Servlet container | `Http.java`: proxy `HttpServletRequest` / `Response` / `Session`. It supports parameters, session attributes, `sendRedirect`, `sendError`, `setStatus`, forwards (recorded, not executed), the writer and the output stream |
+| Servlet container | `Http.java`: proxy `HttpServletRequest` / `Response` / `Session`. It supports parameters, session attributes (`Http.sharedSession` keeps one across calls), one multipart file (`Http.part`), `sendRedirect`, `sendError`, `setStatus`, forwards (recorded, not executed), the writer and the output stream |
 | Database | in-memory **H2 in `MODE=MSSQLServer`** with a simplified copy of `ASH_Database.sql` (`Db.java`). The real DAO classes run against it. `DB_URL`/`DB_USER`/`DB_PASSWORD` are passed as system properties, which `AppConfig` already honours |
 | Filters | `FilterHarness.java` drives `Filter.AuthFilter` directly with a dispatcher type of `FORWARD` |
 
@@ -38,6 +38,7 @@ So a task is only ticked `[x]` after its curl **Verify** steps have been run aga
 | `T14Test` | T1.4: chat DAO scoping, `FolderDAO.isOwnedBy` |
 | `T15Test` | T1.5: friendship state machine in SQL |
 | `T17Test` | T1.7: `AdminController`, `TransactionController`, `ReportConfigController`, `SystemConfigController` validation, self-protection, all-or-nothing config write |
+| `T2Test` | T2.1-T2.3: `FileStorage`/`FileTypes` rules, the real `UploadController` (multipart stub) through upload/confirm/keepBoth/replace/cancel, view/download headers, every delete path, `StorageMigration` dry run / apply / re-run on a fake legacy tree. Needs `AISH_VERBOSE=1` to see the (expected) PDFBox warnings for the tiny fake PDF |
 | `T18Test` | T1.2-T1.6 and T1.8 end to end through `DocumentController`, `ReportController`, `ChatBotController`, `SessionController`, `FriendController`, `FolderController`, `UserController`, `AdminReportController` |
 
 To add a check: drop a class with a `main` here that uses `Db.init()`, `Db.check(...)`, `Http.call(...)` and ends with `Db.done()`, then add its name to `TESTS` in `run.sh`.

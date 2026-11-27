@@ -52,6 +52,19 @@ public final class AccessRules {
     }
 
     /**
+     * Thư mục /uploads trong webapp là nơi lưu file kiểu cũ (F-05). File giờ nằm ngoài webapp và chỉ được
+     * phục vụ qua DocumentController, nên mọi URL dưới /uploads đều trả 404 cho tất cả mọi người, kể cả file còn sót
+     * lại chưa migrate. So khớp không phân biệt hoa thường (Windows).
+     */
+    public static boolean isRetiredUploadsPath(String path) {
+        if (path == null) {
+            return false;
+        }
+        String p = path.toLowerCase(Locale.ROOT);
+        return p.equals("/uploads") || p.startsWith("/uploads/");
+    }
+
+    /**
      * @param path   servletPath + pathInfo của request (không gồm context path)
      * @param action giá trị tham số "action" (có thể null)
      */

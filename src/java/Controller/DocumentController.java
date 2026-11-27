@@ -8,6 +8,8 @@ import Model.DTO.User;
 import Model.DAO.UserDAO;
 import Model.Service.DocumentAccess;
 import Utils.Access;
+import Utils.FileStorage;
+import Utils.FileTypes;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -19,6 +21,8 @@ import java.util.List;
 
 @WebServlet(name = "DocumentController", urlPatterns = {"/DocumentController"})
 public class DocumentController extends HttpServlet {
+
+    private static final java.util.logging.Logger LOG = java.util.logging.Logger.getLogger(DocumentController.class.getName());
 
     private final DocumentAccess documentAccess = new DocumentAccess();
 
@@ -138,7 +142,7 @@ public class DocumentController extends HttpServlet {
                     boolean deleted = dao.deleteDocumentForOwner(docId, userId);
 
                     if (deleted) {
-                        deletePhysicalFile(doc.getCloudStorageUrl(), request);
+                        deletePhysicalFile(doc.getCloudStorageUrl());
                         response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?updateSuccess=1");
                     } else {
                         request.setAttribute("errorMessage", "Không thể xóa. Vui lòng thử lại.");
@@ -241,24 +245,11 @@ public class DocumentController extends HttpServlet {
                 Document doc = dao.findById(docId);
 
                 if (documentAccess.canView(doc, sessionUserId, isAdmin)) {
-                    String url = doc.getCloudStorageUrl();
-                    String relativePath = url;
-                    String ctxPath = request.getContextPath();
-                    if (relativePath.startsWith(ctxPath)) {
-                        relativePath = relativePath.substring(ctxPath.length());
-                    }
-                    if (relativePath.startsWith("/")) {
-                        relativePath = relativePath.substring(1);
-                    }
+                    // File chỉ được phục vụ qua controller này, sau canView (Conv §9)
+                    response.setHeader("X-Content-Type-Options", "nosniff");
+                    java.io.File file = FileStorage.fileOrNull(doc.getCloudStorageUrl());
 
-                    String realPath = getServletContext().getRealPath("");
-                    if (realPath == null) {
-                        realPath = System.getProperty("java.io.tmpdir");
-                    }
-                    String filePath = realPath + java.io.File.separator + relativePath.replace("/", java.io.File.separator);
-                    java.io.File file = new java.io.File(filePath);
-
-                    if (file.exists()) {
+                    if (file != null) {
                         String ext = doc.getFileExtension() != null ? doc.getFileExtension().toLowerCase() : "";
 
                         // Kiểm tra danh sách file hỗ trợ xem trực tiếp
@@ -456,7 +447,7 @@ public class DocumentController extends HttpServlet {
                                 }
                             } catch (Exception poiEx) {
                                 pw.println("<p style='color: #ef4444;'>Lỗi khi đọc file: " + poiEx.getMessage() + "</p>");
-                                System.err.println("[DocumentController] POI Error: " + poiEx.getMessage());
+                                LOG.log(java.util.logging.Level.WARNING, "office preview failed", poiEx);
                             }
 
                             pw.println("</div></body></html>");
@@ -464,14 +455,8 @@ public class DocumentController extends HttpServlet {
 
                         } else {
                             // FILE KHÁC (PDF, TXT, MD, ảnh...): Stream bình thường
-                            String mimeType = getServletContext().getMimeType(filePath);
-                            
-                            // Bắt buộc gán text/plain cho MD và TXT để trình duyệt đọc inline thay vì tải xuống
-                            if ("md".equals(ext) || "txt".equals(ext)) {
-                                mimeType = "text/plain; charset=UTF-8";
-                            } else if (mimeType == null) {
-                                mimeType = "application/octet-stream";
-                            }
+                            // MIME theo đuôi đã được cho phép (md/txt là text/plain để trình duyệt đọc inline)
+                            String mimeType = FileTypes.mimeType(ext);
 
                             // Do đã chặn file không hỗ trợ ở trên, tất cả các file lọt xuống đây đều được phép inline
                             String disposition = "inline";
@@ -508,35 +493,18 @@ public class DocumentController extends HttpServlet {
 
                 if (documentAccess.canView(doc, sessionUserId, isAdmin)) {
                     String url = doc.getCloudStorageUrl();
-                    String relativePath = url;
-                    String ctxPath = request.getContextPath();
-                    if (relativePath.startsWith(ctxPath)) {
-                        relativePath = relativePath.substring(ctxPath.length());
-                    }
-                    if (relativePath.startsWith("/")) {
-                        relativePath = relativePath.substring(1);
-                    }
-                    String savedFileName = url.substring(url.lastIndexOf("/") + 1);
-
-                    String realPath = getServletContext().getRealPath("");
-                    if (realPath == null) {
-                        realPath = System.getProperty("java.io.tmpdir");
-                    }
-                    String filePath = realPath + java.io.File.separator + relativePath.replace("/", java.io.File.separator);
-
-                    java.io.File downloadFile = new java.io.File(filePath);
-                    if (downloadFile.exists()) {
+                    java.io.File downloadFile = FileStorage.fileOrNull(url);
+                    if (downloadFile != null) {
 
                         dao.incrementDownloadCount(docId);
 
-                        String ext = "";
-                        if (savedFileName.lastIndexOf('.') > 0) {
-                            ext = savedFileName.substring(savedFileName.lastIndexOf('.'));
-                        }
+                        // Key có dạng <userId>/<uuid>.<ext>: đuôi lấy từ key
+                        String ext = url.substring(url.lastIndexOf('.'));
 
                         String downloadFileName = doc.getTitle() + ext;
                         String encodedFileName = java.net.URLEncoder.encode(downloadFileName, "UTF-8").replaceAll("\\+", "%20");
 
+                        response.setHeader("X-Content-Type-Options", "nosniff");
                         response.setContentType("application/octet-stream");
                         response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + encodedFileName);
 
@@ -576,14 +544,14 @@ public class DocumentController extends HttpServlet {
                 return;
             }
         } catch (Exception e) {
-            System.err.println("[DocumentController Error] " + e.getMessage());
+            LOG.log(java.util.logging.Level.SEVERE, "request failed", e);
             response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=system_error");
         }
     }
 
-    /** Xóa file vật lý của một tài liệu đã bị xóa khỏi DB. Việc lưu trữ sẽ được làm lại ở T2.1. */
-    private void deletePhysicalFile(String cloudUrl, HttpServletRequest request) {
-        Utils.StoredFiles.delete(getServletContext(), request.getContextPath(), cloudUrl);
+    /** Xóa file vật lý của một tài liệu đã bị xóa khỏi DB. */
+    private void deletePhysicalFile(String storageKey) {
+        FileStorage.delete(storageKey);
     }
 
     @Override

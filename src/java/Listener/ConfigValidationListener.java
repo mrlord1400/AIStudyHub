@@ -1,6 +1,7 @@
 package Listener;
 
 import Utils.AppConfig;
+import Utils.FileStorage;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -23,7 +24,8 @@ public class ConfigValidationListener implements ServletContextListener {
     private static final String[] ALWAYS_REQUIRED = {
         "DB_URL", "DB_USER", "DB_PASSWORD",
         "SMTP_USER", "SMTP_PASSWORD",
-        "REMEMBER_ME_SECRET"
+        "REMEMBER_ME_SECRET",
+        "STORAGE_DIR"
     };
 
     @Override
@@ -45,6 +47,13 @@ public class ConfigValidationListener implements ServletContextListener {
 
         for (String key : AppConfig.missing(keys)) {
             LOG.log(Level.SEVERE, "Missing required config: {0}", key);
+        }
+
+        // STORAGE_DIR: absolute, writable and outside the web application folder (T2.1)
+        if (AppConfig.has(FileStorage.CONFIG_KEY)) {
+            for (String problem : FileStorage.validateRoot(sce.getServletContext().getRealPath("/"))) {
+                LOG.log(Level.SEVERE, "Storage misconfigured: {0}", problem);
+            }
         }
     }
 

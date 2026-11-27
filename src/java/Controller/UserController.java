@@ -15,6 +15,8 @@ import java.io.IOException;
 @WebServlet(name = "UserController", urlPatterns = {"/UserController"})
 public class UserController extends HttpServlet {
 
+    private static final java.util.logging.Logger LOG = java.util.logging.Logger.getLogger(UserController.class.getName());
+
     /**
      * Hàm kiểm tra mật khẩu đạt chuẩn (BR-15, 16, 17, 17b)
      */
@@ -99,6 +101,7 @@ public class UserController extends HttpServlet {
             } else if ("deleteAccount".equals(action)) {
                 boolean success = dao.deleteUserAndAssociatedData(userId);
                 if (success) {
+                    Utils.FileStorage.deleteUserFiles(userId);
                     session.invalidate();
                     response.sendRedirect(request.getContextPath() + "/login.jsp?account_deleted=1");
                 } else {
@@ -106,7 +109,7 @@ public class UserController extends HttpServlet {
                 }
             }
         } catch (Exception e) {
-            System.err.println("[UserController Error] " + e.getMessage());
+            LOG.log(java.util.logging.Level.SEVERE, "request failed", e);
             response.sendRedirect(request.getContextPath() + "/MainController?action=profile&error=system_error");
         }
     }

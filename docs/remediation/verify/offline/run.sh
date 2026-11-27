@@ -42,7 +42,7 @@ echo "== compiling the checks"
 find "$HERE" -maxdepth 1 -name '*.java' | while read -r f; do win "$f"; done > "$WORK/tsrcs.txt"
 javac -encoding UTF-8 -nowarn -cp "$(win "$WORK/out")$SEP$CP" -d "$(win "$WORK/tests")" "@$(win "$WORK/tsrcs.txt")" 2>&1 | grep -v '^Note:' || true
 
-TESTS="${*:-FilterHarness T12Test T13Test T14Test T15Test T17Test T18Test}"
+TESTS="${*:-FilterHarness T12Test T13Test T14Test T15Test T17Test T18Test T2Test}"
 failed=0
 for t in $TESTS; do
   echo "== $t"
@@ -50,6 +50,8 @@ for t in $TESTS; do
   if java -cp "$(win "$WORK/tests")$SEP$(win "$WORK/out")$SEP$CP" "$t" > "$out" 2>&1; then rc=0; else rc=$?; fi
   grep -E '^(PASS|FAIL)|ALL PASS|FAILED' "$out" | sed 's/^/   /' | grep -E 'FAIL|ALL PASS|FAILED' || true
   echo "   $(grep -c '^PASS' "$out" || true) passed, $(grep -c '^FAIL' "$out" || true) failed (exit $rc)"
+  # AISH_VERBOSE=1 shows everything that is not a PASS line (stack traces, DAO error output)
+  if [ -n "${AISH_VERBOSE:-}" ]; then grep -v '^PASS' "$out" | head -80 | sed 's/^/   v /' || true; fi
   if [ "$rc" -ne 0 ]; then failed=1; tail -15 "$out" | sed 's/^/   | /'; fi
 done
 [ "$failed" -eq 0 ] && echo "== ALL CHECKS PASSED" || { echo "== SOME CHECKS FAILED"; exit 1; }
