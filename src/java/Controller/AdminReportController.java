@@ -125,9 +125,14 @@ public class AdminReportController extends HttpServlet {
 
             } else if ("adminDeleteDocument".equals(action)) {
                 int documentId = Integer.parseInt(request.getParameter("documentId"));
+                Document toDelete = docDao.findById(documentId);
                 boolean isDeleted = docDao.deleteDocumentAndDependencies(documentId);
 
                 if (isDeleted) {
+                    // Chỉ xóa file vật lý sau khi DB đã xóa thành công (như DocumentController.deleteDoc)
+                    if (toDelete != null) {
+                        Utils.StoredFiles.delete(getServletContext(), request.getContextPath(), toDelete.getCloudStorageUrl());
+                    }
                     response.sendRedirect(request.getContextPath() + "/MainController?action=listDashboard");
                 } else {
                     response.sendRedirect(request.getContextPath() + "/MainController?action=adminReportList&documentId=" + documentId + "&error=delete_failed");

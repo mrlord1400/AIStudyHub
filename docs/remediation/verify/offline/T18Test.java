@@ -205,15 +205,16 @@ public class T18Test {
         r = Http.call(uc, "POST", Http.params("action", "updateProfile", "username", "A", "email", "a2@x.com", "currentPassword", "wrong", "newPassword", ""), A, "STUDENT");
         Db.check("T1.8 updateProfile still requires the current password", S(r).contains("error=wrong_password"));
 
-        AdminReportController ar = new AdminReportController();
+        AdminReportController ar = Http.init(new AdminReportController());
         Db.exec("INSERT INTO document_reports (document_id, reporter_id, reason_code, status) VALUES (?,?, 'SPAM', 'PENDING')", bFriends, C);
         int rep = (int) Db.count("SELECT MAX(report_id) FROM document_reports");
         r = Http.call(ar, "POST", Http.params("action", "adminUpdateReportStatus", "reportId", "" + rep, "documentId", "" + bFriends, "status", "HACKED"), ADM, "ADMIN");
         Db.check("T1.8 adminUpdateReportStatus rejects unknown status", S(r).contains("error=invalid_input") && Db.count("SELECT COUNT(*) FROM document_reports WHERE report_id=? AND status='PENDING'", rep) == 1);
         r = Http.call(ar, "POST", Http.params("action", "adminDeleteDocument", "documentId", "" + bFriends), C, "STUDENT");
-        Db.check("T1.1/T1.8 student cannot call adminDeleteDocument (defence in depth, 403)", S(r).equals("ERROR 403") && Db.count("SELECT COUNT(*) FROM documents WHERE document_id=?", bFriends) == 1);
+        Db.check("T1.1/T1.8 student cannot call adminDeleteDocument (defence in depth, 403)", S(r).equals("ERROR 403") && Db.count("SELECT COUNT(*) FROM documents WHERE document_id=?", bFriends) == 1 && fileExists(B, "bfriends"));
         r = Http.call(ar, "POST", Http.params("action", "adminDeleteDocument", "documentId", "" + bFriends), ADM, "ADMIN");
-        Db.check("T1.8 admin deleteDocument still works", Db.count("SELECT COUNT(*) FROM documents WHERE document_id=?", bFriends) == 0);
+        Db.check("T1.8 admin deleteDocument still works and removes the physical file too", Db.count("SELECT COUNT(*) FROM documents WHERE document_id=?", bFriends) == 0
+                && !fileExists(B, "bfriends"));
 
         // owner delete happens last: DB row gone first, then file
         r = Http.call(dc, "GET", Http.params("action", "deleteDoc", "docId", "" + aDoc), A, "STUDENT");

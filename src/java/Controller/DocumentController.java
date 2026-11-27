@@ -583,26 +583,7 @@ public class DocumentController extends HttpServlet {
 
     /** Xóa file vật lý của một tài liệu đã bị xóa khỏi DB. Việc lưu trữ sẽ được làm lại ở T2.1. */
     private void deletePhysicalFile(String cloudUrl, HttpServletRequest request) {
-        if (cloudUrl == null || cloudUrl.trim().isEmpty()) {
-            return;
-        }
-        String relativePath = cloudUrl;
-        String contextPath = request.getContextPath();
-        if (relativePath.startsWith(contextPath)) {
-            relativePath = relativePath.substring(contextPath.length());
-        }
-        if (relativePath.startsWith("/")) {
-            relativePath = relativePath.substring(1);
-        }
-
-        String realPath = getServletContext().getRealPath("");
-        if (realPath != null) {
-            java.io.File physicalFile = new java.io.File(realPath + java.io.File.separator + relativePath.replace("/", java.io.File.separator));
-            if (physicalFile.exists()) {
-                boolean fileDeleted = physicalFile.delete();
-                System.out.println("[DocumentController] Deleted physical file: " + physicalFile.getAbsolutePath() + " → " + fileDeleted);
-            }
-        }
+        Utils.StoredFiles.delete(getServletContext(), request.getContextPath(), cloudUrl);
     }
 
     @Override

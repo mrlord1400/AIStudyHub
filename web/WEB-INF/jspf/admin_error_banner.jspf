@@ -1,3 +1,4 @@
+<%@ page pageEncoding="UTF-8" %>
 <%-- Banner lỗi dùng chung cho các trang admin. Chỉ hiển thị các chuỗi cố định theo mã lỗi, không bao giờ in lại giá trị tham số. --%>
 <%
     String adminBannerCode = request.getParameter("error");

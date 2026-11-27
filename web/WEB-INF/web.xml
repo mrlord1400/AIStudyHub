@@ -34,6 +34,14 @@
         <dispatcher>FORWARD</dispatcher>
     </filter-mapping>
 
+    <!-- JSP fragments are included by UTF-8 pages; without this Jasper reads them as ISO-8859-1 and Vietnamese text is garbled. -->
+    <jsp-config>
+        <jsp-property-group>
+            <url-pattern>*.jspf</url-pattern>
+            <page-encoding>UTF-8</page-encoding>
+        </jsp-property-group>
+    </jsp-config>
+
     <session-config>
         <!-- Session timeout: 30 minutes -->
         <session-timeout>30</session-timeout>

@@ -11,8 +11,9 @@ public final class Validation {
     public static final int MAX_USERNAME = 50;
     public static final int MAX_EMAIL = 100;
 
-    // Đủ chặt để loại giá trị rõ ràng sai, không cố bao quát toàn bộ RFC 5322.
-    private static final Pattern EMAIL = Pattern.compile("^[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}$");
+    // Cố ý lỏng: đăng ký không kiểm tra email phía server và type="email" của trình duyệt chấp nhận
+    // o'neil@x.com, dev@localhost... Chỉ loại thứ rõ ràng sai (khoảng trắng, < > ", thiếu hoặc thừa @).
+    private static final Pattern EMAIL = Pattern.compile("^[^\\s@<>\"]+@[^\\s@<>\"]+$");
 
     private Validation() {
     }

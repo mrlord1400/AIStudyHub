@@ -27,7 +27,10 @@ public class T17Test {
         Db.check("parseDoubleInRange rejects NaN/Infinity/out-of-range",
                 Validation.parseDoubleInRange("NaN", 0, 10) == null && Validation.parseDoubleInRange("Infinity", 0, 10) == null
                 && Validation.parseDoubleInRange("1e9", 0, 10) == null && Validation.parseDoubleInRange("2,5", 0, 10) == 2.5);
-        Db.check("email validator", Validation.isValidEmail("a@b.co") && !Validation.isValidEmail("a@b") && !Validation.isValidEmail("<x>@b.co") && !Validation.isValidEmail(null));
+        Db.check("email validator accepts what registration accepted (apostrophe, localhost, short TLD)", Validation.isValidEmail("a@b.co") && Validation.isValidEmail("o'neil@example.com")
+                && Validation.isValidEmail("dev@localhost") && Validation.isValidEmail("a@b.c"));
+        Db.check("email validator rejects clearly wrong values", !Validation.isValidEmail("no-at-sign") && !Validation.isValidEmail("a b@c.com") && !Validation.isValidEmail("<x>@b.co")
+                && !Validation.isValidEmail("a@@b.co") && !Validation.isValidEmail("") && !Validation.isValidEmail(null));
 
         // ---- AdminController.createUser ----
         Http.Result r;
