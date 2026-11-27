@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Offline verification harness for the remediation work (see README.md in this folder).
-# Compiles src/java and runs the checks against an in-memory H2 database. No Tomcat and no SQL Server.
-# Downloads two jars (servlet API, H2) into $AISH_LIBS (default: $TMPDIR/aish-libs), never into the repo.
+# Compiles src/java and runs the checks against an in-memory H2 database. No SQL Server. T31Test also starts an embedded Tomcat 9 (the real web.xml and JSPs).
+# Downloads the jars (servlet API, H2, mail, embedded Tomcat, ...) into $AISH_LIBS (default: $TMPDIR/aish-libs), never into the repo.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -57,9 +57,9 @@ for t in $TESTS; do
   echo "== $t"
   out="$WORK/$t.log"
   # Web-based checks get the tomcat jars first and the paths of the web root and the compiled classes.
-  EXTRA=""; JOPTS=""
-  case "$t" in T3[0-9]Test) EXTRA="$TCP"; JOPTS="-DAISH_WEBROOT=$(win "$ROOT/web") -DAISH_CLASSES=$(win "$WORK/out")";; esac
-  if java $JOPTS -cp "$(win "$WORK/tests")$SEP$EXTRA$(win "$WORK/out")$SEP$CP" "$t" > "$out" 2>&1; then rc=0; else rc=$?; fi
+  EXTRA=""; JOPTS=()
+  case "$t" in T3[0-9]Test) EXTRA="$TCP"; JOPTS=("-DAISH_WEBROOT=$(win "$ROOT/web")" "-DAISH_CLASSES=$(win "$WORK/out")");; esac
+  if java ${JOPTS[@]+"${JOPTS[@]}"} -cp "$(win "$WORK/tests")$SEP$EXTRA$(win "$WORK/out")$SEP$CP" "$t" > "$out" 2>&1; then rc=0; else rc=$?; fi
   grep -E '^(PASS|FAIL)|ALL PASS|FAILED' "$out" | sed 's/^/   /' | grep -E 'FAIL|ALL PASS|FAILED' || true
   echo "   $(grep -c '^PASS' "$out" || true) passed, $(grep -c '^FAIL' "$out" || true) failed (exit $rc)"
   # AISH_VERBOSE=1 shows everything that is not a PASS line (stack traces, DAO error output)

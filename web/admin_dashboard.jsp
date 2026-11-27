@@ -1,4 +1,5 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
 <%@ page import="Model.DTO.User" %>
 <%@ page import="java.util.List" %>
 
@@ -33,7 +34,7 @@
         totalTransactions = 0;
     }
 
-    pageContext.setAttribute("displayName", Utils.Html.esc(currentUsername != null ? currentUsername : "Admin")); // đã escape, in bằng ${displayName}
+    pageContext.setAttribute("displayName", currentUsername != null ? currentUsername : "Admin");
     pageContext.setAttribute("strTotalUsers", String.format("%,d", totalUsers));
     pageContext.setAttribute("strTotalTrans", String.format("%,d", totalTransactions));
     pageContext.setAttribute("isDataMissing", userList == null);
@@ -126,7 +127,7 @@
         <main class="flex-1 p-8 overflow-y-auto h-screen relative">
             <div class="mb-8">
                 <h1 class="text-2xl font-bold text-gray-900 tracking-tight dark:text-white">Tổng quan hệ thống</h1>
-                <p class="text-gray-500 text-sm mt-0.5">Chào mừng quay trở lại, ${displayName}!</p>
+                <p class="text-gray-500 text-sm mt-0.5">Chào mừng quay trở lại, ${fn:escapeXml(displayName)}!</p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

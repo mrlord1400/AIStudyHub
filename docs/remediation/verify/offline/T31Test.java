@@ -11,6 +11,7 @@ public class T31Test {
     static final String[] FORBIDDEN = {
         "<img src=x onerror", "</script><script>alert(2)", "x\" autofocus onfocus=", "<svg onload", "<u>ZZ", "<b>ZZ"
     };
+    static final String ADMIN_EMAIL = "o'x\"<b>ZZ@t31.com";
     static final String ESC1 = "&lt;img src=x onerror=alert(1)&gt;";
 
     static void page(String name, String path, String... mustContain) throws Exception {
@@ -49,7 +50,7 @@ public class T31Test {
 
         Db.init();
         String hash = Utils.PasswordUtil.hashPassword("Passw0rd!");
-        Db.exec("INSERT INTO users (username, email, password_hash, role) VALUES (?,?,?,?)", P1, "admin@t31.com", hash, "ADMIN");
+        Db.exec("INSERT INTO users (username, email, password_hash, role) VALUES (?,?,?,?)", P1, ADMIN_EMAIL, hash, "ADMIN");
         Db.exec("INSERT INTO users (username, email, password_hash, role) VALUES (?,?,?,?)", P2, "a\"><svg onload=alert(3)>@x.com", hash, "STUDENT");
         Db.exec("INSERT INTO users (username, email, password_hash, role) VALUES (?,?,?,?)", P3, "v3@x.com", hash, "STUDENT");
         int victim = (int) Db.count("SELECT user_id FROM users WHERE email = 'v3@x.com'");
@@ -67,7 +68,7 @@ public class T31Test {
         String classes = System.getProperty("AISH_CLASSES", System.getenv("AISH_CLASSES"));
         Web.start(root, classes);
         try {
-            Web.Resp login = Web.post("/AuthController", "action=login&email=admin%40t31.com&password=" + Web.enc("Passw0rd!"));
+            Web.Resp login = Web.post("/AuthController", "action=login&email=" + Web.enc(ADMIN_EMAIL) + "&password=" + Web.enc("Passw0rd!"));
             Db.check("admin login redirects to the admin dashboard (" + login.status + " " + login.location + ")",
                     login.status == 302 && login.location != null && login.location.endsWith("/admin_dashboard.jsp"));
 
@@ -79,7 +80,7 @@ public class T31Test {
             page("admin document reports page", "/MainController?action=adminReportList&documentId=" + doc, "&lt;b&gt;ZZ", ESC1);
             page("admin system-config page", "/admin/system-config", "&lt;/script&gt;&lt;script&gt;alert(2)");
             page("admin dashboard page", "/MainController?action=listDashboard", ESC1);
-            page("admin profile page", "/AdminController?action=profile", "value=\"&quot;&gt;&lt;img src=x onerror=alert(1)&gt;\"");
+            page("admin profile page", "/AdminController?action=profile", "value=\"&quot;&gt;&lt;img src=x onerror=alert(1)&gt;\"", "&lt;b&gt;ZZ@t31.com");
         } finally {
             Web.stop();
         }

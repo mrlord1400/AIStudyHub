@@ -22,15 +22,16 @@ public class Web {
     }
 
     private static Tomcat tomcat;
+    private static Path baseDir;
     private static int port;
     public static final String CONTEXT = "/AIStudyHub";
     private static final CookieManager COOKIES = new CookieManager();
 
     /** @param webDir the repo's web/ folder; @param classesDir compiled src/java (what WEB-INF/classes would hold) */
     public static void start(String webDir, String classesDir) throws Exception {
-        Path base = Files.createTempDirectory("aish-tomcat");
+        baseDir = Files.createTempDirectory("aish-tomcat");
         tomcat = new Tomcat();
-        tomcat.setBaseDir(base.toString());
+        tomcat.setBaseDir(baseDir.toString());
         tomcat.setPort(0);
         tomcat.getConnector();
         Context ctx = tomcat.addWebapp(CONTEXT, new File(webDir).getAbsolutePath());
@@ -46,6 +47,11 @@ public class Web {
         if (tomcat != null) {
             tomcat.stop();
             tomcat.destroy();
+        }
+        if (baseDir != null) {
+            try (java.util.stream.Stream<Path> w = Files.walk(baseDir)) {
+                w.sorted(java.util.Comparator.reverseOrder()).forEach(p -> p.toFile().delete());
+            }
         }
     }
 

@@ -80,14 +80,14 @@ project (no Maven). Keep new code in the existing packages and naming style: `Co
 
 Escape on **output**. Don't HTML-escape before storing in the DB.
 
-Pinned browser libraries (T3.1a; both SRI hashes were computed from the jsDelivr files, `sha384`):
+Pinned browser libraries (T3.1a; both SRI hashes were computed from the jsDelivr files, `sha384`). DOMPurify is 3.5.0 on purpose: 3.1.x–3.3.x carry published XSS advisories that affect the default `sanitize(string)` call. Re-check the advisories before bumping either pin:
 
 ```html
 <script src="${pageContext.request.contextPath}/js/security.js"></script>   <%-- escapeHtml(), renderMarkdown() --%>
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"
         integrity="sha384-/TQbtLCAerC3jgaim+N78RZSDYV7ryeoBCVqTuzRrFec2akfBkHS7ACQ3PQhvMVi" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"
-        integrity="sha384-+VfUPEb0PdtChMwmBcBmykRMDd+v6D/oFmB3rZM/puCMDYcIvF968OimRh4KQY9a" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.5.0/dist/purify.min.js"
+        integrity="sha384-DOUwTXbuiiQxlONuue5N42674XXDfjIJ/LTPtJMZ2ZV1Ir4NRQ3OnM/yM505YQAc" crossorigin="anonymous"></script>
 ```
 
 `renderMarkdown(text)` (in `security.js`) returns `DOMPurify.sanitize(marked.parse(text))`, and falls back to escaped plain text if either library failed to load. Never call `marked` on its own.

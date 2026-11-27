@@ -29,8 +29,8 @@
      */
     function renderMarkdown(text) {
         var src = text === null || text === undefined ? '' : String(text);
-        if (global.marked && global.DOMPurify) {
-            var parse = typeof global.marked.parse === 'function' ? global.marked.parse : global.marked;
+        var parse = global.marked && (typeof global.marked.parse === 'function' ? global.marked.parse : global.marked);
+        if (typeof parse === 'function' && global.DOMPurify && typeof global.DOMPurify.sanitize === 'function') {
             return global.DOMPurify.sanitize(parse.call(global.marked, src));
         }
         return escapeHtml(src).replace(/\n/g, '<br>');

@@ -54,7 +54,7 @@ src/java/
                           Validation (whitelists, ranged numbers), DBUtils, PasswordUtil, CookieUtil, EmailUtil, GeminiService,
                           LinkUtil, SubscriptionScheduler
 web/
-  js/security.js          escapeHtml + renderMarkdown (DOMPurify) for every page that builds HTML in the browser (T3.1); public in AccessRules
+  js/security.js          escapeHtml + renderMarkdown (DOMPurify) for pages that build HTML in the browser; loaded by pages as T3.1b-d convert them (none yet after T3.1a); public in AccessRules
   *.jsp                   30 pages (no WEB-INF protection: all directly reachable)
   WEB-INF/web.xml         maps SystemConfigController, declares the filter order (SessionSyncFilter, AuthFilter), session timeout 30 min
   WEB-INF/jspf/admin_error_banner.jspf   shared error banner included by admin_manageUser / admin_manageTrans / admin_report_config
