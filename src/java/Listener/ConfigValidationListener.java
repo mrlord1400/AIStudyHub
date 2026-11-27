@@ -24,7 +24,6 @@ public class ConfigValidationListener implements ServletContextListener {
     private static final String[] ALWAYS_REQUIRED = {
         "DB_URL", "DB_USER", "DB_PASSWORD",
         "SMTP_USER", "SMTP_PASSWORD",
-        "REMEMBER_ME_SECRET",
         "STORAGE_DIR"
     };
 

@@ -8,7 +8,9 @@ import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.*;
 import Utils.PasswordUtil;
-import Utils.CookieUtil;
+import Utils.Access;
+import Model.Service.RememberMeService;
+import Utils.Csrf;
 
 @WebServlet(name = "AuthController", urlPatterns = {"/AuthController"})
 public class AuthController extends HttpServlet {
@@ -22,6 +24,14 @@ public class AuthController extends HttpServlet {
         response.sendRedirect("login.jsp");
     }
 
+    private static String urlEncode(String value) {
+        try {
+            return java.net.URLEncoder.encode(value == null ? "" : value, "UTF-8");
+        } catch (java.io.UnsupportedEncodingException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     private void handleLogout(HttpServletRequest request, HttpServletResponse response) throws IOException {
         HttpSession session = request.getSession(false);
 
@@ -29,11 +39,8 @@ public class AuthController extends HttpServlet {
             session.invalidate();
         }
 
-        // Xóa Cookie "remember_token" khi người dùng chủ động đăng xuất
-        Cookie cookie = new Cookie("remember_token", "");
-        cookie.setMaxAge(0);
-        cookie.setPath("/"); // Đảm bảo xóa đúng cookie trên toàn bộ project
-        response.addCookie(cookie);
+        // Hủy token ghi nhớ trong DB và xóa cookie khi người dùng chủ động đăng xuất
+        RememberMeService.forget(request, response);
 
         response.sendRedirect("login.jsp");
     }
@@ -157,34 +164,29 @@ public class AuthController extends HttpServlet {
 
         User user = dao.getUserByEmail(email);
 
+        // Chặn tài khoản BANNED trước khi kiểm tra mật khẩu: trả lời không phụ thuộc mật khẩu đúng hay sai,
+        // nên không dùng được để dò mật khẩu của tài khoản bị khóa (F-09).
+        if (user != null && "BANNED".equalsIgnoreCase(user.getStatus())) {
+            response.sendRedirect(
+                    request.getContextPath()
+                            + "/login.jsp?error=banned");
+            return;
+        }
+
         if(user != null &&
                 PasswordUtil.verifyPassword(
                         password,
                         user.getPasswordHash())){
 
-            // Chặn tài khoản BANNED
-            if ("BANNED".equalsIgnoreCase(user.getStatus())) {
-                response.sendRedirect(
-                        request.getContextPath()
-                                + "/login.jsp?error=banned");
-                return;
-            }
-
             HttpSession session = request.getSession();
+            // Chống session fixation: đổi id phiên khi quyền thay đổi, và bỏ token CSRF của phiên trước đăng nhập.
+            request.changeSessionId();
+            Csrf.rotate(session);
 
-            session.setAttribute("userId", user.getUserId());
-            session.setAttribute("username", user.getUsername());
-            session.setAttribute("role", user.getRole());
-            session.setAttribute("tierId", user.getTierId());
-            session.setAttribute("balance", user.getBalance());
+            Access.signIn(session, user);
 
             if ("true".equals(remember)) {
-                String token = CookieUtil.buildRememberToken(user.getEmail());
-                Cookie c = new Cookie("remember_token", token);
-                c.setMaxAge((int) CookieUtil.getRememberDurationSeconds());
-                c.setPath("/");
-                c.setHttpOnly(true); 
-                response.addCookie(c);
+                RememberMeService.issue(request, response, user.getUserId());
             }
 
             if ("ADMIN".equalsIgnoreCase(user.getRole())) {            
@@ -232,7 +234,7 @@ public class AuthController extends HttpServlet {
         if (email == null || newPassword == null || newPassword.trim().isEmpty()) {
             response.sendRedirect(
                     request.getContextPath()
-                            + "/reset_password.jsp?email=" + email);
+                            + "/reset_password.jsp?email=" + urlEncode(email));
             return;
         }
         
@@ -240,7 +242,7 @@ public class AuthController extends HttpServlet {
         if (!isValidPassword(newPassword)) {
             response.sendRedirect(
                     request.getContextPath()
-                            + "/reset_password.jsp?email=" + email + "&error=weak_password");
+                            + "/reset_password.jsp?email=" + urlEncode(email) + "&error=weak_password");
             return;
         }
 
@@ -251,6 +253,9 @@ public class AuthController extends HttpServlet {
         boolean success = dao.updatePassword(email, newPasswordHash);
 
         session.removeAttribute("ALLOW_RESET_" + email);
+        // Quyền đặt lại đã dùng xong: đổi id phiên và token CSRF.
+        request.changeSessionId();
+        Csrf.rotate(session);
 
         if (success) {
 

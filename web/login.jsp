@@ -1,41 +1,9 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-<%@ page import="Model.DAO.UserDAO" %>
-<%@ page import="Model.DTO.User" %>
-<%@ page import="Utils.CookieUtil" %>
 <%
-    // ==============================================================
-    // LOGIC ĐỌC COOKIE: Tự động đăng nhập nếu có "remember_token"
-    // ==============================================================
+    // Đăng nhập tự động bằng cookie "remember_token" do Filter.RememberMeFilter xử lý (T3.4).
+    // Ở đây chỉ cần: đã đăng nhập thì chuyển thẳng vào trang chủ.
     HttpSession userSession = request.getSession(false);
-    if (userSession == null || userSession.getAttribute("userId") == null) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if ("remember_token".equals(cookie.getName())) {
-                    String token = cookie.getValue();
-                    // Giải mã và kiểm tra token
-                    String userEmail = CookieUtil.verifyRememberToken(token);
-                    if (userEmail != null) {
-                        UserDAO dao = new UserDAO();
-                        User u = dao.getUserByEmail(userEmail);
-                        if (u != null) {
-                            // Tạo lại Session
-                            HttpSession newSession = request.getSession(true);
-                            newSession.setAttribute("userId", u.getUserId());
-                            newSession.setAttribute("username", u.getUsername());
-                            newSession.setAttribute("role", u.getRole());
-                            newSession.setAttribute("tierId", u.getTierId());
-                            newSession.setAttribute("balance", u.getBalance());
-
-                            // Redirect thẳng vào trang chủ
-                            response.sendRedirect(request.getContextPath() + "/MainController?action=explore");
-                            return;
-                        }
-                    }
-                }
-            }
-        }
-    } else {
+    if (userSession != null && userSession.getAttribute("userId") != null) {
         response.sendRedirect(request.getContextPath() + "/MainController?action=explore");
         return;
     }

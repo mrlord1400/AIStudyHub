@@ -51,7 +51,7 @@ echo "== compiling the checks"
 find "$HERE" -maxdepth 1 -name '*.java' | while read -r f; do win "$f"; done > "$WORK/tsrcs.txt"
 javac -encoding UTF-8 -nowarn -cp "$(win "$WORK/out")$SEP$TCP$CP" -d "$(win "$WORK/tests")" "@$(win "$WORK/tsrcs.txt")" 2>&1 | grep -v '^Note:' || true
 
-TESTS="${*:-FilterHarness T12Test T13Test T14Test T15Test T17Test T18Test T2Test T31Test T32Test}"
+TESTS="${*:-FilterHarness T12Test T13Test T14Test T15Test T17Test T18Test T2Test T31Test T32Test T33Test T34Test}"
 failed=0
 for t in $TESTS; do
   echo "== $t"

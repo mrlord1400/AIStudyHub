@@ -146,7 +146,12 @@ public class UserDAO {
             // Set the WHERE condition
             ps.setInt(7, user.getUserId());
 
-            return ps.executeUpdate() > 0;
+            boolean updated = ps.executeUpdate() > 0;
+            // Khóa/cấm: mọi thiết bị đã "ghi nhớ đăng nhập" mất hiệu lực (T3.4).
+            if (updated && user.getStatus() != null && !"ACTIVE".equalsIgnoreCase(user.getStatus())) {
+                new RememberTokenDAO().deleteAllForUser(user.getUserId());
+            }
+            return updated;
 
         } catch (SQLException e) {
 
@@ -180,7 +185,12 @@ public class UserDAO {
             ps.setString(1, newPasswordHash);
             ps.setString(2, email);
 
-            return ps.executeUpdate() > 0;
+            boolean updated = ps.executeUpdate() > 0;
+            // Đổi/đặt lại mật khẩu: token ghi nhớ ở mọi thiết bị khác mất hiệu lực (T3.4).
+            if (updated) {
+                new RememberTokenDAO().deleteAllForEmail(email);
+            }
+            return updated;
 
         } catch (SQLException e) {
             System.out.println("[UserDAO.updatePassword] " + e.getMessage());
