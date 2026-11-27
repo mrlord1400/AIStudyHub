@@ -966,9 +966,9 @@
                 .then(data => {
                     // Ánh xạ ngầm ID thật vào DOM để sẵn sàng cho lần Edit tiếp theo
                     if (msgIdFromServer) {
-                        const tempContainer = document.getElementById(`msg-container-${tempMsgId}`);
+                        const tempContainer = document.getElementById(`msg-container-\${tempMsgId}`);
                         if (tempContainer) {
-                            tempContainer.id = `msg-container-${msgIdFromServer}`;
+                            tempContainer.id = `msg-container-\${msgIdFromServer}`;
                             tempContainer.setAttribute('data-msg-id', msgIdFromServer);
                         }
                     }

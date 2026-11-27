@@ -1,6 +1,6 @@
 # Remediation Status
 
-**Last updated:** 2026-11-27 — Phase 2 merged to `revamp/d_dev` (PR #132; the runtime checks and the T2.2 migration are still the user's). **Phase 3 (T3.1a-d, T3.2-T3.5) implemented** on `revamp/fix/f_t3_1a_escape_admin_pages`, checked offline (484 checks, `docs/remediation/verify/offline/run.sh`; since Phase 3 the harness also runs the real `web.xml`, filters and JSPs on embedded Tomcat 9), one independent review at the end of the phase. Not run against a real Tomcat + SQL Server or a browser.
+**Last updated:** 2026-11-27 — Phase 2 merged to `revamp/d_dev` (PR #132; the runtime checks and the T2.2 migration are still the user's). **Phase 3 (T3.1a-d, T3.2-T3.5) implemented** on `revamp/fix/f_t3_1a_escape_admin_pages`, checked offline (506 checks, `docs/remediation/verify/offline/run.sh`; since Phase 3 the harness also runs the real `web.xml`, filters and JSPs on embedded Tomcat 9), one independent review at the end of the phase (no blocker; its two should-fix items, a login throttle that parallel requests could bypass and a profile save that revoked remember-me, plus the friendlier CSRF rejection, the tab-race grace for remember-me and several test gaps, were fixed and re-checked). Not run against a real Tomcat + SQL Server or a browser.
 **Current phase:** 3 — Browser security (code done; awaiting the user's migration, runtime checks and PR approval)
 **Next task:** Phase 4 (T4.1 atomic balance changes first); it is independent of what is left of Phase 3.
 
@@ -28,7 +28,7 @@ Every critical finding is still open. The worst, in order:
 2. ~~Every deployment has `admin@gmail.com` / `123` (F-02).~~ Closed with Phase 0 (no seeding by default; cleaning existing databases was the user's T0.3 step 4, covered by the Phase 0 approval).
 3. ~~Uploading a `.jsp` gives remote code execution, and private files are downloadable by URL (F-05).~~ Closed in code by T2.1-T2.3 (files outside the web root, allow-list + content check, `/uploads/**` = 404). Needs the checks on a real instance **and the T2.2 migration run**, otherwise old documents answer 404.
 4. ~~Any user can edit or delete any document, or read any chat (F-03, F-06).~~ Closed in code by T1.2-T1.4 (F-04 FRIENDS_ONLY and F-10 friendship too). The "any logged-in user can read any file by URL" gap is closed by T2.1.
-5. Stored XSS (F-07) and the session/CSRF/brute-force gaps (F-09): closed in code by T3.1-T3.5; need the click-through on a real instance. Secrets are no longer in the source tree (F-08); they remain in git history, which is acceptable once rotated (D-05, T0.1 closed). Secrets are no longer in the source tree (F-08); they remain in git history, which is acceptable once rotated (D-05, T0.1 closed).
+5. Stored XSS (F-07) and the session/CSRF/brute-force gaps (F-09): closed in code by T3.1-T3.5; need the click-through on a real instance. Secrets are no longer in the source tree (F-08); they remain in git history, which is acceptable once rotated (D-05, T0.1 closed).
 
 ## In progress
 

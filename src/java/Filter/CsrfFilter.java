@@ -1,5 +1,6 @@
 package Filter;
 
+import Utils.Access;
 import Utils.AccessRules;
 import Utils.Csrf;
 import com.google.gson.Gson;
@@ -101,7 +102,30 @@ public class CsrfFilter implements Filter {
             response.getWriter().write(gson.toJson(body));
             return;
         }
+        // Trang HTML thường: phiên hết hạn (chưa đăng nhập) thì về trang đăng nhập; đang đăng nhập mà token cũ
+        // (trang mở từ trước, hoặc phiên vừa được tạo lại bởi "ghi nhớ đăng nhập") thì quay lại chính trang đó để có token mới.
+        if (Access.currentUserId(request) == null) {
+            response.sendRedirect(request.getContextPath() + "/login.jsp?error=session_expired");
+            return;
+        }
+        String back = sameOriginReferer(request);
+        if (back != null) {
+            response.sendRedirect(back);
+            return;
+        }
         response.sendError(HttpServletResponse.SC_FORBIDDEN, MSG_INVALID);
+    }
+
+    /** Referer chỉ được dùng nếu cùng origin với request (không bao giờ chuyển hướng ra trang khác). */
+    private static String sameOriginReferer(HttpServletRequest request) {
+        String referer = request.getHeader("Referer");
+        if (referer == null || referer.isEmpty()) {
+            return null;
+        }
+        String origin = request.getScheme() + "://" + request.getServerName()
+                + ((request.getServerPort() == 80 || request.getServerPort() == 443) ? "" : ":" + request.getServerPort());
+        String ctx = request.getContextPath();
+        return (referer.startsWith(origin + ctx + "/") || referer.equals(origin + ctx)) ? referer : null;
     }
 
     @Override

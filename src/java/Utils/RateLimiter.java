@@ -76,6 +76,17 @@ public final class RateLimiter {
         return Math.max(0, e.windowStart + windowMs - clock.getAsLong());
     }
 
+    /** Gỡ một lượt đã đếm (ví dụ đăng nhập thành công không được tính vào hạn mức theo IP). */
+    public synchronized void release(String key) {
+        Entry e = live(key);
+        if (e != null && e.count > 0) {
+            e.count--;
+            if (e.count == 0) {
+                entries.remove(key);
+            }
+        }
+    }
+
     public synchronized void clear(String key) {
         entries.remove(key);
     }

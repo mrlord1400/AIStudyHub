@@ -23,11 +23,13 @@ public class RememberTokenDAO {
         public final int userId;
         public final String validatorHash;
         public final Timestamp expiresAt;
+        public final Timestamp lastUsedAt;
 
-        Row(int userId, String validatorHash, Timestamp expiresAt) {
+        Row(int userId, String validatorHash, Timestamp expiresAt, Timestamp lastUsedAt) {
             this.userId = userId;
             this.validatorHash = validatorHash;
             this.expiresAt = expiresAt;
+            this.lastUsedAt = lastUsedAt;
         }
     }
 
@@ -47,12 +49,12 @@ public class RememberTokenDAO {
 
     /** @return null nếu không có selector này. */
     public Row find(String selector) {
-        String sql = "SELECT user_id, validator_hash, expires_at FROM remember_tokens WHERE selector = ?";
+        String sql = "SELECT user_id, validator_hash, expires_at, last_used_at FROM remember_tokens WHERE selector = ?";
         try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, selector);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return new Row(rs.getInt("user_id"), rs.getString("validator_hash").trim(), rs.getTimestamp("expires_at"));
+                    return new Row(rs.getInt("user_id"), rs.getString("validator_hash").trim(), rs.getTimestamp("expires_at"), rs.getTimestamp("last_used_at"));
                 }
             }
         } catch (SQLException e) {
@@ -67,13 +69,14 @@ public class RememberTokenDAO {
      * @return true nếu đúng một dòng được cập nhật
      */
     public boolean rotate(String selector, String oldHash, String newHash, Timestamp newExpiresAt) {
-        String sql = "UPDATE remember_tokens SET validator_hash = ?, expires_at = ?, last_used_at = CURRENT_TIMESTAMP "
+        String sql = "UPDATE remember_tokens SET validator_hash = ?, expires_at = ?, last_used_at = ? "
                 + "WHERE selector = ? AND validator_hash = ?";
         try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, newHash);
             ps.setTimestamp(2, newExpiresAt);
-            ps.setString(3, selector);
-            ps.setString(4, oldHash);
+            ps.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
+            ps.setString(4, selector);
+            ps.setString(5, oldHash);
             return ps.executeUpdate() == 1;
         } catch (SQLException e) {
             LOG.log(Level.SEVERE, "remember token rotate failed", e);
@@ -102,8 +105,10 @@ public class RememberTokenDAO {
     }
 
     public void deleteExpired() {
-        String sql = "DELETE FROM remember_tokens WHERE expires_at < CURRENT_TIMESTAMP";
+        // Giờ lấy từ JVM (cùng nguồn với lúc ghi expires_at), không dùng CURRENT_TIMESTAMP của DB phòng lệch múi giờ.
+        String sql = "DELETE FROM remember_tokens WHERE expires_at < ?";
         try (Connection conn = DBUtils.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
             ps.executeUpdate();
         } catch (SQLException e) {
             LOG.log(Level.WARNING, "remember token expiry cleanup failed", e);

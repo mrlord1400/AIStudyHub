@@ -30,7 +30,7 @@ import javax.servlet.http.HttpSession;
  * - OTP sinh bằng SecureRandom, đủ 000000..999999.
  * - Gửi OTP bị giới hạn theo (IP, email), theo email (trần cộng gộp) và theo IP; cùng một phản hồi dù email có tồn tại hay không.
  * - Số lần nhập sai được đếm cho TỪNG mã đã phát hành, lưu trong session của người yêu cầu: sai quá OTP_MAX_ATTEMPTS lần thì mã
- *   bị hủy và phải xin mã mới. Không còn khóa theo email, nên người khác không khóa được việc đặt lại mật khẩu của bạn.
+ *   bị hủy và phải xin mã mới. Không còn khóa theo email, nên một phiên khác không khóa được mã của bạn (trần theo email chỉ là giới hạn cộng gộp chống dội mail).
  * - Xác minh thành công đổi id phiên và token CSRF (quyền đặt lại là một thay đổi đặc quyền).
  *
  * Các phản hồi giữ nguyên dạng JSON cũ {status, message, locked?} với HTTP 200 vì forgot_password.jsp đọc thế; T5.5 sẽ đổi sang mã trạng thái thật.

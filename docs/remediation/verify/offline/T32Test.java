@@ -55,9 +55,9 @@ public class T32Test {
             check("/js/csrf.js is public (anonymous 200, javascript)", js.status == 200 && js.body.contains("X-CSRF-Token"), d(js));
 
             r = Web.post("/AuthController", "action=login&email=alice%40x.com&password=" + Web.enc("Passw0rd!"));
-            check("login POST without token -> 403", r.status == 403, d(r));
+            check("login POST without token is not executed (session expired -> back to the login page)", r.status == 302 && r.location != null && r.location.contains("error=session_expired"), d(r));
             r = Web.post("/AuthController", "action=login&_csrf=wrong-token&email=alice%40x.com&password=" + Web.enc("Passw0rd!"));
-            check("login POST with a wrong token -> 403", r.status == 403, d(r));
+            check("login POST with a wrong token is not executed either", r.status == 302 && r.location != null && r.location.contains("error=session_expired"), d(r));
             r = Web.post("/AuthController", "action=login&_csrf=" + Web.enc(loginToken) + "&email=alice%40x.com&password=" + Web.enc("Passw0rd!"));
             check("login POST with the token -> redirect to the dashboard", r.status == 302 && r.location != null && r.location.endsWith("/user_dashboard.jsp"), d(r));
 
@@ -76,6 +76,16 @@ public class T32Test {
             h.put("X-CSRF-Token", token);
             r = Web.post("/DocumentController", "action=deleteDoc&docId=" + doc2, h);
             check("deleteDoc POST with the token (header) -> works", r.status == 302 && Db.count("SELECT COUNT(*) FROM documents WHERE document_id = ?", doc2) == 0, d(r));
+
+            // a stale page of a signed-in user: same-origin Referer -> sent back to that page, a foreign Referer -> 403
+            long docsBefore = Db.count("SELECT COUNT(*) FROM documents");
+            Web.Raw stale = Web.raw("POST", "/DocumentController", "action=deleteDoc&docId=" + doc2 + "&_csrf=stale", Web.cookieHeader());
+            check("stale-token POST of a signed-in user without Referer -> 403", stale.status == 403, stale.status + "");
+            Web.Raw back = Web.rawWithHeaders("POST", "/DocumentController", "action=deleteDoc&docId=" + doc2 + "&_csrf=stale", Web.cookieHeader(), "Referer: http://localhost:" + Web.port() + "/AIStudyHub/FolderController?action=viewFolder");
+            check("stale-token POST with a same-origin Referer -> sent back to that page, nothing changed",
+                    back.status == 302 && back.location != null && back.location.contains("/AIStudyHub/FolderController?action=viewFolder") && Db.count("SELECT COUNT(*) FROM documents") == docsBefore, back.status + " " + back.location);
+            Web.Raw foreign = Web.rawWithHeaders("POST", "/DocumentController", "action=deleteDoc&docId=" + doc2 + "&_csrf=stale", Web.cookieHeader(), "Referer: http://evil.example/AIStudyHub/x");
+            check("stale-token POST with a foreign Referer -> 403 (never redirected off-site)", foreign.status == 403, foreign.status + " " + foreign.location);
 
             // a token from another session is worthless
             Web.forgetCookies();
@@ -101,6 +111,38 @@ public class T32Test {
             check("GET deleteSession -> 405, session kept", r.status == 405 && Db.count("SELECT COUNT(*) FROM chat_sessions WHERE session_id = ?", sess) == 1, d(r));
             r = Web.get("/FriendController?action=deleteFriendship&targetUserId=9999&returnPath=friendList");
             check("GET deleteFriendship -> 405", r.status == 405, d(r));
+            // every action on the list refuses GET, whichever controller it is sent to
+            StringBuilder not405 = new StringBuilder();
+            for (String act : Utils.Csrf.mutatingActions()) {
+                Web.Raw g = Web.raw("GET", "/MainController?action=" + act, null, Web.cookieHeader());
+                if (g.status != 405) {
+                    not405.append(act).append('=').append(g.status).append(' ');
+                }
+            }
+            check("every action in MUTATING_ACTIONS answers GET with 405 (" + Utils.Csrf.mutatingActions().size() + " actions)", not405.length() == 0, not405.toString());
+
+            // and every write action the controllers implement is on that list: scan the sources
+            java.util.Set<String> readOnly = new java.util.HashSet<>(java.util.Arrays.asList(
+                    "explore", "editDoc", "viewPage", "viewPublicPage", "viewDoc", "downloadDoc", "listUsers", "listDashboard", "listTransactions",
+                    "profile", "listPublicDocs", "adminViewDoc", "viewFolder", "editFolder", "friendList", "pendingList", "blockedList", "findUserByEmail",
+                    "adminReportList", "reportConfigList", "report", "chatMain", "viewSession", "findSessionByName", "adminListTransactions", "guest", "wallet",
+                    "student", "free", "premium", "admin", "pdf", "docx", "xlsx", "pptx", "txt", "md", "adminUpdateUser"));
+            java.io.File ctl = new java.io.File(System.getProperty("AISH_WEBROOT")).getParentFile();
+            java.io.File[] ctrls = new java.io.File(ctl, "src/java/Controller").listFiles((dd, n) -> n.endsWith(".java"));
+            java.util.regex.Pattern lit = java.util.regex.Pattern.compile("\"([A-Za-z]+)\"\\.equals\\((?:action|a)\\)|case \"([A-Za-z]+)\":");
+            java.util.TreeSet<String> unlisted = new java.util.TreeSet<>();
+            for (java.io.File cf : ctrls) {
+                String src = new String(java.nio.file.Files.readAllBytes(cf.toPath()), StandardCharsets.UTF_8);
+                java.util.regex.Matcher lm = lit.matcher(src);
+                while (lm.find()) {
+                    String name = lm.group(1) != null ? lm.group(1) : lm.group(2);
+                    if (!readOnly.contains(name) && !Utils.Csrf.isMutatingAction(name)) {
+                        unlisted.add(cf.getName() + ":" + name);
+                    }
+                }
+            }
+            check("every action name found in the controllers is either read-only or on the mutating list", unlisted.isEmpty(), unlisted.toString());
+
             r = Web.get("/FolderController?action=viewFolder");
             check("GET of a read-only action still works", r.status == 200, d(r));
             r = Web.get("/DocumentController?action=explore");

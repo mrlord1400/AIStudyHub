@@ -136,13 +136,21 @@ public class Web {
 
     /** One request without the cookie jar. @param cookie the Cookie header value, or null; @param body form body for POST, or null */
     public static Raw raw(String method, String path, String body, String cookie) throws Exception {
+        return rawInternal(method, path, body, cookie, null);
+    }
+
+    private static Raw rawInternal(String method, String path, String body, String cookie, String extraHeaderLine) throws Exception {
         try (java.net.Socket sock = new java.net.Socket("localhost", port)) {
+            sock.setSoTimeout(30000);
             String crlf = "\r\n";
             StringBuilder req = new StringBuilder();
             req.append(method).append(' ').append(CONTEXT).append(path).append(" HTTP/1.0").append(crlf);
-            req.append("Host: localhost").append(crlf);
+            req.append("Host: localhost:").append(port).append(crlf);
             if (cookie != null) {
                 req.append("Cookie: ").append(cookie).append(crlf);
+            }
+            if (extraHeaderLine != null) {
+                req.append(extraHeaderLine).append(crlf);
             }
             byte[] bytes = body == null ? new byte[0] : body.getBytes(StandardCharsets.UTF_8);
             if (body != null) {
@@ -178,6 +186,27 @@ public class Web {
         }
     }
 
+    public static int port() {
+        return port;
+    }
+
+    /** The Cookie header value that matches what the jar would send for the app (name=value pairs). */
+    public static String cookieHeader() {
+        StringBuilder sb = new StringBuilder();
+        for (HttpCookie c : COOKIES.getCookieStore().getCookies()) {
+            if (sb.length() > 0) {
+                sb.append("; ");
+            }
+            sb.append(c.getName()).append('=').append(c.getValue());
+        }
+        return sb.toString();
+    }
+
+    /** Like raw(), with one extra request header line ("Name: value"). */
+    public static Raw rawWithHeaders(String method, String path, String body, String cookie, String extraHeaderLine) throws Exception {
+        return rawInternal(method, path, body, cookie, extraHeaderLine);
+    }
+
     public static void forgetCookies() {
         COOKIES.getCookieStore().removeAll();
     }
@@ -209,6 +238,8 @@ public class Web {
 
     private static Resp send(String method, String path, String form, Object[] raw, java.util.Map<String, String> headers) throws Exception {
         HttpURLConnection c = (HttpURLConnection) new URL("http://localhost:" + port + CONTEXT + path).openConnection();
+        c.setConnectTimeout(30000);
+        c.setReadTimeout(30000);
         c.setInstanceFollowRedirects(false);
         c.setRequestMethod(method);
         if (headers != null) {

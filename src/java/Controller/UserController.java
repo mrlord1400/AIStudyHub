@@ -89,7 +89,10 @@ public class UserController extends HttpServlet {
                 existingUser.setUsername(username);
                 existingUser.setEmail(email);
 
-                boolean success = dao.updateUser(existingUser) && dao.updatePassword(existingUser.getEmail(), finalPasswordHash);
+                boolean passwordChanged = newPassword != null && !newPassword.trim().isEmpty();
+                // updatePassword thu hồi mọi token "ghi nhớ đăng nhập": chỉ gọi khi thật sự đổi mật khẩu.
+                boolean success = dao.updateUser(existingUser)
+                        && (!passwordChanged || dao.updatePassword(existingUser.getEmail(), finalPasswordHash));
                 if (success) {
                     // Sync the new username to the active HTTP session
                     session.setAttribute("username", username);

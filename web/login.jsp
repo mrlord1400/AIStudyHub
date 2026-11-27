@@ -65,6 +65,8 @@
                     <div class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-sm text-center rounded-lg border border-red-100 dark:border-red-900/50">Sai email hoặc mật khẩu. Vui lòng thử lại!</div>
                     <% } else if ("too_many_attempts".equals(error)) { %>
                     <div class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-sm text-center rounded-lg border border-red-100 dark:border-red-900/50">Bạn đã thử đăng nhập sai quá nhiều lần. Vui lòng đợi một phút rồi thử lại.</div>
+                    <% } else if ("session_expired".equals(error)) { %>
+                    <div class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-sm text-center rounded-lg border border-red-100 dark:border-red-900/50">Phiên làm việc đã hết hạn. Vui lòng thử lại.</div>
                     <% } else if ("register_failed".equals(error)) { %>
                     <div class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-sm text-center rounded-lg border border-red-100 dark:border-red-900/50">Đăng ký thất bại. Email có thể đã tồn tại!</div>
                     <% } else if ("weak_password".equals(error)) { %>

@@ -132,6 +132,49 @@ public class T35Test {
             }
             check("login: after the success four more failures are still allowed", !b2b.login("alice@x.com", PASSWORD).location.contains("too_many"), "");
 
+            // ----- the throttle holds under parallel requests (the count happens before the password check) -----
+            resetLimits();
+            final int[] invalid = {0};
+            final int[] throttledCount = {0};
+            java.util.List<Thread> threads = new java.util.ArrayList<>();
+            for (int i = 0; i < 12; i++) {
+                final Browser bp = new Browser();
+                Thread t = new Thread(() -> {
+                    try {
+                        for (int k = 0; k < 4; k++) {
+                            Web.Raw r = bp.login("alice@x.com", "wrong-parallel");
+                            synchronized (invalid) {
+                                if (r.location != null && r.location.contains("error=invalid_credentials")) {
+                                    invalid[0]++;
+                                } else if (r.location != null && r.location.contains("too_many_attempts")) {
+                                    throttledCount[0]++;
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                });
+                threads.add(t);
+            }
+            for (Thread t : threads) {
+                t.start();
+            }
+            for (Thread t : threads) {
+                t.join();
+            }
+            check("login: 48 parallel wrong passwords for one (IP, email) -> at most 5 are actually checked", invalid[0] <= 5 && invalid[0] + throttledCount[0] == 48, "checked=" + invalid[0] + " throttled=" + throttledCount[0]);
+
+            // successful logins must not eat the per-IP allowance
+            resetLimits();
+            boolean allOk = true;
+            for (int i = 0; i < 25; i++) {
+                Browser bs = new Browser();
+                Web.Raw r = bs.login("bob@x.com", PASSWORD);
+                allOk &= r.location != null && r.location.endsWith("/user_dashboard.jsp");
+            }
+            check("login: 25 successful logins from one IP in a minute are not throttled (limit is on failures)", allOk, "");
+
             // ----- per-IP login limit (many different accounts) -----
             resetLimits();
             System.setProperty("LOGIN_MAX_FAILURES_PER_IP", "20");
@@ -205,11 +248,39 @@ public class T35Test {
 
             // the same email from "another IP" is not possible on loopback; the per-email aggregate is checked on the limiter
             resetLimits();
-            Utils.RateLimiter emailHour = new Utils.RateLimiter(10, 3600000L, 100);
+            Object emailHour = Web.invokeInApp("Utils.AuthLimits", "otpEmailHour", new Class<?>[0]);
+            java.lang.reflect.Method hit = emailHour.getClass().getMethod("hit", String.class);
             for (int i = 0; i < 10; i++) {
-                emailHour.hit("target@x.com");
+                hit.invoke(emailHour, "alice@x.com");
             }
-            check("otp: the per-email aggregate cap (10/hour) exists", emailHour.isBlocked("target@x.com"), "");
+            SENT.clear();
+            Browser agg = new Browser();
+            Web.Raw aggR = agg.otp("sendOTP", "Alice@X.com ", null);
+            check("otp: the per-email aggregate cap (10/hour, all IPs together) stops a new send for that email", has(aggR, "\"throttled\":true") && SENT.isEmpty(), aggR.body);
+
+            // ----- the whole reset flow, end to end -----
+            resetLimits();
+            SENT.clear();
+            Browser rf = new Browser();
+            rf.otp("sendOTP", "bob@x.com", null);
+            String rcode = SENT.get(0).substring(SENT.get(0).indexOf('|') + 1);
+            String sidBeforeReset = rf.sid;
+            Web.Raw okOtp = rf.otp("verifyOTP", "bob@x.com", rcode);
+            check("reset flow: the right code is accepted and the session id changes", has(okOtp, "\"status\":\"success\"") && !rf.sid.equals(sidBeforeReset), okOtp.body);
+            rf.refresh("/reset_password.jsp?email=" + Web.enc("bob@x.com"));
+            Web.Raw page = Web.raw("GET", "/reset_password.jsp?email=" + Web.enc("bob@x.com"), null, "JSESSIONID=" + rf.sid);
+            check("reset flow: the reset page opens for that session and carries a fresh token", page.status == 200 && page.body.contains("csrf-token"), page.status + " " + page.location);
+            Web.Raw weak = rf.post("/MainController", "action=processResetPassword&email=" + Web.enc("bob@x.com") + "&newPassword=weak");
+            check("reset flow: a weak password is refused and sent back", weak.status == 302 && weak.location.contains("error=weak_password"), weak.location);
+            Web.Raw done = rf.post("/MainController", "action=processResetPassword&email=" + Web.enc("bob@x.com") + "&newPassword=" + Web.enc("N3w!Passw0rd"));
+            check("reset flow: the new password is saved", done.status == 302 && done.location.contains("reset=success"), done.status + " " + done.location);
+            Browser relog = new Browser();
+            Web.Raw oldPw = relog.login("bob@x.com", PASSWORD);
+            Web.Raw newPw = relog.login("bob@x.com", "N3w!Passw0rd");
+            check("reset flow: the old password stops working and the new one logs in", oldPw.location.contains("invalid_credentials") && newPw.location.endsWith("/user_dashboard.jsp"), oldPw.location + " | " + newPw.location);
+            rf.refresh("/login.jsp");
+            Web.Raw replayReset = rf.post("/MainController", "action=processResetPassword&email=" + Web.enc("bob@x.com") + "&newPassword=" + Web.enc("An0ther!Pass"));
+            check("reset flow: the permission is single-use", replayReset.location != null && replayReset.location.contains("error=unauthorized"), String.valueOf(replayReset.location));
 
             // the OTP generator reaches all six digits and is not java.util.Random
             check("otp: generator source is SecureRandom", new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(System.getProperty("AISH_WEBROOT")).resolveSibling("src/java/Controller/ForgotPasswordController.java")), "UTF-8").contains("SecureRandom")

@@ -168,7 +168,15 @@ public class AuthController extends HttpServlet {
         // Giới hạn đăng nhập sai (T3.5): theo cặp (IP, email) và theo IP. Bị chặn thì không kiểm tra mật khẩu nữa.
         String ip = AuthLimits.clientIp(request);
         String pairKey = ip + "|" + AuthLimits.emailKey(email);
-        if (AuthLimits.loginPair().isBlocked(pairKey) || AuthLimits.loginIp().isBlocked(ip)) {
+        // Đếm lượt TRƯỚC khi kiểm tra mật khẩu (nguyên tử): nếu đếm sau, 40 request song song đều qua được cổng kiểm tra.
+        // Đăng nhập thành công thì trả lại lượt (xem bên dưới), chỉ lần sai mới bị tính.
+        if (!AuthLimits.loginPair().tryAcquire(pairKey)) {
+            LOG.log(Level.WARNING, "login throttled ip={0}", ip);
+            response.sendRedirect(request.getContextPath() + "/login.jsp?error=too_many_attempts");
+            return;
+        }
+        if (!AuthLimits.loginIp().tryAcquire(ip)) {
+            AuthLimits.loginPair().release(pairKey);
             LOG.log(Level.WARNING, "login throttled ip={0}", ip);
             response.sendRedirect(request.getContextPath() + "/login.jsp?error=too_many_attempts");
             return;
@@ -181,8 +189,6 @@ public class AuthController extends HttpServlet {
         // Chặn tài khoản BANNED trước khi kiểm tra mật khẩu: trả lời không phụ thuộc mật khẩu đúng hay sai,
         // nên không dùng được để dò mật khẩu của tài khoản bị khóa (F-09).
         if (user != null && "BANNED".equalsIgnoreCase(user.getStatus())) {
-            AuthLimits.loginPair().hit(pairKey);
-            AuthLimits.loginIp().hit(ip);
             response.sendRedirect(
                     request.getContextPath()
                             + "/login.jsp?error=banned");
@@ -195,6 +201,7 @@ public class AuthController extends HttpServlet {
                         user.getPasswordHash())){
 
             AuthLimits.loginPair().clear(pairKey);
+            AuthLimits.loginIp().release(ip);
 
             HttpSession session = request.getSession();
             // Chống session fixation: đổi id phiên khi quyền thay đổi, và bỏ token CSRF của phiên trước đăng nhập.
@@ -221,8 +228,6 @@ public class AuthController extends HttpServlet {
 
         } else {
 
-            AuthLimits.loginPair().hit(pairKey);
-            AuthLimits.loginIp().hit(ip);
             response.sendRedirect(
                     request.getContextPath()
                             + "/login.jsp?error=invalid_credentials");

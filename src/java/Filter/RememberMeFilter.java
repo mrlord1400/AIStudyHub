@@ -4,6 +4,8 @@ import Model.DTO.User;
 import Model.Service.RememberMeService;
 import Utils.Access;
 import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.FilterConfig;
@@ -20,6 +22,8 @@ import javax.servlet.http.HttpSession;
  * Đứng trước SessionSyncFilter và AuthFilter trong web.xml.
  */
 public class RememberMeFilter implements Filter {
+
+    private static final Logger LOG = Logger.getLogger(RememberMeFilter.class.getName());
 
     @Override
     public void init(FilterConfig filterConfig) {
@@ -40,13 +44,18 @@ public class RememberMeFilter implements Filter {
                 }
             }
             if (hasCookie) {
-                User user = RememberMeService.authenticate(request, response);
-                if (user != null) {
-                    HttpSession old = request.getSession(false);
-                    if (old != null) {
-                        old.invalidate();
+                try {
+                    User user = RememberMeService.authenticate(request, response);
+                    if (user != null) {
+                        HttpSession old = request.getSession(false);
+                        if (old != null) {
+                            old.invalidate();
+                        }
+                        Access.signIn(request.getSession(true), user);
                     }
-                    Access.signIn(request.getSession(true), user);
+                } catch (RuntimeException e) {
+                    // Một lỗi ở đây (ví dụ chưa chạy migration) không được làm hỏng mọi request mang cookie này.
+                    LOG.log(Level.SEVERE, "remember-me sign-in failed; continuing as anonymous", e);
                 }
             }
         }

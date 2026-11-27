@@ -92,8 +92,13 @@ public class T34Test {
             // ---------- replay of an old value ----------
             Web.Raw replay = withRemember(v1);
             check("replaying an old cookie value fails", redirectedToLogin(replay), replay.status + " " + replay.location);
-            check("... and that token is revoked (the stolen/rotated pair dies together)", Db.count("SELECT COUNT(*) FROM remember_tokens WHERE selector = ?", selector) == 0
-                    && redirectedToLogin(withRemember(v4)), "");
+            check("... but within 60 s of the last rotation that is treated as a tab race: the token and the newest cookie survive",
+                    Db.count("SELECT COUNT(*) FROM remember_tokens WHERE selector = ?", selector) == 1 && loggedInPage(withRemember(v4)), "");
+            // a stale cookie presented later is a replay: the whole token is revoked (the stolen/rotated pair dies together)
+            Db.exec("UPDATE remember_tokens SET last_used_at = DATEADD('MINUTE', -5, CURRENT_TIMESTAMP) WHERE selector = ?", selector);
+            check("a stale cookie replayed after the grace period fails and revokes the token",
+                    redirectedToLogin(withRemember(v1)) && Db.count("SELECT COUNT(*) FROM remember_tokens WHERE selector = ?", selector) == 0, "");
+            check("... so the newest cookie of that device is dead too", redirectedToLogin(withRemember(v4)), "");
 
             // ---------- logout ----------
             Web.Raw l2 = login("alice@x.com", true);
@@ -135,6 +140,7 @@ public class T34Test {
 
             String r6 = login("alice@x.com", true).cookie("remember_token");
             String sel6 = r6.substring(0, r6.indexOf('.'));
+            Db.exec("UPDATE remember_tokens SET last_used_at = DATEADD('MINUTE', -5, CURRENT_TIMESTAMP) WHERE selector = ?", sel6);
             check("a right selector with a wrong validator is refused and the token revoked",
                     redirectedToLogin(withRemember(sel6 + ".AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")) && Db.count("SELECT COUNT(*) FROM remember_tokens WHERE selector = ?", sel6) == 0, "");
 
@@ -149,6 +155,26 @@ public class T34Test {
             }
             check("malformed cookies are refused without errors", garbageOk, detail);
             check("users table is intact after the injection attempt", Db.count("SELECT COUNT(*) FROM users") >= 1, "");
+
+            // ---------- a profile save does not log remembered devices out ----------
+            String r7 = login("alice@x.com", true).cookie("remember_token");
+            check("a remembered device is registered before the profile save", Db.count("SELECT COUNT(*) FROM remember_tokens WHERE user_id = ?", alice) >= 1, "");
+            Web.Raw prof = Web.raw("GET", "/FolderController?action=viewFolder", null, "remember_token=" + r7);
+            String sid7 = prof.cookie("JSESSIONID");
+            String r7b = prof.cookie("remember_token");
+            Matcher pm = Pattern.compile("<meta name=\"csrf-token\" content=\"([^\"]*)\"").matcher(prof.body);
+            check("signed in through the cookie", prof.status == 200 && pm.find(), prof.status + "");
+            Web.Raw save = Web.raw("POST", "/UserController", "action=updateProfile&_csrf=" + Web.enc(pm.group(1)) + "&currentPassword=" + Web.enc(PASSWORD) + "&username=alice2&email=alice%40x.com&newPassword=", "JSESSIONID=" + sid7 + "; remember_token=" + r7b);
+            check("updateProfile without a new password keeps the remember-me tokens", save.status == 302 && Db.count("SELECT COUNT(*) FROM remember_tokens WHERE user_id = ?", alice) >= 1
+                    && "alice2".equals(Db.str("SELECT username FROM users WHERE user_id = " + alice)), save.status + " " + save.location);
+
+            // ---------- the table is missing (migration not run yet): passwords still work, remember-me fails closed ----------
+            Db.exec("DROP TABLE remember_tokens");
+            Web.Raw noTable = login("alice@x.com", true);
+            check("without the table: password login still works and no remember cookie is issued",
+                    noTable.status == 302 && noTable.location != null && noTable.location.endsWith("/user_dashboard.jsp") && noTable.cookie("remember_token") == null, noTable.status + " " + noTable.location + " " + noTable.setCookies);
+            Web.Raw junkNoTable = withRemember("abc.def");
+            check("without the table: a request carrying a remember cookie is still served (as anonymous)", redirectedToLogin(junkNoTable), junkNoTable.status + " " + junkNoTable.location);
         } finally {
             Web.stop();
         }

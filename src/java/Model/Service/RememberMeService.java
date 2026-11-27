@@ -30,6 +30,7 @@ public final class RememberMeService {
     private static final Logger LOG = Logger.getLogger(RememberMeService.class.getName());
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final int DEFAULT_DAYS = 30;
+    private static final long RACE_GRACE_MS = 60_000L;
 
     private RememberMeService() {
     }
@@ -85,6 +86,12 @@ public final class RememberMeService {
         }
         boolean match = MessageDigest.isEqual(row.validatorHash.getBytes(StandardCharsets.UTF_8), sha256(parts[1]).getBytes(StandardCharsets.UTF_8));
         if (!match) {
+            // Vừa được đổi validator cách đây ít giây: nhiều khả năng là hai request (hai tab) cùng mang cookie cũ.
+            // Từ chối request này nhưng KHÔNG xóa token và KHÔNG xóa cookie (response của request kia vừa gửi cookie mới).
+            if (row.lastUsedAt != null && System.currentTimeMillis() - row.lastUsedAt.getTime() < RACE_GRACE_MS) {
+                LOG.log(Level.INFO, "remember token: stale cookie within grace period userId={0}", row.userId);
+                return null;
+            }
             // Có selector nhưng sai validator: cookie bị đoán hoặc đã bị dùng ở nơi khác. Hủy token này.
             LOG.log(Level.WARNING, "remember token rejected: validator mismatch userId={0}", row.userId);
             dao.deleteBySelector(selector);

@@ -67,7 +67,7 @@
         var nativeFetch = window.fetch;
         window.fetch = function (input, init) {
             var method = ((init && init.method) || (input && input.method) || 'GET').toUpperCase();
-            var url = typeof input === 'string' ? input : (input && input.url) || '';
+            var url = typeof input === 'string' ? input : (input && (input.url || input.href)) || '';
             if (token && method !== 'GET' && method !== 'HEAD' && sameOrigin(url)) {
                 init = init || {};
                 var headers = new Headers(init.headers || (input && input.headers) || {});
