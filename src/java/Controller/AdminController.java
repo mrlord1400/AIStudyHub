@@ -7,6 +7,7 @@ import Model.DTO.Transaction;
 import Model.DAO.TransactionDAO;
 import Model.DTO.User;
 import Model.DAO.UserDAO;
+import Utils.Access;
 import Utils.PasswordUtil;
 
 import javax.servlet.ServletException;
@@ -23,6 +24,12 @@ public class AdminController extends HttpServlet {
             HttpServletRequest request,
             HttpServletResponse response)
             throws ServletException, IOException {
+
+        // AuthFilter đã chặn trước; đây là lớp phòng thủ thứ hai.
+        if (!Access.isAdmin(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
 
         request.setCharacterEncoding("UTF-8");
         response.setContentType("text/html; charset=UTF-8");
@@ -103,6 +110,11 @@ public class AdminController extends HttpServlet {
             HttpServletRequest request,
             HttpServletResponse response)
             throws ServletException, IOException {
+
+        if (!Access.isAdmin(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
 
         request.setCharacterEncoding("UTF-8");
         response.setContentType("text/html; charset=UTF-8");

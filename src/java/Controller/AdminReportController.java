@@ -6,13 +6,13 @@ import Model.DAO.ReportReasonDAO;
 import Model.DTO.Report;
 import Model.DTO.Document;
 import Model.DTO.ReportReason;
+import Utils.Access;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.List;
 
@@ -23,20 +23,18 @@ public class AdminReportController extends HttpServlet {
             throws ServletException, IOException {
         request.setCharacterEncoding("UTF-8");
 
-        // 1. Kiểm tra bảo mật Admin tối cao
-        HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute("userId") == null) {
+        // 1. Kiểm tra bảo mật Admin (AuthFilter đã chặn trước; đây là lớp phòng thủ thứ hai)
+        Integer adminIdOrNull = Access.currentUserId(request);
+        if (adminIdOrNull == null) {
             response.sendRedirect(request.getContextPath() + "/login.jsp");
             return;
         }
-
-        String role = (String) session.getAttribute("role");
-        if (!"ADMIN".equalsIgnoreCase(role)) {
-            response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp");
+        if (!Access.isAdmin(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
-        int adminId = (int) session.getAttribute("userId"); // ID của admin đang đăng nhập
+        int adminId = adminIdOrNull; // ID của admin đang đăng nhập
         String action = request.getParameter("action");
 
         ReportDAO reportDao = new ReportDAO();

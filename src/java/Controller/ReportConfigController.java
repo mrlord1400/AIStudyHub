@@ -2,6 +2,7 @@ package Controller;
 
 import Model.DAO.ReportReasonDAO;
 import Model.DTO.ReportReason; // Thay đổi import sang Object của team
+import Utils.Access;
 import java.io.IOException;
 import java.util.List;
 import javax.servlet.ServletException;
@@ -18,6 +19,11 @@ public class ReportConfigController extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
+        // AuthFilter đã chặn trước; đây là lớp phòng thủ thứ hai.
+        if (!Access.isAdmin(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
         String action = request.getParameter("action");
         if (action == null) {
             action = "reportConfigList";
@@ -51,6 +57,10 @@ public class ReportConfigController extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
+        if (!Access.isAdmin(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
         request.setCharacterEncoding("UTF-8");
         String action = request.getParameter("action");
 

@@ -4,13 +4,12 @@ import Model.DAO.UserDAO;
 import Model.DTO.User;
 
 import javax.servlet.*;
-import javax.servlet.annotation.WebFilter;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
 
-@WebFilter("/*")
+// Đăng ký trong web.xml (không dùng @WebFilter) để đảm bảo chạy trước AuthFilter.
 public class SessionSyncFilter implements Filter {
 
     // Khoảng thời gian tối thiểu giữa 2 lần đồng bộ, tránh query DB mỗi request

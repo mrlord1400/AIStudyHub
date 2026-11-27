@@ -5,6 +5,7 @@ import Model.DTO.Transaction;
 import Model.DAO.TransactionDAO;
 import Model.DTO.User;
 import Model.DAO.UserDAO;
+import Utils.Access;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -142,9 +143,8 @@ public class TransactionController extends HttpServlet {
             HttpServletResponse response)
             throws ServletException, IOException {
 
-        HttpSession session = request.getSession(false);
-        if (session == null || !"ADMIN".equals(session.getAttribute("role"))) {
-            response.sendRedirect(request.getContextPath() + "/login.jsp");
+        if (!Access.isAdmin(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
@@ -164,9 +164,8 @@ public class TransactionController extends HttpServlet {
             HttpServletResponse response)
             throws IOException {
 
-        HttpSession session = request.getSession(false);
-        if (session == null || !"ADMIN".equals(session.getAttribute("role"))) {
-            response.sendRedirect(request.getContextPath() + "/login.jsp");
+        if (!Access.isAdmin(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
