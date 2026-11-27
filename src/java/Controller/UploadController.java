@@ -274,7 +274,7 @@ public class UploadController extends HttpServlet {
         String pendingFilePath = (String) session.getAttribute("pendingDocumentPath");
         String newCloudUrl = renameToFinalName(pendingFilePath, userId, newTitle, fileExt, request);
 
-        boolean updated = dao.updateDocumentInfo(documentId, newTitle, newFolderId, sharingPermission, newCloudUrl);
+        boolean updated = dao.updateDocumentInfoForOwner(documentId, userId, newTitle, newFolderId, sharingPermission, newCloudUrl);
         clearPendingSession(session);
 
         if (updated) {
@@ -333,15 +333,16 @@ public class UploadController extends HttpServlet {
         Document oldDoc = dao.findById(duplicateDocId);
         Document pendingDoc = dao.findById(pendingDocId);
 
-        if (oldDoc != null && pendingDoc != null) {
+        if (oldDoc != null && pendingDoc != null
+                && oldDoc.getUserId() == userId && pendingDoc.getUserId() == userId) {
             deletePhysicalFile(oldDoc.getCloudStorageUrl(), request);
 
             String newCloudUrl = renameToFinalName(pendingFilePath, userId, conflictTitle, pendingDoc.getFileExtension(), request);
 
-            dao.replaceDocumentFile(duplicateDocId, newCloudUrl, pendingDoc.getFileSizeMb(),
+            dao.replaceDocumentFileForOwner(duplicateDocId, userId, newCloudUrl, pendingDoc.getFileSizeMb(),
                     pendingDoc.getFileExtension(), conflictTitle, conflictFolderId, conflictSharingPermission);
 
-            dao.deleteDocument(pendingDocId);
+            dao.deleteDocumentForOwner(pendingDocId, userId);
 
             try {
                 String newExtractedText = extractTextFromFile(pendingFilePath, pendingDoc.getFileExtension());
@@ -402,7 +403,7 @@ public class UploadController extends HttpServlet {
         String uniqueTitle = generateUniqueTitle(dao, userId, conflictTitle, conflictFolderId, pendingDocId);
         String newCloudUrl = renameToFinalName(pendingFilePath, userId, uniqueTitle, fileExt, request);
 
-        boolean updated = dao.updateDocumentInfo(pendingDocId, uniqueTitle, conflictFolderId, conflictSharingPermission, newCloudUrl);
+        boolean updated = dao.updateDocumentInfoForOwner(pendingDocId, userId, uniqueTitle, conflictFolderId, conflictSharingPermission, newCloudUrl);
         clearPendingSession(session);
         clearDuplicateSession(session);
 
@@ -443,7 +444,7 @@ public class UploadController extends HttpServlet {
 
         if (documentId != null) {
             DocumentDAO dao = new DocumentDAO();
-            dao.deleteDocument(documentId);
+            dao.deleteDocumentForOwner(documentId, (int) session.getAttribute("userId"));
         }
 
         clearPendingSession(session);

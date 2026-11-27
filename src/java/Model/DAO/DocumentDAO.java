@@ -72,11 +72,16 @@ public class DocumentDAO {
         return -1;
     }
 
-    public boolean updateDocumentInfo(int documentId, String newTitle,
+    /**
+     * Chỉ cập nhật khi tài liệu thuộc userId (Conv §2.3).
+     *
+     * @return true khi đúng 1 dòng bị sửa; false nếu không tồn tại HOẶC không phải của userId
+     */
+    public boolean updateDocumentInfoForOwner(int documentId, int userId, String newTitle,
             Integer newFolderId, String newSharingPermission, String newCloudStorageUrl) {
         String sql = "UPDATE documents "
                 + "SET title = ?, folder_id = ?, sharing_permission = ?, cloud_storage_url = ?, updated_at = ? "
-                + "WHERE document_id = ?";
+                + "WHERE document_id = ? AND user_id = ?";
 
         try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
 
@@ -90,37 +95,39 @@ public class DocumentDAO {
             ps.setString(4, newCloudStorageUrl);
             ps.setTimestamp(5, java.sql.Timestamp.valueOf(LocalDateTime.now()));
             ps.setInt(6, documentId);
+            ps.setInt(7, userId);
 
-            return ps.executeUpdate() > 0;
+            return ps.executeUpdate() == 1;
         } catch (SQLException e) {
-            System.err.println("[DocumentDAO] updateDocumentInfo failed: " + e.getMessage());
+            System.err.println("[DocumentDAO] updateDocumentInfoForOwner failed: " + e.getMessage());
             e.printStackTrace();
         }
         return false;
     }
 
-    public boolean updateSharingPermission(int documentId, String newSharingPermission) {
-        String sql = "UPDATE documents SET sharing_permission = ?, updated_at = ? WHERE document_id = ?";
+    public boolean updateSharingPermissionForOwner(int documentId, int userId, String newSharingPermission) {
+        String sql = "UPDATE documents SET sharing_permission = ?, updated_at = ? WHERE document_id = ? AND user_id = ?";
 
         try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, newSharingPermission);
             ps.setTimestamp(2, java.sql.Timestamp.valueOf(LocalDateTime.now()));
             ps.setInt(3, documentId);
-            return ps.executeUpdate() > 0;
+            ps.setInt(4, userId);
+            return ps.executeUpdate() == 1;
         } catch (SQLException e) {
-            System.err.println("[DocumentDAO] updateSharingPermission failed: " + e.getMessage());
+            System.err.println("[DocumentDAO] updateSharingPermissionForOwner failed: " + e.getMessage());
             e.printStackTrace();
         }
         return false;
     }
 
-    public boolean replaceDocumentFile(int docId, String newCloudUrl,
+    public boolean replaceDocumentFileForOwner(int docId, int userId, String newCloudUrl,
             double newFileSizeMb, String newFileExtension,
             String newTitle, Integer newFolderId, String newSharingPermission) {
         String sql = "UPDATE documents "
                 + "SET cloud_storage_url = ?, file_size_mb = ?, file_extension = ?, "
                 + "    title = ?, folder_id = ?, sharing_permission = ?, updated_at = ? "
-                + "WHERE document_id = ?";
+                + "WHERE document_id = ? AND user_id = ?";
 
         try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, newCloudUrl);
@@ -137,22 +144,28 @@ public class DocumentDAO {
             ps.setString(6, newSharingPermission);
             ps.setTimestamp(7, java.sql.Timestamp.valueOf(LocalDateTime.now()));
             ps.setInt(8, docId);
-            return ps.executeUpdate() > 0;
+            ps.setInt(9, userId);
+            return ps.executeUpdate() == 1;
 
         } catch (SQLException e) {
-            System.err.println("[DocumentDAO] replaceDocumentFile failed: " + e.getMessage());
+            System.err.println("[DocumentDAO] replaceDocumentFileForOwner failed: " + e.getMessage());
             e.printStackTrace();
         }
         return false;
     }
 
-    public boolean deleteDocument(int documentId) {
-        String sql = "DELETE FROM documents WHERE document_id = ?";
+    /**
+     * Chỉ xóa khi tài liệu thuộc userId. Admin xóa qua deleteDocumentAndDependencies.
+     * Bookmarks / extracted text / reports tự xóa theo ON DELETE CASCADE.
+     */
+    public boolean deleteDocumentForOwner(int documentId, int userId) {
+        String sql = "DELETE FROM documents WHERE document_id = ? AND user_id = ?";
         try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, documentId);
-            return ps.executeUpdate() > 0;
+            ps.setInt(2, userId);
+            return ps.executeUpdate() == 1;
         } catch (SQLException e) {
-            System.err.println("[DocumentDAO] deleteDocument failed: " + e.getMessage());
+            System.err.println("[DocumentDAO] deleteDocumentForOwner failed: " + e.getMessage());
             e.printStackTrace();
         }
         return false;

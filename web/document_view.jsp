@@ -37,6 +37,10 @@
         return;
     }
 
+    // Chủ sở hữu mới được sửa/xóa qua DocumentController. Admin xem tài liệu của người khác
+    // (AdminController?action=adminViewDoc) chỉ được xóa qua AdminReportController.
+    boolean isOwner = (doc.getUserId() == userId);
+
     // 3. Fetch folders for the "edit metadata" folder dropdown
     FolderDAO folderDao = new FolderDAO();
     List<Folder> myFolders = folderDao.getAllFoldersByUserId(userId);
@@ -219,11 +223,13 @@
                     <span>Xem thông tin</span>
                 </button>
 
-                <!-- 2. Edit metadata -->
+                <!-- 2. Edit metadata (chỉ chủ sở hữu) -->
+                <% if (isOwner) { %>
                 <button id="btnEditMeta" onclick="showMetaPanel('edit')" class="btn-secondary">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                     <span>Chỉnh thông tin</span>
                 </button>
+                <% } %>
 
                 <!-- 3. Download Document -->
                 <a href="<%= request.getContextPath()%>/DocumentController?action=downloadDoc&docId=<%= doc.getDocumentId()%>" 
@@ -386,7 +392,9 @@
 
                 <div class="flex items-center justify-end gap-3">
                     <button type="button" onclick="closeDeleteModal()" class="btn-secondary">Hủy</button>
-                    <a href="<%= request.getContextPath()%>/DocumentController?action=deleteDoc&docId=<%= doc.getDocumentId()%>" class="btn-danger !bg-red-600 !text-white !border-transparent hover:!bg-red-700">
+                    <a href="<%= isOwner
+                            ? request.getContextPath() + "/DocumentController?action=deleteDoc&docId=" + doc.getDocumentId()
+                            : request.getContextPath() + "/MainController?action=adminDeleteDocument&documentId=" + doc.getDocumentId()%>" class="btn-danger !bg-red-600 !text-white !border-transparent hover:!bg-red-700">
                         Xóa tài liệu
                     </a>
                 </div>
