@@ -1,0 +1,21 @@
+<%-- Banner lỗi dùng chung cho các trang admin. Chỉ hiển thị các chuỗi cố định theo mã lỗi, không bao giờ in lại giá trị tham số. --%>
+<%
+    String adminBannerCode = request.getParameter("error");
+    String adminBannerText = null;
+    if ("invalid_input".equals(adminBannerCode)) {
+        adminBannerText = "Dữ liệu không hợp lệ. Không có thay đổi nào được lưu.";
+    } else if ("self_modify".equals(adminBannerCode)) {
+        adminBannerText = "Bạn không thể hạ quyền, khóa hoặc xóa chính tài khoản admin đang đăng nhập.";
+    } else if ("create_failed".equals(adminBannerCode)) {
+        adminBannerText = "Không thể tạo người dùng (email có thể đã tồn tại).";
+    } else if ("already_completed".equals(adminBannerCode)) {
+        adminBannerText = "Giao dịch này đã được xử lý trước đó.";
+    } else if ("not_found".equals(adminBannerCode)) {
+        adminBannerText = "Không tìm thấy mục yêu cầu.";
+    }
+    if (adminBannerText != null) {
+%>
+<div class="mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium dark:bg-red-950/40 dark:border-red-900 dark:text-red-400"><%= adminBannerText%></div>
+<%
+    }
+%>

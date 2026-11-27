@@ -114,6 +114,7 @@
         </aside>
 
         <main class="flex-1 p-8 overflow-y-auto h-screen relative">
+            <%@ include file="/WEB-INF/jspf/admin_error_banner.jspf" %>
             <div class="max-w-6xl mx-auto">
                 <div class="mb-6">
                     <h2 class="text-2xl font-bold text-gray-900 tracking-tight dark:text-white">Cấu hình Quy tắc Báo cáo (Report Config)</h2>
@@ -215,11 +216,13 @@
                                                     Sửa
                                                 </button>
 
-                                                <a href="${pageContext.request.contextPath}/MainController?action=reportConfigDelete&reasonCode=${reason.reasonCode}" 
-                                                   class="btn-danger" 
-                                                   onclick="return confirm('Bạn có chắc muốn xóa lý do [${reason.reasonCode}] không?');">
-                                                    Xóa
-                                                </a>
+                                                <%-- Xóa làm thay đổi dữ liệu nên dùng POST (Conv §4) --%>
+                                                <form action="${pageContext.request.contextPath}/ReportConfigController" method="POST" class="inline"
+                                                      onsubmit="return confirm('Bạn có chắc muốn xóa lý do [${reason.reasonCode}] không?');">
+                                                    <input type="hidden" name="action" value="reportConfigDelete">
+                                                    <input type="hidden" name="reasonCode" value="<c:out value='${reason.reasonCode}'/>">
+                                                    <button type="submit" class="btn-danger">Xóa</button>
+                                                </form>
                                             </td>
                                         </tr>
                                     </c:forEach>

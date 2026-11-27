@@ -128,6 +128,7 @@
         </aside>
 
         <main class="flex-1 p-8 overflow-y-auto h-screen relative">
+            <%@ include file="/WEB-INF/jspf/admin_error_banner.jspf" %>
             <div class="mb-8">
                 <h1 class="text-2xl font-bold text-gray-900 tracking-tight dark:text-white">Tổng quan giao dịch</h1>
                 <p class="text-gray-500 text-sm mt-0.5">Theo dõi chi tiết và phê duyệt các thanh toán từ hệ thống.</p>
@@ -219,7 +220,7 @@
                                             <input type="hidden" name="transactionId" value="<%= t.getTransactionId()%>" />
 
                                             <select name="newStatus" class="status-select" onchange="this.form.submit()">
-                                                <option value="PENDING" <%= "PENDING".equalsIgnoreCase(t.getStatus()) ? "selected" : ""%>>⏳ Đang chờ</option>
+                                                <option value="PENDING" disabled <%= "PENDING".equalsIgnoreCase(t.getStatus()) ? "selected" : ""%>>⏳ Đang chờ</option>
                                                 <option value="PROCESSING" <%= "PROCESSING".equalsIgnoreCase(t.getStatus()) ? "selected" : ""%>>⏳ Đang xử lý</option>
                                                 <option value="SUCCESS" <%= "SUCCESS".equalsIgnoreCase(t.getStatus()) ? "selected" : ""%>>✅ Thành công</option>
                                                 <option value="CANCELLED" <%= "CANCELLED".equalsIgnoreCase(t.getStatus()) ? "selected" : ""%>>❌ Thất bại / Hủy</option>

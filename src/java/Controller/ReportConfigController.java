@@ -3,8 +3,10 @@ package Controller;
 import Model.DAO.ReportReasonDAO;
 import Model.DTO.ReportReason; // Thay đổi import sang Object của team
 import Utils.Access;
+import Utils.Validation;
 import java.io.IOException;
 import java.util.List;
+import java.util.regex.Pattern;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -15,6 +17,9 @@ import javax.servlet.http.HttpServletResponse;
 public class ReportConfigController extends HttpServlet {
 
     private final ReportReasonDAO reasonDAO = new ReportReasonDAO();
+
+    // Mã lý do: chữ/số/gạch dưới/gạch ngang, tối đa 50 ký tự (cột reason_code NVARCHAR(50))
+    private static final Pattern REASON_CODE = Pattern.compile("^[A-Za-z0-9_\\-]{1,50}$");
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -38,16 +43,11 @@ public class ReportConfigController extends HttpServlet {
                 break;
 
             case "reportConfigDelete":
-                String codeToDelete = request.getParameter("reasonCode");
-                if (codeToDelete != null) {
-                    // Hàm xóa của team yêu cầu truyền vào nguyên 1 object, nên mình khởi tạo và set ID cho nó
-                    ReportReason deleteTarget = new ReportReason();
-                    deleteTarget.setReasonCode(codeToDelete);
-                    reasonDAO.deleteReportReason(deleteTarget);
-                }
-                response.sendRedirect(request.getContextPath() + "/MainController?action=reportConfigList");
+                // Xóa làm thay đổi dữ liệu nên chỉ nhận POST (Conv §4)
+                response.setHeader("Allow", "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
                 break;
-                
+
             default:
                 response.sendRedirect(request.getContextPath() + "/MainController?action=reportConfigList");
                 break;
@@ -65,17 +65,33 @@ public class ReportConfigController extends HttpServlet {
         String action = request.getParameter("action");
 
         String reasonCode = request.getParameter("reasonCode");
-        String severityLevel = request.getParameter("severityLevel");
-        double baseScore = 0;
-        double autoFlagThreshold = 0;
-        
-        try {
-            baseScore = Double.parseDouble(request.getParameter("baseScore").replace(",", "."));
-            autoFlagThreshold = Double.parseDouble(request.getParameter("autoFlagThreshold").replace(",", "."));
-        } catch (NumberFormatException | NullPointerException e) {
-            System.err.println("[ReportConfigController] Lỗi parse số thập phân: " + e.getMessage());
+        String invalidRedirect = request.getContextPath() + "/MainController?action=reportConfigList&error=invalid_input";
+
+        if (!Validation.isOneOf(action, "reportConfigAdd", "reportConfigUpdate", "reportConfigDelete")
+                || reasonCode == null || !REASON_CODE.matcher(reasonCode).matches()) {
+            response.sendRedirect(invalidRedirect);
+            return;
         }
+
+        if ("reportConfigDelete".equals(action)) {
+            ReportReason deleteTarget = new ReportReason();
+            deleteTarget.setReasonCode(reasonCode);
+            reasonDAO.deleteReportReason(deleteTarget);
+            response.sendRedirect(request.getContextPath() + "/MainController?action=reportConfigList");
+            return;
+        }
+
+        String severityLevel = request.getParameter("severityLevel");
+        // DB: DECIMAL(5,2), tối đa 999.99
+        Double baseScore = Validation.parseDoubleInRange(request.getParameter("baseScore"), 0, 999.99);
+        Double autoFlagThreshold = Validation.parseDoubleInRange(request.getParameter("autoFlagThreshold"), 0, 999.99);
         String description = request.getParameter("description");
+        if (!Validation.isOneOf(severityLevel, "LOW", "MEDIUM", "HIGH", "CRITICAL")
+                || baseScore == null || autoFlagThreshold == null
+                || (description != null && description.length() > 255)) {
+            response.sendRedirect(invalidRedirect);
+            return;
+        }
 
         // Dùng Object ReportReason của team để đóng gói dữ liệu
         ReportReason config = new ReportReason();
@@ -87,7 +103,7 @@ public class ReportConfigController extends HttpServlet {
 
         if ("reportConfigAdd".equals(action)) {
             reasonDAO.createReportReason(config); // Đổi thành createReportReason() của team
-        } else if ("reportConfigUpdate".equals(action)) {
+        } else {
             reasonDAO.updateReportReason(config); // Đổi thành updateReportReason() của team
         }
 
