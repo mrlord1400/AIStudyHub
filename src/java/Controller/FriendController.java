@@ -16,6 +16,9 @@ import java.util.List;
 @WebServlet(name = "FriendController", urlPatterns = {"/FriendController"})
 public class FriendController extends HttpServlet {
 
+    private static final java.util.Set<String> RETURN_PATHS = new java.util.HashSet<String>(
+            java.util.Arrays.asList("friendList", "pendingList", "blockedList"));
+
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
@@ -73,10 +76,19 @@ public class FriendController extends HttpServlet {
                 int targetUserId = Integer.parseInt(request.getParameter("targetUserId"));
                 String status = request.getParameter("status"); 
 
-                if (status != null && (status.equalsIgnoreCase("ACCEPTED") || status.equalsIgnoreCase("BLOCKED"))) {
-                    boolean success = friendshipDao.updateFriendStatusByUsers(userId, targetUserId, status.toUpperCase());
+                // Máy trạng thái (Conv §2.4): ACCEPTED chỉ người NHẬN lời mời PENDING mới làm được;
+                // BLOCKED làm được từ PENDING/ACCEPTED và người gọi trở thành người chặn.
+                if (targetUserId != userId && status != null) {
+                    boolean success = false;
+                    String redirectAction = null;
+                    if (status.equalsIgnoreCase("ACCEPTED")) {
+                        success = friendshipDao.acceptRequest(userId, targetUserId);
+                        redirectAction = "friendList";
+                    } else if (status.equalsIgnoreCase("BLOCKED")) {
+                        success = friendshipDao.block(userId, targetUserId);
+                        redirectAction = "blockedList";
+                    }
                     if (success) {
-                        String redirectAction = status.equalsIgnoreCase("ACCEPTED") ? "friendList" : "blockedList";
                         response.sendRedirect(request.getContextPath() + "/FriendController?action=" + redirectAction + "&success=status_updated");
                         return;
                     }
@@ -86,7 +98,8 @@ public class FriendController extends HttpServlet {
             } else if ("deleteFriendship".equals(action)) {
                 int targetUserId = Integer.parseInt(request.getParameter("targetUserId"));
                 String returnPath = request.getParameter("returnPath");
-                if (returnPath == null || returnPath.trim().isEmpty()) {
+                // Chỉ chấp nhận tab hợp lệ, không đưa giá trị tùy ý vào URL redirect
+                if (!RETURN_PATHS.contains(returnPath)) {
                     returnPath = "friendList";
                 }
 

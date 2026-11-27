@@ -15,7 +15,11 @@ public class FriendshipDAO {
      * object.
      */
     public boolean createFriendship(Friendship fship) {
-        String sql = "INSERT INTO friendships (requester_id, addressee_id, status) VALUES (?, ?, ?)";
+        // Chỉ chèn khi chưa có dòng nào giữa hai user theo BẤT KỲ chiều nào (chặn cặp đảo B->A khi đã có A->B).
+        // Ràng buộc UNIQUE ở DB sẽ bổ sung ở T4.6; câu lệnh này thu hẹp khoảng race.
+        String sql = "INSERT INTO friendships (requester_id, addressee_id, status) "
+                + "SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM friendships "
+                + "WHERE (requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?))";
         Connection conn = null;
 
         try {
@@ -26,6 +30,10 @@ public class FriendshipDAO {
             ps.setInt(1, fship.getRequesterId());
             ps.setInt(2, fship.getAddresseeId());
             ps.setString(3, fship.getStatus());
+            ps.setInt(4, fship.getRequesterId());
+            ps.setInt(5, fship.getAddresseeId());
+            ps.setInt(6, fship.getAddresseeId());
+            ps.setInt(7, fship.getRequesterId());
 
             int rowsAffected = ps.executeUpdate();
 
@@ -43,46 +51,6 @@ public class FriendshipDAO {
             System.out.println("[FriendshipDAO.createFriendship] " + e.getMessage());
         } finally {
             DBUtils.closeConnection(conn);
-        }
-
-        return false;
-    }
-
-    /**
-     * Updates the status of an existing friendship.
-     */
-    public boolean updateFriendStatus(int friendshipId, String status) {
-        // Also update the updated_at timestamp to keep data accurate
-        String sql = "UPDATE friendships SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE friendship_id = ?";
-
-        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setString(1, status);
-            ps.setInt(2, friendshipId);
-
-            return ps.executeUpdate() > 0;
-
-        } catch (SQLException e) {
-            System.out.println("[FriendshipDAO.updateFriendStatus] " + e.getMessage());
-        }
-
-        return false;
-    }
-
-    /**
-     * Deletes the selected friendship entirely.
-     */
-    public boolean deleteFriendship(int friendshipId) {
-        String sql = "DELETE FROM friendships WHERE friendship_id = ?";
-
-        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setInt(1, friendshipId);
-
-            return ps.executeUpdate() > 0;
-
-        } catch (SQLException e) {
-            System.out.println("[FriendshipDAO.deleteFriendship] " + e.getMessage());
         }
 
         return false;
@@ -144,29 +112,42 @@ public class FriendshipDAO {
     }
 
     /**
-     * Cập nhật trạng thái bạn bè dựa trên cặp User ID
+     * Chấp nhận lời mời: người gọi (addresseeId) phải là NGƯỜI NHẬN và lời mời phải đang PENDING.
+     * Người gửi tự chấp nhận lời mời của mình, hoặc chấp nhận một dòng BLOCKED/ACCEPTED, đều không đổi gì (Conv §2.4).
      */
-    public boolean updateFriendStatusByUsers(int myUserId, int targetUserId, String status) {
-        String sql = "UPDATE friendships SET status = ?, blocker_id = ?, updated_at = CURRENT_TIMESTAMP "
-                + "WHERE (requester_id = ? AND addressee_id = ?) "
-                + "   OR (requester_id = ? AND addressee_id = ?)";
+    public boolean acceptRequest(int addresseeId, int requesterId) {
+        String sql = "UPDATE friendships SET status = 'ACCEPTED', blocker_id = NULL, updated_at = CURRENT_TIMESTAMP "
+                + "WHERE requester_id = ? AND addressee_id = ? AND status = 'PENDING'";
 
         try ( Connection conn = Utils.DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setString(1, status);
-            if ("BLOCKED".equalsIgnoreCase(status)) {
-                ps.setInt(2, myUserId); // người đang thao tác = người chặn
-            } else {
-                ps.setNull(2, java.sql.Types.INTEGER);
-            }
-            ps.setInt(3, myUserId);
-            ps.setInt(4, targetUserId);
-            ps.setInt(5, targetUserId);
-            ps.setInt(6, myUserId);
-
-            return ps.executeUpdate() > 0;
+            ps.setInt(1, requesterId);
+            ps.setInt(2, addresseeId);
+            return ps.executeUpdate() == 1;
         } catch (SQLException e) {
-            System.out.println("[FriendshipDAO.updateFriendStatusByUsers] " + e.getMessage());
+            System.out.println("[FriendshipDAO.acceptRequest] " + e.getMessage());
+        }
+        return false;
+    }
+
+    /**
+     * Chặn từ trạng thái PENDING hoặc ACCEPTED; người gọi trở thành blocker_id.
+     * Nếu quan hệ đã BLOCKED (bởi bất kỳ ai) thì không đổi, để người bị chặn không thể
+     * chiếm quyền bỏ chặn của người chặn.
+     */
+    public boolean block(int myUserId, int targetUserId) {
+        String sql = "UPDATE friendships SET status = 'BLOCKED', blocker_id = ?, updated_at = CURRENT_TIMESTAMP "
+                + "WHERE ((requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?)) "
+                + "AND status <> 'BLOCKED'";
+
+        try ( Connection conn = Utils.DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, myUserId);
+            ps.setInt(2, myUserId);
+            ps.setInt(3, targetUserId);
+            ps.setInt(4, targetUserId);
+            ps.setInt(5, myUserId);
+            return ps.executeUpdate() == 1;
+        } catch (SQLException e) {
+            System.out.println("[FriendshipDAO.block] " + e.getMessage());
         }
         return false;
     }
@@ -176,9 +157,10 @@ public class FriendshipDAO {
      * Bỏ chặn)
      */
     public boolean deleteFriendshipByUsers(int myUserId, int targetUserId) {
+        // Dòng BLOCKED chỉ người chặn mới xóa (bỏ chặn) được; kiểm tra ngay trong SQL.
         String sql = "DELETE FROM friendships "
-                + "WHERE (requester_id = ? AND addressee_id = ?) "
-                + "   OR (requester_id = ? AND addressee_id = ?)";
+                + "WHERE ((requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?)) "
+                + "AND (status <> 'BLOCKED' OR blocker_id = ?)";
 
         try ( Connection conn = Utils.DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
 
@@ -186,6 +168,7 @@ public class FriendshipDAO {
             ps.setInt(2, targetUserId);
             ps.setInt(3, targetUserId);
             ps.setInt(4, myUserId);
+            ps.setInt(5, myUserId);
 
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
