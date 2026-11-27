@@ -1,0 +1,4 @@
+<%@ page pageEncoding="UTF-8" %>
+<%-- Đặt trong <head> của mọi trang HTML: token CSRF của session + js/csrf.js (Conv §4). --%>
+<meta name="csrf-token" content="<%= Utils.Html.esc(Utils.Csrf.token(session)) %>">
+<script src="<%= request.getContextPath() %>/js/csrf.js"></script>

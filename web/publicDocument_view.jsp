@@ -81,6 +81,7 @@
                 .community-banner { @apply flex items-center gap-3 px-5 py-3 bg-emerald-50 border-b border-emerald-200 text-emerald-700 text-sm font-medium; }
             }
         </style>
+    <%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>
     </head>
     <body>
 

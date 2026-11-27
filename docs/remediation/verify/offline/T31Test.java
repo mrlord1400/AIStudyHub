@@ -68,7 +68,7 @@ public class T31Test {
         String classes = System.getProperty("AISH_CLASSES", System.getenv("AISH_CLASSES"));
         Web.start(root, classes);
         try {
-            Web.Resp login = Web.post("/AuthController", "action=login&email=" + Web.enc(ADMIN_EMAIL) + "&password=" + Web.enc("Passw0rd!"));
+            Web.Resp login = Web.login(ADMIN_EMAIL, "Passw0rd!");
             Db.check("admin login redirects to the admin dashboard (" + login.status + " " + login.location + ")",
                     login.status == 302 && login.location != null && login.location.endsWith("/admin_dashboard.jsp"));
 
@@ -97,7 +97,7 @@ public class T31Test {
             Db.exec("INSERT INTO chat_messages (session_id, sender, message_content) VALUES (?,?,?)", sess, "USER", "<script>alert(5)</script> " + P1);
             Db.exec("INSERT INTO chat_messages (session_id, sender, message_content) VALUES (?,?,?)", sess, "BOT", "**x** <img src=x onerror=alert(6)>");
 
-            Web.Resp sl = Web.post("/AuthController", "action=login&email=student%40t31.com&password=" + Web.enc("Passw0rd!"));
+            Web.Resp sl = Web.login("student@t31.com", "Passw0rd!");
             Db.check("student login redirects to the user dashboard (" + sl.status + " " + sl.location + ")",
                     sl.status == 302 && sl.location != null && sl.location.endsWith("/user_dashboard.jsp"));
 
@@ -123,7 +123,7 @@ public class T31Test {
             page("public document page", "/DocumentController?action=viewPublicPage&docId=" + sdoc, ESC1);
 
             // ---------- every JSP still compiles under Jasper (as the admin, who is allowed on all of them) ----------
-            Web.post("/AuthController", "action=login&email=" + Web.enc(ADMIN_EMAIL) + "&password=" + Web.enc("Passw0rd!"));
+            Web.login(ADMIN_EMAIL, "Passw0rd!");
             java.io.File[] jsps = new java.io.File(root).listFiles((d, n) -> n.endsWith(".jsp"));
             java.util.Arrays.sort(jsps);
             for (java.io.File f : jsps) {

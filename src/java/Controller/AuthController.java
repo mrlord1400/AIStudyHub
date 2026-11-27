@@ -18,28 +18,24 @@ public class AuthController extends HttpServlet {
                          HttpServletResponse response)
             throws ServletException, IOException {
 
-        String action = request.getParameter("action");
+        // Đăng xuất là thao tác ghi nên chỉ nhận POST (CsrfFilter trả 405 cho GET ?action=logout, Conv §4).
+        response.sendRedirect("login.jsp");
+    }
 
-        if ("logout".equals(action)) {
+    private void handleLogout(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        HttpSession session = request.getSession(false);
 
-            HttpSession session = request.getSession(false);
-
-            if (session != null) {
-                session.invalidate();
-            }
-
-            // Xóa Cookie "remember_token" khi người dùng chủ động đăng xuất
-            Cookie cookie = new Cookie("remember_token", "");
-            cookie.setMaxAge(0);
-            cookie.setPath("/"); // Đảm bảo xóa đúng cookie trên toàn bộ project
-            response.addCookie(cookie);
-
-            response.sendRedirect("login.jsp");
-
-        } else {
-
-            response.sendRedirect("login.jsp");
+        if (session != null) {
+            session.invalidate();
         }
+
+        // Xóa Cookie "remember_token" khi người dùng chủ động đăng xuất
+        Cookie cookie = new Cookie("remember_token", "");
+        cookie.setMaxAge(0);
+        cookie.setPath("/"); // Đảm bảo xóa đúng cookie trên toàn bộ project
+        response.addCookie(cookie);
+
+        response.sendRedirect("login.jsp");
     }
 
     @Override
@@ -64,6 +60,10 @@ public class AuthController extends HttpServlet {
 
             case "login":
                 handleLogin(request, response);
+                break;
+
+            case "logout":
+                handleLogout(request, response);
                 break;
 
             case "processResetPassword":

@@ -37,6 +37,7 @@
                 .btn-secondary { @apply px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-xs font-bold shadow-sm dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 cursor-pointer; }
             }
         </style>
+    <%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>
     </head>
     <body class="page-body">
 

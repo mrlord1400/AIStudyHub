@@ -90,6 +90,7 @@ public class FilterHarness {
         check("/guest_dashboard.jsp", null, "anon", P);
         check("/publicDocument_view.jsp", null, "anon", P);
         check("/js/security.js", null, "anon", P);   // the XSS helper must load on public pages (T3.1a)
+        check("/js/csrf.js", null, "anon", P);       // the CSRF helper loads on login/register too (T3.2)
         check("/js/other.js", null, "anon", L);  // but the public list is exact: other paths stay default-deny
         check("/AuthController", "login", "anon", P);
         check("/ForgotPasswordController", "sendOTP", "anon", P);

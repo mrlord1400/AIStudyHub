@@ -198,6 +198,7 @@
                 }
             }
         </style>
+    <%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>
     </head>
     <body>
 
@@ -394,7 +395,7 @@
                     <button type="button" onclick="closeDeleteModal()" class="btn-secondary">Hủy</button>
                     <a href="<%= isOwner
                             ? request.getContextPath() + "/DocumentController?action=deleteDoc&docId=" + doc.getDocumentId()
-                            : request.getContextPath() + "/MainController?action=adminDeleteDocument&documentId=" + doc.getDocumentId()%>" class="btn-danger !bg-red-600 !text-white !border-transparent hover:!bg-red-700">
+                            : request.getContextPath() + "/MainController?action=adminDeleteDocument&documentId=" + doc.getDocumentId()%>" data-post class="btn-danger !bg-red-600 !text-white !border-transparent hover:!bg-red-700">
                         Xóa tài liệu
                     </a>
                 </div>

@@ -72,6 +72,7 @@
                 }
             }
         </style>
+    <%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>
     </head>
     <body class="page-body">
 
@@ -120,7 +121,7 @@
                         <p class="text-[11px] text-gray-400 font-medium">Hồ sơ cá nhân</p>
                     </div>
                 </a>
-                <a href="<%= request.getContextPath()%>/MainController?action=logout" class="flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors w-full dark:hover:bg-red-900/30">
+                <a href="<%= request.getContextPath()%>/MainController?action=logout" data-post class="flex items-center space-x-2.5 px-2 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors w-full dark:hover:bg-red-900/30">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
                     <span>Đăng xuất</span>
                 </a>

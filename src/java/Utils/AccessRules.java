@@ -25,7 +25,7 @@ public final class AccessRules {
             "/login.jsp", "/register.jsp", "/forgot_password.jsp", "/reset_password.jsp",
             "/guest_dashboard.jsp", "/publicDocument_view.jsp",
             // Helper JS chống XSS (web/js/security.js) được các trang public nạp; không chứa dữ liệu gì.
-            "/js/security.js",
+            "/js/security.js", "/js/csrf.js",
             "/AuthController", "/ForgotPasswordController",
             // MainController chỉ là router; đích forward của nó được kiểm tra lại ở dispatcher FORWARD.
             "/MainController"

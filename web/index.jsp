@@ -55,6 +55,7 @@
             100% { transform: rotate(360deg); }
         }
     </style>
+    <%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>
 </head>
 <body>
 

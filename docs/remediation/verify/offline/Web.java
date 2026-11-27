@@ -64,14 +64,42 @@ public class Web {
     }
 
     public static Resp post(String path, String form) throws Exception {
-        return send("POST", path, form);
+        return send("POST", path, form, null, null);
+    }
+
+    public static Resp post(String path, String form, java.util.Map<String, String> headers) throws Exception {
+        return send("POST", path, form, null, headers);
+    }
+
+    /** Raw body with a custom content type (multipart tests). */
+    public static Resp postRaw(String path, byte[] body, String contentType, java.util.Map<String, String> headers) throws Exception {
+        return send("POST", path, null, new Object[]{body, contentType}, headers);
+    }
+
+    public static Resp get(String path, java.util.Map<String, String> headers) throws Exception {
+        return send("GET", path, null, null, headers);
     }
 
     private static Resp send(String method, String path, String form) throws Exception {
+        return send(method, path, form, null, null);
+    }
+
+    private static Resp send(String method, String path, String form, Object[] raw, java.util.Map<String, String> headers) throws Exception {
         HttpURLConnection c = (HttpURLConnection) new URL("http://localhost:" + port + CONTEXT + path).openConnection();
         c.setInstanceFollowRedirects(false);
         c.setRequestMethod(method);
-        if (form != null) {
+        if (headers != null) {
+            for (java.util.Map.Entry<String, String> h : headers.entrySet()) {
+                c.setRequestProperty(h.getKey(), h.getValue());
+            }
+        }
+        if (raw != null) {
+            c.setDoOutput(true);
+            c.setRequestProperty("Content-Type", (String) raw[1]);
+            try (OutputStream o = c.getOutputStream()) {
+                o.write((byte[]) raw[0]);
+            }
+        } else if (form != null) {
             c.setDoOutput(true);
             c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
             try (OutputStream o = c.getOutputStream()) {
@@ -92,6 +120,19 @@ public class Web {
             r.body = new String(b.toByteArray(), StandardCharsets.UTF_8);
         }
         return r;
+    }
+
+    /** The CSRF token of the current session, read from the meta tag of a page. */
+    public static String csrf(String pagePath) throws Exception {
+        Resp r = get(pagePath);
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("<meta name=\"csrf-token\" content=\"([^\"]*)\"").matcher(r.body);
+        return m.find() ? m.group(1) : null;
+    }
+
+    /** Logs in the way the browser does: take the token from the login page, post the form with it. */
+    public static Resp login(String email, String password) throws Exception {
+        String token = csrf("/login.jsp");
+        return post("/AuthController", "action=login&_csrf=" + enc(token) + "&email=" + enc(email) + "&password=" + enc(password));
     }
 
     public static String enc(String s) throws Exception {

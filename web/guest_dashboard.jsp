@@ -62,6 +62,7 @@
             .btn-secondary { @apply flex items-center justify-center space-x-2 px-6 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm shadow-sm cursor-pointer; }
         }
     </style>
+    <%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>
 </head>
 <body class="page-body">
 
