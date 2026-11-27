@@ -47,16 +47,17 @@ public class ChatSessionDAO {
     }
 
     /**
-     * Cập nhật tên của session cũ thành tên mới
+     * Đổi tên session; chỉ khi session thuộc userId (Conv §2.3).
      */
-    public boolean updateSessionName(ChatSession session) {
-        String sql = "UPDATE chat_sessions SET session_name = ? WHERE session_id = ?";
+    public boolean updateSessionNameForOwner(int sessionId, int userId, String newName) {
+        String sql = "UPDATE chat_sessions SET session_name = ? WHERE session_id = ? AND user_id = ?";
         try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            ps.setString(1, session.getSessionName());
-            ps.setInt(2, session.getSessionId());
+            ps.setString(1, newName);
+            ps.setInt(2, sessionId);
+            ps.setInt(3, userId);
 
-            return ps.executeUpdate() > 0;
+            return ps.executeUpdate() == 1;
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -64,16 +65,17 @@ public class ChatSessionDAO {
     }
 
     /**
-     * Cập nhật trạng thái pin của Session
+     * Cập nhật trạng thái pin của Session; chỉ khi session thuộc userId.
      */
-    public boolean pinSession(ChatSession session) {
-        String sql = "UPDATE chat_sessions SET is_pinned = ? WHERE session_id = ?";
+    public boolean pinSessionForOwner(int sessionId, int userId, boolean pinned) {
+        String sql = "UPDATE chat_sessions SET is_pinned = ? WHERE session_id = ? AND user_id = ?";
         try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            ps.setBoolean(1, session.isPinned());
-            ps.setInt(2, session.getSessionId());
+            ps.setBoolean(1, pinned);
+            ps.setInt(2, sessionId);
+            ps.setInt(3, userId);
 
-            return ps.executeUpdate() > 0;
+            return ps.executeUpdate() == 1;
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -139,16 +141,17 @@ public class ChatSessionDAO {
     }
 
     /**
-     * Tìm session theo tên (Sử dụng LIKE để tìm kiếm tương đối)
+     * Tìm session của userId theo tên (LIKE). Chỉ trả về session của chính user đó.
      */
-    public List<ChatSession> findSessionByName(String sessionName) {
+    public List<ChatSession> findSessionByName(int userId, String sessionName) {
         List<ChatSession> list = new ArrayList<>();
-        String sql = "SELECT * FROM chat_sessions WHERE session_name LIKE ?";
+        String sql = "SELECT * FROM chat_sessions WHERE user_id = ? AND session_name LIKE ?";
 
         try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
 
+            ps.setInt(1, userId);
             // Thêm ký tự % để tìm kiếm chứa chuỗi (chứa từ khóa)
-            ps.setString(1, "%" + sessionName + "%");
+            ps.setString(2, "%" + sessionName + "%");
 
             try ( ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {

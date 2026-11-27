@@ -235,6 +235,21 @@ public class FolderDAO {
         return list;
     }
 
+    /** true nếu thư mục tồn tại và thuộc userId. Dùng để kiểm tra folderId nhận từ request. */
+    public boolean isOwnedBy(int folderId, int userId) {
+        String sql = "SELECT COUNT(*) FROM folders WHERE folder_id = ? AND user_id = ?";
+        try ( Connection conn = Utils.DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, folderId);
+            ps.setInt(2, userId);
+            try ( ResultSet rs = ps.executeQuery()) {
+                return rs.next() && rs.getInt(1) > 0;
+            }
+        } catch (SQLException e) {
+            System.err.println("[FolderDAO.isOwnedBy] " + e.getMessage());
+        }
+        return false;
+    }
+
     public Folder getFolderById(int folderId) {
         String sql = "SELECT * FROM folders WHERE folder_id = ?";
         try ( Connection conn = Utils.DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {

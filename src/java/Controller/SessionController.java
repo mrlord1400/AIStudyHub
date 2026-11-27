@@ -5,6 +5,9 @@ import Model.DTO.ChatSession;
 import Model.DAO.ChatSessionDAO;
 import Model.DTO.ChatMessage;
 
+import Utils.Access;
+import com.google.gson.Gson;
+
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -13,7 +16,10 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @WebServlet(name = "SessionController", urlPatterns = {"/SessionController"})
 public class SessionController extends HttpServlet {
@@ -166,8 +172,9 @@ public class SessionController extends HttpServlet {
         response.setCharacterEncoding("UTF-8");
         PrintWriter out = response.getWriter();
 
-        HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute("userId") == null) {
+        Integer userId = Access.currentUserId(request);
+        if (userId == null) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             out.print("{\"success\": false, \"message\": \"Vui lòng đăng nhập\"}");
             return;
         }
@@ -183,17 +190,15 @@ public class SessionController extends HttpServlet {
         try {
             int sessionId = Integer.parseInt(sessionIdStr);
 
-            ChatSession sessionToUpdate = new ChatSession();
-            sessionToUpdate.setSessionId(sessionId);
-            sessionToUpdate.setSessionName(sessionNewName.trim());
-
             ChatSessionDAO dao = new ChatSessionDAO();
-            boolean success = dao.updateSessionName(sessionToUpdate);
+            boolean success = dao.updateSessionNameForOwner(sessionId, userId, sessionNewName.trim());
 
             if (success) {
                 out.print("{\"success\": true}");
             } else {
-                out.print("{\"success\": false, \"message\": \"Lỗi cập nhật CSDL\"}");
+                // Không tồn tại HOẶC không phải của bạn: trả lời giống nhau (D-06)
+                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                out.print("{\"success\": false, \"message\": \"Không tìm thấy phiên trò chuyện\"}");
             }
         } catch (NumberFormatException e) {
             out.print("{\"success\": false, \"message\": \"ID không hợp lệ\"}");
@@ -239,8 +244,9 @@ public class SessionController extends HttpServlet {
         response.setCharacterEncoding("UTF-8");
         PrintWriter out = response.getWriter();
 
-        HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute("userId") == null) {
+        Integer userId = Access.currentUserId(request);
+        if (userId == null) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             out.print("[]");
             return;
         }
@@ -251,20 +257,17 @@ public class SessionController extends HttpServlet {
         }
 
         ChatSessionDAO dao = new ChatSessionDAO();
-        List<ChatSession> searchResults = dao.findSessionByName(searchName);
+        List<ChatSession> searchResults = dao.findSessionByName(userId, searchName);
 
-        StringBuilder jsonBuilder = new StringBuilder("[");
-        for (int i = 0; i < searchResults.size(); i++) {
-            ChatSession s = searchResults.get(i);
-            jsonBuilder.append("{\"sessionId\":").append(s.getSessionId())
-                    .append(", \"sessionName\":\"").append(s.getSessionName().replace("\"", "\\\""))
-                    .append("\"}");
-            if (i < searchResults.size() - 1) {
-                jsonBuilder.append(",");
-            }
+        // Gson thoát đúng mọi ký tự đặc biệt (tên session do người dùng nhập)
+        List<Map<String, Object>> items = new ArrayList<Map<String, Object>>();
+        for (ChatSession found : searchResults) {
+            Map<String, Object> item = new LinkedHashMap<String, Object>();
+            item.put("sessionId", found.getSessionId());
+            item.put("sessionName", found.getSessionName());
+            items.add(item);
         }
-        jsonBuilder.append("]");
-        out.print(jsonBuilder.toString());
+        out.print(new Gson().toJson(items));
     }
 
     private void handlePinSession(HttpServletRequest request, HttpServletResponse response)
@@ -273,8 +276,9 @@ public class SessionController extends HttpServlet {
         response.setCharacterEncoding("UTF-8");
         PrintWriter out = response.getWriter();
 
-        HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute("userId") == null) {
+        Integer userId = Access.currentUserId(request);
+        if (userId == null) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             out.print("{\"success\": false, \"message\": \"Vui lòng đăng nhập\"}");
             return;
         }
@@ -291,17 +295,14 @@ public class SessionController extends HttpServlet {
             int sessionId = Integer.parseInt(sessionIdStr);
             boolean isPinned = Boolean.parseBoolean(pinnedStr);
 
-            ChatSession sessionToPin = new ChatSession();
-            sessionToPin.setSessionId(sessionId);
-            sessionToPin.setPinned(isPinned);
-
             ChatSessionDAO dao = new ChatSessionDAO();
-            boolean success = dao.pinSession(sessionToPin);
+            boolean success = dao.pinSessionForOwner(sessionId, userId, isPinned);
 
             if (success) {
                 out.print("{\"success\": true, \"isPinned\": " + isPinned + "}");
             } else {
-                out.print("{\"success\": false, \"message\": \"Lỗi cập nhật CSDL\"}");
+                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                out.print("{\"success\": false, \"message\": \"Không tìm thấy phiên trò chuyện\"}");
             }
         } catch (NumberFormatException e) {
             out.print("{\"success\": false, \"message\": \"ID không hợp lệ\"}");
@@ -314,8 +315,9 @@ public class SessionController extends HttpServlet {
         response.setCharacterEncoding("UTF-8");
         PrintWriter out = response.getWriter();
 
-        HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute("userId") == null) {
+        Integer userId = Access.currentUserId(request);
+        if (userId == null) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             out.print("{\"success\": false, \"message\": \"Vui lòng đăng nhập\"}");
             return;
         }
@@ -333,9 +335,14 @@ public class SessionController extends HttpServlet {
             int messageId = Integer.parseInt(messageIdStr);
 
             ChatMessageDAO dao = new ChatMessageDAO();
-            boolean success = dao.deleteMessagesFromId(messageId, sessionId);
+            boolean success = dao.deleteMessagesFromId(messageId, sessionId, userId);
 
-            out.print("{\"success\": " + success + "}");
+            if (success) {
+                out.print("{\"success\": true}");
+            } else {
+                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                out.print("{\"success\": false, \"message\": \"Không tìm thấy phiên trò chuyện\"}");
+            }
         } catch (NumberFormatException e) {
             out.print("{\"success\": false, \"message\": \"ID không hợp lệ\"}");
         }
