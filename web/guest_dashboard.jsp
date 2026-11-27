@@ -13,14 +13,6 @@
     Integer totalContributors = (Integer) request.getAttribute("realTotalContributors");
     Integer totalDownloads = (Integer) request.getAttribute("realTotalDownloads");
 %>
-<%!
-    // Hàm escape JS để tránh lỗi nháy kép/đơn khi parse chuỗi
-    private String escapeJs(String input) {
-        if (input == null) return "";
-        return input.replace("\\", "\\\\").replace("\"", "\\\"").replace("'", "\\'")
-                    .replace("\r\n", " ").replace("\n", " ").replace("\r", " ").replace("</", "<\\/");
-    }
-%>
 <!DOCTYPE html>
 <html lang="vi" class="dark">
 <head>
@@ -29,6 +21,7 @@
     <title>Khám phá tài liệu (Khách) - AI Study Hub</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="${pageContext.request.contextPath}/js/security.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class'
@@ -134,37 +127,28 @@
 
     <script>
         // Data động mồi từ Backend (Giống y hệt trang FileExplore)
-        let guestDocs = [
-        <%
-            if (publicDocuments != null && !publicDocuments.isEmpty()) {
-                for (int i = 0; i < publicDocuments.size(); i++) {
-                    Document doc = publicDocuments.get(i);
+        // Dữ liệu từ server đi qua Gson (đã escape < > & ' và U+2028/2029), không nối chuỗi bằng tay (Conv §3).
+        let guestDocs = <%
+            java.util.List<java.util.Map<String, Object>> docRows = new java.util.ArrayList<java.util.Map<String, Object>>();
+            if (publicDocuments != null) {
+                for (Document doc : publicDocuments) {
                     // Bỏ qua các file bị Flag (cắm cờ) đối với khách
-                    if(doc.isFlagged()) continue; 
-                    
-                    String title = escapeJs(doc.getTitle());
-                    String fileExt = doc.getFileExtension() != null ? doc.getFileExtension().toUpperCase() : "FILE";
-                    String authorName = escapeJs(
-                            (doc.getAuthorUsername() != null && !doc.getAuthorUsername().trim().isEmpty())
-                            ? doc.getAuthorUsername()
-                            : "Người dùng #" + doc.getUserId()
-                    );
-        %>
-            {
-                id: "<%= doc.getDocumentId()%>",
-                title: "<%= title%>",
-                author: "<%= authorName%>",
-                authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=user<%= doc.getUserId()%>",
-                fileType: "<%= fileExt%>",
-                downloads: <%= doc.getDownloadCount() != null ? doc.getDownloadCount() : 0%>,
-                size: "<%= doc.getFileSizeMb()%> MB",
-                description: "Tài liệu học tập được chia sẻ công khai bởi cộng đồng sinh viên FPT."
-            }<%= (i < publicDocuments.size() - 1) ? "," : ""%>
-        <%
+                    if (doc.isFlagged()) continue;
+                    java.util.Map<String, Object> row = new java.util.LinkedHashMap<String, Object>();
+                    row.put("id", String.valueOf(doc.getDocumentId()));
+                    row.put("title", doc.getTitle() == null ? "" : doc.getTitle());
+                    row.put("author", (doc.getAuthorUsername() != null && !doc.getAuthorUsername().trim().isEmpty())
+                            ? doc.getAuthorUsername() : "Người dùng #" + doc.getUserId());
+                    row.put("authorAvatar", "https://api.dicebear.com/7.x/avataaars/svg?seed=user" + doc.getUserId());
+                    row.put("fileType", doc.getFileExtension() != null ? doc.getFileExtension().toUpperCase() : "FILE");
+                    row.put("downloads", doc.getDownloadCount() != null ? doc.getDownloadCount() : 0);
+                    row.put("size", doc.getFileSizeMb() + " MB");
+                    row.put("description", "Tài liệu học tập được chia sẻ công khai bởi cộng đồng sinh viên FPT.");
+                    docRows.add(row);
                 }
             }
-        %>
-        ];
+            out.print(new com.google.gson.Gson().toJson(docRows));
+        %>;
 
         let itemsShown = 8;
         let currentSearch = "";
@@ -209,16 +193,16 @@
                 <div class="doc-card border shadow-sm transition-all duration-200 relative">
                     <div>
                         <div class="flex items-start justify-between mb-2 pr-6">
-                            <h3 class="doc-title font-bold text-[15px] leading-snug">\${doc.title}</h3>
-                            <span class="ml-2 flex-shrink-0 px-2 py-0.5 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 font-mono text-[10px] font-bold rounded">\${doc.fileType}</span>
+                            <h3 class="doc-title font-bold text-[15px] leading-snug">\${escapeHtml(doc.title)}</h3>
+                            <span class="ml-2 flex-shrink-0 px-2 py-0.5 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 font-mono text-[10px] font-bold rounded">\${escapeHtml(doc.fileType)}</span>
                         </div>
-                        <p class="doc-desc text-xs font-medium line-clamp-2 leading-relaxed mb-4">\${doc.description}</p>
+                        <p class="doc-desc text-xs font-medium line-clamp-2 leading-relaxed mb-4">\${escapeHtml(doc.description)}</p>
                     </div>
                     <div>
                         <div class="author-box flex items-center mb-3 p-2 rounded-xl border">
-                            <img src="\${doc.authorAvatar}" class="w-7 h-7 rounded-full mr-2 border bg-white dark:border-gray-600">
+                            <img src="\${escapeHtml(doc.authorAvatar)}" class="w-7 h-7 rounded-full mr-2 border bg-white dark:border-gray-600">
                             <div class="flex-1 min-w-0">
-                                <p class="author-name text-xs font-bold truncate">Người đăng: \${doc.author}</p>
+                                <p class="author-name text-xs font-bold truncate">Người đăng: \${escapeHtml(doc.author)}</p>
                             </div>
                         </div>
                         <div class="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
@@ -226,13 +210,13 @@
                                 <div class="flex items-center" title="Số lượt tải">
                                     <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                                    </svg>\${doc.downloads}
+                                    </svg>\${escapeHtml(doc.downloads)}
                                 </div>
-                                <div><span>\${doc.size}</span></div>
+                                <div><span>\${escapeHtml(doc.size)}</span></div>
                             </div>
                             
                             <div class="flex items-center space-x-2">
-                                <a href="<%= request.getContextPath()%>/MainController?action=viewPublicPage&docId=\${doc.id}" target="_blank" class="flex items-center space-x-2 px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 transition-all text-xs font-bold shadow-sm cursor-pointer">
+                                <a href="<%= request.getContextPath()%>/MainController?action=viewPublicPage&docId=\${escapeHtml(doc.id)}" target="_blank" class="flex items-center space-x-2 px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 transition-all text-xs font-bold shadow-sm cursor-pointer">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                     <span>Xem Trước</span>
                                 </a>

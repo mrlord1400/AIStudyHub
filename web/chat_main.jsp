@@ -239,18 +239,18 @@
                     <div class="flex items-center justify-between w-full">
                         <a href="<%= request.getContextPath()%>/MainController?action=profile" class="user-profile-link flex-1 min-w-0">
                             <div class="user-avatar">
-                                <%= username != null && !username.isEmpty() ? username.substring(0, 1) : "U"%>
+                                <%= Utils.Html.esc(username != null && !username.isEmpty() ? username.substring(0, 1) : "U")%>
                             </div>
                             <div class="user-info">
                                 <div class="flex items-center gap-1.5 min-w-0">
-                                    <p class="user-name"><%= username != null ? username : "Khách"%></p>
+                                    <p class="user-name"><%= Utils.Html.esc(username != null ? username : "Khách")%></p>
                                     <% if (isPremiumUser) { %>
                                     <span class="flex-shrink-0 px-1.5 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-[9px] rounded-full shadow-sm scale-90 origin-left">PRO</span>
                                     <% } else { %>
                                     <span class="flex-shrink-0 px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-400 dark:border-emerald-700 font-bold text-[10px] rounded-full shadow-sm scale-90 origin-left tracking-wide">FREE</span>
                                     <% }%>
                                 </div>
-                                <p class="user-role">Quyền: <%= role != null ? role : "Free"%></p>
+                                <p class="user-role">Quyền: <%= Utils.Html.esc(role != null ? role : "Free")%></p>
                             </div>
                         </a>
 
@@ -355,7 +355,7 @@
                         <c:otherwise>
                             <c:forEach var="sessionItem" items="${chatHistory}">
                                 <div class="session-row p-3 rounded-xl border border-transparent hover:border-gray-700 transition-all flex items-center justify-between group bg-[#111827] hover:bg-gray-800" 
-                                     data-name="${sessionItem.sessionName.toLowerCase()}">
+                                     data-name="<c:out value="${sessionItem.sessionName.toLowerCase()}"/>">
 
                                     <div id="display-area-${sessionItem.sessionId}" 
                                          class="flex-1 min-w-0 flex items-start space-x-3 cursor-pointer" 
@@ -372,7 +372,7 @@
                                             <!-- Session name — ONE instance only -->
                                             <p id="title-text-${sessionItem.sessionId}" 
                                                class="text-sm font-semibold text-gray-200 truncate mb-0.5">
-                                                ${sessionItem.sessionName}
+                                                <c:out value="${sessionItem.sessionName}"/>
                                             </p>
 
                                             <!-- ADDED: Pin badge — single span, visibility controlled by ternary, no c:if needed -->
@@ -387,13 +387,13 @@
                                             </span>
 
                                             <span class="text-[10px] text-gray-500 font-medium block">
-                                                ${sessionItem.createdAt}
+                                                <c:out value="${sessionItem.createdAt}"/>
                                             </span>
                                         </div>
                                     </div>
 
                                     <div id="edit-area-${sessionItem.sessionId}" class="hidden flex-1 items-center space-x-2">
-                                        <input type="text" id="edit-input-${sessionItem.sessionId}" value="${sessionItem.sessionName}" 
+                                        <input type="text" id="edit-input-${sessionItem.sessionId}" value="<c:out value="${sessionItem.sessionName}"/>" 
                                                class="w-full bg-[#1f2937] border border-indigo-500 text-white text-sm rounded px-2 py-1 focus:outline-none" 
                                                onblur="handleBlurEdit('${sessionItem.sessionId}')" 
                                                onkeydown="handleKeyEdit(event, '${sessionItem.sessionId}')">
@@ -418,7 +418,7 @@
                                         <button onclick="startEditSession('${sessionItem.sessionId}')" class="p-1.5 text-gray-400 hover:text-blue-400 rounded-md hover:bg-gray-700 transition-colors" title="Đổi tên">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                                         </button>
-                                        <button onclick="deleteSession('${sessionItem.sessionId}', '${sessionItem.sessionName}')" class="p-1.5 text-gray-400 hover:text-red-400 rounded-md hover:bg-gray-700 transition-colors" title="Xóa">
+                                        <button data-name="<c:out value="${sessionItem.sessionName}"/>" onclick="deleteSession('${sessionItem.sessionId}', this.dataset.name)" class="p-1.5 text-gray-400 hover:text-red-400 rounded-md hover:bg-gray-700 transition-colors" title="Xóa">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                                         </button>
                                     </div>

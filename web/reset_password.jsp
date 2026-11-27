@@ -54,7 +54,7 @@
                     <h1 class="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Xác thực thành công</h1>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
                         Tạo mật khẩu mới cho tài khoản <br>
-                        <strong class="text-gray-800 dark:text-gray-200"><%= targetEmail %></strong>
+                        <strong class="text-gray-800 dark:text-gray-200"><%= Utils.Html.esc(targetEmail) %></strong>
                     </p>
                 </div>
                 
@@ -68,7 +68,7 @@
 
                 <form id="reset-form" action="MainController" method="POST" class="space-y-4">
                     <input type="hidden" name="action" value="processResetPassword">
-                    <input type="hidden" name="email" value="<%= targetEmail %>">
+                    <input type="hidden" name="email" value="<%= Utils.Html.esc(targetEmail) %>">
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Mật khẩu mới</label>

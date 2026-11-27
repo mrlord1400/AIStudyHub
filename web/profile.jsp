@@ -266,18 +266,18 @@
                     <div class="flex items-center justify-between w-full mb-1">
                         <a href="#" class="user-profile-link flex-1 mr-2">
                             <div class="user-avatar">
-                                <%= username != null && !username.isEmpty() ? username.substring(0, 1) : "U"%>
+                                <%= Utils.Html.esc(username != null && !username.isEmpty() ? username.substring(0, 1) : "U") %>
                             </div>
                             <div class="user-info">
                                 <div class="flex items-center gap-1.5 min-w-0">
-                                    <p class="user-name"><%= username != null ? username : "Khách"%></p>
+                                    <p class="user-name"><%= Utils.Html.esc(username != null ? username : "Khách") %></p>
                                     <% if (isPremiumUser) { %>
                                     <span class="flex-shrink-0 px-1.5 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-[9px] rounded-full shadow-sm scale-90 origin-left">PRO</span>
                                     <% } else { %>
                                     <span class="flex-shrink-0 px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-400 dark:border-emerald-700 font-bold text-[10px] rounded-full shadow-sm scale-90 origin-left tracking-wide">FREE</span>
                                     <% }%>
                                 </div>
-                                <p class="user-role">Quyền: <%= role != null ? role : "Free"%></p>
+                                <p class="user-role">Quyền: <%= Utils.Html.esc(role != null ? role : "Free") %></p>
                             </div>
                         </a>
 
@@ -350,11 +350,11 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
                         <div>
                             <label class="form-label">Tên hiển thị</label>
-                            <input type="text" name="username" value="<%= currentUser.getUsername()%>" required class="form-input" />
+                            <input type="text" name="username" value="<%= Utils.Html.esc(currentUser.getUsername())%>" required class="form-input" />
                         </div>
                         <div>
                             <label class="form-label">Email</label>
-                            <input type="email" name="email" value="<%= currentUser.getEmail()%>" required class="form-input" />
+                            <input type="email" name="email" value="<%= Utils.Html.esc(currentUser.getEmail())%>" required class="form-input" />
                         </div>
                     </div>
 
