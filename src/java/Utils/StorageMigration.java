@@ -107,8 +107,12 @@ public final class StorageMigration {
         }
 
         for (Path p : report.legacyToDelete) {
-            if (!keep.contains(p) && Files.deleteIfExists(p)) {
-                report.legacyFilesDeleted++;
+            try {
+                if (!keep.contains(p) && Files.deleteIfExists(p)) {
+                    report.legacyFilesDeleted++;
+                }
+            } catch (IOException e) {
+                report.problems.add("could not delete the old file " + legacyUploads.relativize(p) + " (" + e.getClass().getSimpleName() + ")");
             }
         }
 
