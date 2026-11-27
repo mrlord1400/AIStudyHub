@@ -86,6 +86,12 @@ public class ReportController extends HttpServlet {
                     return;
                 }
 
+                // Mỗi người chỉ có 1 báo cáo PENDING cho mỗi tài liệu; nếu không có thể gọi lặp để đẩy điểm và cắm cờ tài liệu của người khác
+                if (!reportDao.checkValid(userId, documentId)) {
+                    response.sendRedirect(request.getContextPath() + "/FileExplore.jsp?error=create_report_failed");
+                    return;
+                }
+
                 // Tạo đối tượng Report mới (mặc định ban đầu là PENDING)
                 Report newReport = new Report();
                 newReport.setDocumentId(documentId);

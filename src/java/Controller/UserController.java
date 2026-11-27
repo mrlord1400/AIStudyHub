@@ -3,6 +3,7 @@ package Controller;
 import Model.DTO.User;
 import Model.DAO.UserDAO;
 import Utils.PasswordUtil;
+import Utils.Validation;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -62,6 +63,13 @@ public class UserController extends HttpServlet {
                     response.sendRedirect(request.getContextPath() + "/MainController?action=profile&error=wrong_password");
                     return;
                 }
+
+                if (!Validation.isValidUsername(username) || !Validation.isValidEmail(email)) {
+                    response.sendRedirect(request.getContextPath() + "/MainController?action=profile&error=invalid_input");
+                    return;
+                }
+                username = username.trim();
+                email = email.trim();
 
                 User existingUser = dao.getUserById(userId);
                 String finalPasswordHash = existingUser.getPasswordHash();

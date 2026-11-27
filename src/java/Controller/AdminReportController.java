@@ -7,6 +7,7 @@ import Model.DTO.Report;
 import Model.DTO.Document;
 import Model.DTO.ReportReason;
 import Utils.Access;
+import Utils.Validation;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -54,6 +55,12 @@ public class AdminReportController extends HttpServlet {
                 int reportId = Integer.parseInt(request.getParameter("reportId"));
                 int documentId = Integer.parseInt(request.getParameter("documentId"));
                 String newStatus = request.getParameter("status");
+
+                // Whitelist trạng thái báo cáo (khớp CHECK của document_reports.status)
+                if (!Validation.isOneOf(newStatus, "PENDING", "REVIEWED", "DISMISSED", "ACTION_TAKEN")) {
+                    response.sendRedirect(request.getContextPath() + "/MainController?action=adminReportList&documentId=" + documentId + "&error=invalid_input");
+                    return;
+                }
 
                 List<Report> allReps = reportDao.getReportList(documentId);
                 for (Report r : allReps) {
