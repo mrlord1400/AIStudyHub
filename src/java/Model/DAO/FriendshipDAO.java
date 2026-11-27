@@ -122,6 +122,28 @@ public class FriendshipDAO {
     }
 
     /**
+     * true nếu tồn tại một dòng ACCEPTED giữa hai user (theo bất kỳ chiều nào).
+     * Dùng cho quyết định phân quyền (DocumentAccess), nên không dựa vào "dòng đầu tiên".
+     */
+    public boolean areFriends(int userA, int userB) {
+        String sql = "SELECT COUNT(*) FROM friendships WHERE status = 'ACCEPTED' "
+                + "AND ((requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?))";
+
+        try ( Connection conn = DBUtils.getConnection();  PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userA);
+            ps.setInt(2, userB);
+            ps.setInt(3, userB);
+            ps.setInt(4, userA);
+            try ( ResultSet rs = ps.executeQuery()) {
+                return rs.next() && rs.getInt(1) > 0;
+            }
+        } catch (SQLException e) {
+            System.out.println("[FriendshipDAO.areFriends] " + e.getMessage());
+        }
+        return false;
+    }
+
+    /**
      * Cập nhật trạng thái bạn bè dựa trên cặp User ID
      */
     public boolean updateFriendStatusByUsers(int myUserId, int targetUserId, String status) {
