@@ -30,7 +30,7 @@ Admins manage users, transactions, reported documents, report-reason config and 
 | Libraries | gson 2.14, jbcrypt 0.4, pdfbox-app 3.0.3, poi/poi-ooxml 5.3.0, javax.mail 1.6.2 + activation, commons-compress/collections4, xmlbeans, log4j-api (unused) |
 | Library paths | `nbproject/project.properties` references `C:\FPT\JavaLib\*.jar`, which is machine-specific. Some jars are also copied to `web/WEB-INF/lib` |
 | Front end | Server-rendered JSP with Tailwind-style classes, inline `<script>`, `fetch` in chat/explore pages, `marked` from CDN for bot markdown |
-| Tests | `test/` exists but is empty |
+| Tests | `test/` exists but is empty (JUnit comes in Phase 7). Until then `docs/remediation/verify/offline/` runs the real code against in-memory H2 without Tomcat |
 | External | Google Gemini REST (`Utils.GeminiService`), Gmail SMTP (`Utils.EmailUtil`) |
 
 `nbproject/*` files show as modified in git because NetBeans rewrites them per machine. Don't commit those changes unless intended.
@@ -42,16 +42,21 @@ ASH_Database.sql          schema + seed data
 src/java/
   Controller/             17 servlets (one per feature area)
   Filter/                 package `Filter` (directory renamed from the "FIlter" typo in T0.4)
-    SessionSyncFilter.java
+    SessionSyncFilter.java   registered in web.xml (no longer @WebFilter): runs first
+    AuthFilter.java          default-deny gate (T1.1), REQUEST + FORWARD, runs second
   Listener/AppStartupListener.java   seeds dev test users only when DEV_SEED_TEST_USERS=true (T0.3)
   Listener/ConfigValidationListener.java   logs which required config keys are present/missing (T0.2)
   Model/DAO/              12 DAOs, plain JDBC
   Model/DTO/              10 POJOs
   Model/Service/SubscriptionRenewalService.java
-  Utils/                  AppConfig, DBUtils, PasswordUtil, CookieUtil, EmailUtil, GeminiService, LinkUtil, SubscriptionScheduler
+  Model/Service/DocumentAccess.java   canView / canEdit: the one place that decides document visibility (T1.3)
+  Utils/                  AppConfig, Access (who is calling), AccessRules (public/admin/authenticated path lists),
+                          Validation (whitelists, ranged numbers), DBUtils, PasswordUtil, CookieUtil, EmailUtil, GeminiService,
+                          LinkUtil, SubscriptionScheduler
 web/
   *.jsp                   30 pages (no WEB-INF protection: all directly reachable)
-  WEB-INF/web.xml         only maps SystemConfigController + session timeout 30 min
+  WEB-INF/web.xml         maps SystemConfigController, declares the filter order (SessionSyncFilter, AuthFilter), session timeout 30 min
+  WEB-INF/jspf/admin_error_banner.jspf   shared error banner included by admin_manageUser / admin_manageTrans / admin_report_config
   WEB-INF/tags/AdminLayout.tag   shared admin chrome
   WEB-INF/lib/            runtime jars
   uploads/<userId>/...    created at runtime inside the exploded WAR (F-05)
@@ -63,8 +68,11 @@ docs/standards/           review checklist
 
 ```
 Browser
-  └─> SessionSyncFilter (@WebFilter "/*")   every 60 s re-reads user from DB: refreshes role/tier/balance,
+  └─> SessionSyncFilter (web.xml, REQUEST)   every 60 s re-reads user from DB: refreshes role/tier/balance,
   │                                          invalidates the session if the user is BANNED or deleted
+  └─> AuthFilter (web.xml, REQUEST + FORWARD) classifies the path with Utils.AccessRules: PUBLIC / AUTHENTICATED / ADMIN.
+  │                                          Not logged in -> redirect login.jsp (401 JSON/text for AJAX endpoints);
+  │                                          logged in but not admin on an ADMIN path -> 403. Anything unlisted = AUTHENTICATED.
   ├─> /MainController?action=X  ── switch(action) ──> forward to /XController   (most JSP links/forms use this)
   └─> /XController?action=Y     (many JSPs and JS fetch calls hit controllers directly)
          └─> DAO (new DAO() per request, new Connection per method) ──> SQL Server
@@ -72,34 +80,42 @@ Browser
 ```
 
 Key facts:
-- **`MainController` is not a security boundary.** Every controller has its own URL and can be called directly.
+- **`MainController` is public but is not the gate.** It only forwards; `AuthFilter` runs again on the FORWARD to the real controller
+  (`getServletPath()` is then the target), so `/MainController?action=listUsers` is checked as `/AdminController`.
 - Controllers mostly use `processRequest` for both GET and POST, so mutations are GET-able.
-- Each controller does its own `session.getAttribute("userId") == null` check, or doesn't (see §5).
+- Controllers keep their own login/role check as a second layer (`Utils.Access`), but the filter is what decides. The acting user always comes from the session.
 - Errors travel as `?error=<code>` query params that the JSPs turn into Vietnamese messages.
 
 ## 5. Controllers, actions and current guards
 
-"Guard" means the check as of the audit. ❌ = missing (see the finding).
+Reviewed in T1.8 (2026-11-27). "Path gate" is `AuthFilter`/`AccessRules`. "In-controller" is the second layer plus SQL scoping.
+✅ = closed in Phase 1. ⚠ = known gap, with the task that closes it. Nothing is left unaccounted for.
 
-| Controller (URL) | Actions | Guard today |
-|---|---|---|
-| `MainController` (`/MainController`) | router only; `guest` action renders `guest_dashboard.jsp` itself | none needed |
-| `AuthController` | GET `logout`; POST `register`, `login`, `processResetPassword` | public (correct); reset requires session flag `ALLOW_RESET_<email>` |
-| `ForgotPasswordController` | `sendOTP`, `verifyOTP` (JSON) | public; in-memory lockout (F-09) |
-| `UserController` | `profile`, `updateProfile`, `deleteAccount` | login check |
-| `DocumentController` | `explore`, `editDoc`❌, `viewPage`, `viewPublicPage`, `deleteDoc`❌, `updateDoc`❌, `updatePermission`, `viewDoc`, `downloadDoc`, `toggleBookmark`❌ | login (guests allowed for `viewPublicPage`, `viewDoc`). Owner check only in `viewPage`/`updatePermission`. FRIENDS_ONLY unchecked (F-03, F-04) |
-| `UploadController` (multipart, 100 MB) | `upload`, `confirm`, `replace`, `keepBoth`, `cancel` | login; folderId unchecked (F-05) |
-| `FolderController` | `createFolder`, `deleteFolder`, `viewFolder`, `editFolder`, `updateFolder` | login; **FolderDAO SQL is owner-scoped** (good reference implementation) |
-| `ChatBotController` | POST message → Gemini loop (text/plain response) | login; sessionId ownership ❌ (F-06) |
-| `SessionController` | `chatMain`, `createSession`, `viewSession`, `updateSessionName`❌, `deleteSession`, `findSessionByName`❌, `pinSession`❌, `deleteMessagesFrom`❌ | login; partial ownership (F-06) |
-| `SearchController` | search own docs/folders | login |
-| `FriendController` | `createFriendship`, `updateFriendshipStatus`❌, `deleteFriendship`, `friendList`, `pendingList`, `blockedList`, `findUserByEmail` | login; state machine ❌ (F-10) |
-| `ReportController` | `report`, `createReport`, `updateReport` | login; update is scoped to reporter |
-| `TransactionController` | `createTransaction`, `listTransactions`, `buyPremium`, `adminListTransactions`, `adminUpdateTransaction` | login; admin role on the two admin actions |
-| `AdminController` (`/AdminController`) | GET `listUsers`, `listDashboard`, `listTransactions`, `profile`, `listPublicDocs`, `adminViewDoc`; POST `updateAdminProfile`, `createUser`, `updateUser`, `deleteUser` | **❌ none** (F-01) |
-| `AdminReportController` | `adminReportList`, `adminUpdateReportStatus`, `adminDeleteReport`, `adminDeleteDocument` | login + ADMIN ✅ |
-| `ReportConfigController` (`/admin/report-config`, `/ReportConfigController`) | GET `reportConfigList`, `reportConfigDelete`; POST `reportConfigAdd`, `reportConfigUpdate` | **❌ none** (F-01) |
-| `SystemConfigController` (`/admin/system-config`, mapped in web.xml **and** by annotation) | GET list tiers; POST update tiers | **❌ none** (F-01) |
+| Controller (URL) | Actions | Path gate | In-controller / SQL scoping |
+|---|---|---|---|
+| `MainController` | router; `guest` renders `guest_dashboard.jsp` | public (the forward target is re-checked) | ✅ nothing sensitive of its own |
+| `AuthController` | GET `logout`; POST `register`, `login`, `processResetPassword` | public | ✅ reset needs session flag `ALLOW_RESET_<email>`. ⚠ session fixation, remember-me, rate limits: T3.3-T3.5 |
+| `ForgotPasswordController` | `sendOTP`, `verifyOTP` (JSON) | public | ⚠ OTP generation, lockout, rate limit: T3.5 |
+| `UserController` | `profile`, `updateProfile`, `deleteAccount` | authenticated | ✅ acts only on `session.userId`; `updateProfile` needs the current password and validates name/email. ⚠ `deleteAccount` and other mutations are GET-able: T3.2 |
+| `DocumentController` | `explore` | authenticated | ✅ SQL limits to PUBLIC (non-flagged) / accepted-friends' FRIENDS_ONLY |
+| | `viewPublicPage`, `viewDoc` | **public** (guests allowed, only these two actions) | ✅ `DocumentAccess.canView`; invisible = 404 / `not_found` |
+| | `downloadDoc`, `toggleBookmark` | authenticated | ✅ `DocumentAccess.canView` (bookmark answers a 404 JSON) |
+| | `viewPage`, `editDoc`, `updateDoc`, `deleteDoc`, `updatePermission` | authenticated | ✅ owner only (`canEdit`) + SQL `AND user_id = ?` (`*ForOwner` DAO methods); file deleted only after the DB delete matched 1 row; foreign `folderId` rejected. ⚠ file location/serving: T2.1 |
+| `UploadController` (multipart, 100 MB) | `upload`, `confirm`, `replace`, `keepBoth`, `cancel` | authenticated | ✅ ids come from the session wizard, DB writes are owner-scoped, `folderId` must be the caller's. ⚠ stored under the web root, any extension, quota literal: T2.1-T2.3, T6.4 |
+| `FolderController` | `createFolder`, `deleteFolder`, `viewFolder`, `editFolder`, `updateFolder` | authenticated | ✅ DAO SQL owner-scoped; parent/current/edit folder ids must be the caller's (T1.6); a folder cannot be its own parent. ⚠ deeper cycles (A under its own descendant): not prevented |
+| `ChatBotController` | POST message (text/plain) | authenticated (401 text) | ✅ session must belong to the caller before quota/storage; `VIEW/<id>` uses `canView`; `GETLINK/<id>` needs an owned folder. ⚠ quota race, error text, Gemini hardening: T4.5, T5.3, T6.2 |
+| `SessionController` | `chatMain`, `createSession`, `viewSession`, `deleteSession` | authenticated | ✅ owner-checked (as before) |
+| | `updateSessionName`, `pinSession`, `deleteMessagesFrom`, `findSessionByName` (JSON) | authenticated (401 JSON) | ✅ SQL scoped to the session owner (messages via sub-select); not-yours = 404. ⚠ JSON envelope/status codes: T5.5 |
+| `SearchController` | search own docs/folders | authenticated | ✅ both queries filter `user_id`. ⚠ LIKE wildcards: T6.5 |
+| `FriendController` | `createFriendship`, `updateFriendshipStatus`, `deleteFriendship`, lists, `findUserByEmail` | authenticated | ✅ state machine in SQL (`acceptRequest` addressee-only on PENDING; `block` never overwrites a block; BLOCKED rows deletable only by the blocker); reverse-duplicate request refused; `returnPath` whitelisted. ⚠ DB-level unique for the pair: T4.6 |
+| `ReportController` | `report`, `createReport`, `updateReport` | authenticated | ✅ reporting needs `canView`; one PENDING report per user per document; update scoped to the reporter. ⚠ score recalculation is read-modify-write: T4.7 |
+| `TransactionController` | `createTransaction`, `listTransactions`, `buyPremium` | authenticated | ✅ `listTransactions` scoped to the caller. ⚠ type/amount unvalidated, balance races, non-atomic Premium: T4.1-T4.4 |
+| | `adminListTransactions`, `adminUpdateTransaction` | **admin** (any `admin*` action on this URL) | ✅ also `Access.isAdmin`; status whitelist `PROCESSING/SUCCESS/CANCELLED`. ⚠ double approval: T4.2 |
+| `AdminController` | all (`listUsers`, `listDashboard`, `listTransactions`, `profile`, `listPublicDocs`, `adminViewDoc`, `updateAdminProfile`, `createUser`, `updateUser`, `deleteUser`) | **admin** | ✅ also `Access.isAdmin`; role/status/tier/balance/name/email/password validated; an admin cannot demote, ban or delete themself |
+| `AdminReportController` | `adminReportList`, `adminUpdateReportStatus`, `adminDeleteReport`, `adminDeleteDocument` | **admin** | ✅ also `Access.isAdmin`; status whitelisted. ⚠ mutations are GET-able: T3.2 |
+| `ReportConfigController` (`/admin/report-config`, `/ReportConfigController`) | GET `reportConfigList`; POST `reportConfigAdd/Update/Delete` | **admin** | ✅ also `Access.isAdmin`; code/severity/scores validated; delete is POST-only (GET answers 405) |
+| `SystemConfigController` (`/admin/system-config`, mapped in web.xml **and** by annotation) | GET list tiers; POST update tiers | **admin** | ✅ also `Access.isAdmin`; every row validated first, then one DB transaction |
+| `/uploads/**` (static files) | direct file URLs | authenticated (default) | ⚠ any logged-in user can still fetch any file by URL: T2.1 |
 
 `MainController` action → controller routing is the `switch` in `MainController.processRequest` (~line 42). Notable entries:
 `listUsers/createUser/updateUser/deleteUser/listDashboard` → AdminController; `reportConfig*` → ReportConfigController;
@@ -145,11 +161,11 @@ Triggers maintain `updated_at` on `users`, `documents` and `friendships`.
 | `Utils.AppConfig` | All secrets/env settings: env var → system property → `~/.aistudyhub/app.properties`. `require(key)` fails closed with `Missing required config: KEY` |
 | `Utils.DBUtils` | `getConnection()` (credentials from `AppConfig`: `DB_URL`, `DB_USER`, `DB_PASSWORD`), `closeConnection()` |
 | `UserDAO` | register/login/get/update user, `updateBalance` (read-modify-write, F-20), `updatePassword(email,…)`, AI usage, premium expiry helpers, friend lists, `deleteUserAndAssociatedData` (**the one place that uses a real transaction**, a good pattern to copy), `seedTestUsers(password)` (dev only, T0.3) |
-| `DocumentDAO` | ~780 lines: CRUD, explore query (`getExploreDocuments`, builds ORDER BY from a whitelist, so it's safe), duplicates, bookmarks, storage totals, admin listing, `privatizePublicDocumentsByUserId` |
+| `DocumentDAO` | ~780 lines: CRUD (mutations are `*ForOwner`: `updateDocumentInfoForOwner`, `updateSharingPermissionForOwner`, `replaceDocumentFileForOwner`, `deleteDocumentForOwner`; admin deletes via `deleteDocumentAndDependencies`), explore query (`getExploreDocuments`, builds ORDER BY from a whitelist, so it's safe), duplicates, bookmarks, storage totals, admin listing, `privatizePublicDocumentsByUserId` |
 | `DocumentTextDAO` | extracted text CRUD |
-| `FolderDAO` | owner-scoped CRUD, recursive CTE delete, `buildFolderTree` (text tree for the chatbot) |
-| `ChatSessionDAO` / `ChatMessageDAO` | sessions and messages; `ChatMessageDAO` also builds the **system prompt** (~line 28) and attachment messages |
-| `FriendshipDAO` | status by user pair, create/update/delete |
+| `FolderDAO` | owner-scoped CRUD, recursive CTE delete, `buildFolderTree` (text tree for the chatbot), `isOwnedBy(folderId, userId)` for ids that come from a request. `getFolderById` is **unscoped**: compare `getUserId()` or use `isOwnedBy` |
+| `ChatSessionDAO` / `ChatMessageDAO` | sessions and messages (`updateSessionNameForOwner`, `pinSessionForOwner`, `findSessionByName(userId, ...)`, `deleteMessagesFromId(msg, session, userId)` are owner-scoped); `ChatMessageDAO` also builds the **system prompt** (~line 28) and attachment messages |
+| `FriendshipDAO` | status by user pair, `areFriends`, `createFriendship` (refuses an existing pair in either direction), `acceptRequest`, `block`, guarded `deleteFriendshipByUsers` |
 | `ReportDAO`, `ReportReasonDAO` | reports and reason configs |
 | `TransactionDAO` | create, list, get, `updateTransactionStatus` (unconditional, F-21) |
 | `SubscriptionDAO` | tiers, `getPremiumPrice()` (returns <0 on failure) |
@@ -184,8 +200,12 @@ Triggers maintain `updated_at` on `users`, `documents` and `friendships`.
 ## 10. Gotchas
 
 - `src/java/Filter/` was once misspelled `FIlter` (fixed in T0.4). On a clone that still has the old directory name in an IDE cache, clean and rebuild.
-- Annotated `@WebFilter`s have **no defined order**. Declare filters in `web.xml` when order matters.
+- Annotated `@WebFilter`s have **no defined order**. Filters are declared in `web.xml` (SessionSyncFilter, then AuthFilter); add `CsrfFilter` after them (T3.2). Do not add `@WebFilter`.
+- **A new page or controller is "authenticated" by default.** To make it public or admin-only add it to the lists in `Utils/AccessRules.java`. A missing public page shows up as a redirect loop to `login.jsp`.
+- `AuthFilter` sets request encoding to UTF-8 before reading `action`. Do not read request parameters in a filter before that, or Vietnamese form values get mangled.
+- On a FORWARD, `request.getServletPath()` is the forward target and the `action` parameter is unchanged; `AuthFilter` relies on both.
 - `SystemConfigController` is mapped twice (annotation + `web.xml`). That works because the mappings are identical, but keep it in mind.
+- `getFolderById`, `DocumentDAO.findById`, `ChatSessionDAO.getSessionById` are **unscoped lookups**. Always follow them with an ownership/`DocumentAccess` check.
 - `DocumentController` derives the on-disk path from `cloud_storage_url` by stripping the context path. Any change to storage must update `viewDoc`, `downloadDoc`, `deleteDoc`, `UploadController.deletePhysicalFile`/`renameToFinalName`, `AdminReportController.adminDeleteDocument`, and `UserDAO.deleteUserAndAssociatedData` (verify the last two when you get there).
 - Comments are a mix of Vietnamese and English. User-facing strings are Vietnamese, so keep them Vietnamese.
 - Many JSPs contain scriptlets that call DAOs directly (e.g. `user_dashboard.jsp`, `login.jsp`). Grep JSPs too when you change a DAO signature.
