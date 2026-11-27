@@ -54,6 +54,40 @@ public class SubscriptionDAO {
         return false;
     }
     
+    /**
+     * Cập nhật nhiều gói trong MỘT transaction: hoặc tất cả được ghi, hoặc không gói nào (F-11).
+     * Mỗi gói phải khớp đúng 1 dòng, nếu không rollback.
+     */
+    public boolean updateSubscriptions(List<Subscription> subs) {
+        String sql = "UPDATE subscriptions SET max_storage_mb = ?, ai_prompt_limit_per_day = ?, price = ?, total_storage_mb = ? WHERE tier_id = ?";
+        try (Connection conn = DBUtils.getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                for (Subscription sub : subs) {
+                    ps.setInt(1, sub.getMaxStorageMb());
+                    ps.setInt(2, sub.getAiPromptLimitPerDay());
+                    ps.setDouble(3, sub.getPrice());
+                    ps.setInt(4, sub.getTotalStorageMb());
+                    ps.setInt(5, sub.getTierId());
+                    if (ps.executeUpdate() != 1) {
+                        conn.rollback();
+                        return false;
+                    }
+                }
+                conn.commit();
+                return true;
+            } catch (SQLException e) {
+                conn.rollback();
+                e.printStackTrace();
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
     public double getPremiumPrice() {
         String sql = "SELECT * FROM subscriptions WHERE tier_id = 3";
 

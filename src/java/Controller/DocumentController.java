@@ -6,6 +6,8 @@ import Model.DTO.Folder;
 import Model.DAO.FolderDAO;
 import Model.DTO.User;
 import Model.DAO.UserDAO;
+import Model.Service.DocumentAccess;
+import Utils.Access;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -17,6 +19,8 @@ import java.util.List;
 
 @WebServlet(name = "DocumentController", urlPatterns = {"/DocumentController"})
 public class DocumentController extends HttpServlet {
+
+    private final DocumentAccess documentAccess = new DocumentAccess();
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -41,6 +45,7 @@ public class DocumentController extends HttpServlet {
         }
 
         DocumentDAO dao = new DocumentDAO();
+        boolean isAdmin = Access.isAdmin(request);
 
         // 3. Gán userId = 0 cho Khách để tránh lỗi dòng 38 của bạn
         int userId = (sessionUserId != null) ? sessionUserId : 0;
@@ -88,7 +93,8 @@ public class DocumentController extends HttpServlet {
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 Document doc = dao.findById(docId);
 
-                if (doc != null) {
+                // Chỉ chủ sở hữu được sửa; "không phải của bạn" trả lời y như "không tồn tại" (Conv §2.3)
+                if (documentAccess.canEdit(doc, sessionUserId)) {
                     request.setAttribute("document", doc);
                     request.getRequestDispatcher("/document_edit.jsp").forward(request, response);
                 } else {
@@ -99,7 +105,7 @@ public class DocumentController extends HttpServlet {
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 Document doc = dao.findById(docId);
 
-                if (doc != null && doc.getUserId() == userId) {
+                if (documentAccess.canEdit(doc, sessionUserId)) {
                     request.setAttribute("document", doc);
                     request.getRequestDispatcher("/document_view.jsp").forward(request, response);
                 } else {
@@ -110,24 +116,15 @@ public class DocumentController extends HttpServlet {
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 Document doc = dao.findById(docId);
 
-                if (doc != null) {
-                    String permission = doc.getSharingPermission() != null ? doc.getSharingPermission().toUpperCase() : "PRIVATE";
+                // "Không có quyền xem" trả lời y như "không tồn tại" (Conv §2.3, D-06)
+                if (documentAccess.canView(doc, sessionUserId, isAdmin)) {
+                    UserDAO userDao = new UserDAO();
+                    User author = userDao.getUserById(doc.getUserId());
+                    String authorName = (author != null) ? author.getUsername() : "Không rõ";
 
-                    // Cho phép xem nếu tài liệu là PUBLIC. Nếu đã đăng nhập thì xem thêm FRIENDS_ONLY và tài liệu chính mình
-                    boolean canAccess = "PUBLIC".equals(permission)
-                            || (sessionUserId != null && ("FRIENDS_ONLY".equals(permission) || doc.getUserId() == userId));
-
-                    if (canAccess) {
-                        UserDAO userDao = new UserDAO();
-                        User author = userDao.getUserById(doc.getUserId());
-                        String authorName = (author != null) ? author.getUsername() : "Không rõ";
-
-                        request.setAttribute("document", doc);
-                        request.setAttribute("authorName", authorName);
-                        request.getRequestDispatcher("/publicDocument_view.jsp").forward(request, response);
-                    } else {
-                        response.sendRedirect(request.getContextPath() + "/MainController?action=explore&error=no_access");
-                    }
+                    request.setAttribute("document", doc);
+                    request.setAttribute("authorName", authorName);
+                    request.getRequestDispatcher("/publicDocument_view.jsp").forward(request, response);
                 } else {
                     response.sendRedirect(request.getContextPath() + "/MainController?action=explore&error=not_found");
                 }
@@ -136,36 +133,13 @@ public class DocumentController extends HttpServlet {
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 Document doc = dao.findById(docId);
 
-                if (doc != null) {
-                    String cloudUrl = doc.getCloudStorageUrl();
-                    if (cloudUrl != null && !cloudUrl.trim().isEmpty()) {
-                        String relativePath = cloudUrl;
-                        String contextPath = request.getContextPath();
-                        if (relativePath.startsWith(contextPath)) {
-                            relativePath = relativePath.substring(contextPath.length());
-                        }
-                        if (relativePath.startsWith("/")) {
-                            relativePath = relativePath.substring(1);
-                        }
-
-                        String realPath = getServletContext().getRealPath("");
-                        if (realPath != null) {
-                            java.io.File physicalFile = new java.io.File(realPath + java.io.File.separator + relativePath.replace("/", java.io.File.separator));
-                            if (physicalFile.exists()) {
-                                boolean fileDeleted = physicalFile.delete();
-                                System.out.println("[DocumentController] Deleted physical file: " + physicalFile.getAbsolutePath() + " → " + fileDeleted);
-                            }
-                        }
-                    }
-
-                    boolean deleted = dao.deleteDocument(docId);
-                    String role = (String) session.getAttribute("role");
-                    boolean isAdmin = "ADMIN".equalsIgnoreCase(role);
+                if (documentAccess.canEdit(doc, sessionUserId)) {
+                    // Xóa DB trước (có điều kiện user_id); chỉ khi đúng 1 dòng bị xóa mới xóa file vật lý.
+                    boolean deleted = dao.deleteDocumentForOwner(docId, userId);
 
                     if (deleted) {
-                        response.sendRedirect(request.getContextPath() + (isAdmin
-                                ? "/AdminController?action=listPublicDocs&updateSuccess=1"
-                                : "/user_dashboard.jsp?updateSuccess=1"));
+                        deletePhysicalFile(doc.getCloudStorageUrl(), request);
+                        response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?updateSuccess=1");
                     } else {
                         request.setAttribute("errorMessage", "Không thể xóa. Vui lòng thử lại.");
                         request.getRequestDispatcher("/MainController?action=editDoc&docId=" + docId).forward(request, response);
@@ -205,21 +179,27 @@ public class DocumentController extends HttpServlet {
                 }
 
                 Document existingDoc = dao.findById(docId);
-                String existingCloudUrl = (existingDoc != null) ? existingDoc.getCloudStorageUrl() : "";
+                if (!documentAccess.canEdit(existingDoc, sessionUserId)) {
+                    response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=not_found");
+                    return;
+                }
 
-                boolean updated = dao.updateDocumentInfo(docId, newTitle, folderId, sharingPerm, existingCloudUrl);
+                // folderId đến từ request: phải là thư mục của chính người dùng
+                if (folderId != null && !new FolderDAO().isOwnedBy(folderId, userId)) {
+                    request.setAttribute("errorMessage", "Thư mục không hợp lệ.");
+                    request.getRequestDispatcher("/MainController?action=editDoc&docId=" + docId).forward(request, response);
+                    return;
+                }
 
-                String role = (String) session.getAttribute("role");
-                boolean isAdmin = "ADMIN".equalsIgnoreCase(role);
+                boolean updated = dao.updateDocumentInfoForOwner(docId, userId, newTitle, folderId, sharingPerm,
+                        existingDoc.getCloudStorageUrl());
 
                 if (updated) {
                     // 🔥 MỚI: nếu bị chặn do suspended, đá về kèm cảnh báo thay vì báo thành công bình thường
                     if (updateDocErrorMsg != null) {
                         response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?warning=account_suspended");
                     } else {
-                        response.sendRedirect(request.getContextPath() + (isAdmin
-                                ? "/AdminController?action=listPublicDocs&updateSuccess=1"
-                                : "/user_dashboard.jsp?updateSuccess=1"));
+                        response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?updateSuccess=1");
                     }
                 } else {
                     request.setAttribute("errorMessage", "Không thể cập nhật. Vui lòng thử lại.");
@@ -245,8 +225,8 @@ public class DocumentController extends HttpServlet {
                 }
 
                 Document doc = dao.findById(docId);
-                if (doc != null && doc.getUserId() == userId) {
-                    boolean updated = dao.updateSharingPermission(docId, sharingPerm);
+                if (documentAccess.canEdit(doc, sessionUserId)) {
+                    boolean updated = dao.updateSharingPermissionForOwner(docId, userId, sharingPerm);
                     if (updated) {
                         response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?updateSuccess=1");
                     } else {
@@ -260,18 +240,7 @@ public class DocumentController extends HttpServlet {
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 Document doc = dao.findById(docId);
 
-                boolean canAccess = false;
-                if (doc != null) {
-                    String permission = doc.getSharingPermission() != null ? doc.getSharingPermission().toUpperCase() : "PRIVATE";
-
-                    if ("PUBLIC".equals(permission)) {
-                        canAccess = true;
-                    } else if (sessionUserId != null && (doc.getUserId() == userId || "FRIENDS_ONLY".equals(permission))) {
-                        canAccess = true;
-                    }
-                }
-
-                if (canAccess) {
+                if (documentAccess.canView(doc, sessionUserId, isAdmin)) {
                     String url = doc.getCloudStorageUrl();
                     String relativePath = url;
                     String ctxPath = request.getContextPath();
@@ -530,22 +499,14 @@ public class DocumentController extends HttpServlet {
                         response.sendError(HttpServletResponse.SC_NOT_FOUND, "Tài liệu không còn tồn tại trên máy chủ.");
                     }
                 } else {
-                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Bạn không có quyền truy cập tài liệu này.");
+                    response.sendError(HttpServletResponse.SC_NOT_FOUND, "Tài liệu không tồn tại.");
                 }
 
             } else if ("downloadDoc".equals(action)) {
                 int docId = Integer.parseInt(request.getParameter("docId"));
                 Document doc = dao.findById(docId);
 
-                boolean canAccess = false;
-                if (doc != null) {
-                    String permission = doc.getSharingPermission() != null ? doc.getSharingPermission().toUpperCase() : "PRIVATE";
-                    if (doc.getUserId() == userId || "PUBLIC".equals(permission) || "FRIENDS_ONLY".equals(permission)) {
-                        canAccess = true;
-                    }
-                }
-
-                if (canAccess) {
+                if (documentAccess.canView(doc, sessionUserId, isAdmin)) {
                     String url = doc.getCloudStorageUrl();
                     String relativePath = url;
                     String ctxPath = request.getContextPath();
@@ -590,11 +551,20 @@ public class DocumentController extends HttpServlet {
                         response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=file_not_found");
                     }
                 } else {
-                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Bạn không có quyền tải tài liệu này.");
+                    response.sendError(HttpServletResponse.SC_NOT_FOUND, "Tài liệu không tồn tại.");
                 }
 
             } else if ("toggleBookmark".equals(action)) {
                 int docId = Integer.parseInt(request.getParameter("docId"));
+
+                // Chỉ bookmark được tài liệu mình có quyền xem
+                if (!documentAccess.canView(dao.findById(docId), sessionUserId, isAdmin)) {
+                    response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                    response.setContentType("application/json");
+                    response.setCharacterEncoding("UTF-8");
+                    response.getWriter().write("{\"ok\": false, \"code\": \"NOT_FOUND\", \"message\": \"Tài liệu không tồn tại.\"}");
+                    return;
+                }
 
                 boolean isNowBookmarked = dao.toggleBookmark(userId, docId);
                 int newCount = dao.getBookmarkCount(docId);
@@ -609,6 +579,11 @@ public class DocumentController extends HttpServlet {
             System.err.println("[DocumentController Error] " + e.getMessage());
             response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp?error=system_error");
         }
+    }
+
+    /** Xóa file vật lý của một tài liệu đã bị xóa khỏi DB. Việc lưu trữ sẽ được làm lại ở T2.1. */
+    private void deletePhysicalFile(String cloudUrl, HttpServletRequest request) {
+        Utils.StoredFiles.delete(getServletContext(), request.getContextPath(), cloudUrl);
     }
 
     @Override

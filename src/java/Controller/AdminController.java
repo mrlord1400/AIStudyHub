@@ -7,7 +7,11 @@ import Model.DTO.Transaction;
 import Model.DAO.TransactionDAO;
 import Model.DTO.User;
 import Model.DAO.UserDAO;
+import Model.DAO.SubscriptionDAO;
+import Model.DTO.Subscription;
+import Utils.Access;
 import Utils.PasswordUtil;
+import Utils.Validation;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -18,11 +22,29 @@ import java.util.List;
 @WebServlet("/AdminController")
 public class AdminController extends HttpServlet {
 
+    /** Trần cho số dư admin được nhập tay (users.balance là INT). */
+    private static final int MAX_BALANCE = 1_000_000_000;
+
+    private boolean tierExists(int tierId) {
+        for (Subscription sub : new SubscriptionDAO().getAllSubscriptions()) {
+            if (sub.getTierId() == tierId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     protected void doGet(
             HttpServletRequest request,
             HttpServletResponse response)
             throws ServletException, IOException {
+
+        // AuthFilter đã chặn trước; đây là lớp phòng thủ thứ hai.
+        if (!Access.isAdmin(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
 
         request.setCharacterEncoding("UTF-8");
         response.setContentType("text/html; charset=UTF-8");
@@ -104,6 +126,11 @@ public class AdminController extends HttpServlet {
             HttpServletResponse response)
             throws ServletException, IOException {
 
+        if (!Access.isAdmin(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+
         request.setCharacterEncoding("UTF-8");
         response.setContentType("text/html; charset=UTF-8");
 
@@ -111,6 +138,12 @@ public class AdminController extends HttpServlet {
 
         AdminDAO adminDAO = new AdminDAO();
         UserDAO userDAO = new UserDAO();
+        int currentAdminId = Access.currentUserId(request);
+
+        if (action == null) {
+            response.sendRedirect(request.getContextPath() + "/AdminController?action=listUsers");
+            return;
+        }
 
         switch (action) {
             case "updateAdminProfile":
@@ -125,6 +158,20 @@ public class AdminController extends HttpServlet {
                     User adminUser = userDAO.getUserById(adminId);
 
                     if (adminUser != null) {
+
+                        // Kiểm tra đầu vào (F-11): thông tin hiển thị hợp lệ, mật khẩu mới đủ mạnh nếu có nhập
+                        boolean nameGiven = adminUsername != null && !adminUsername.trim().isEmpty();
+                        boolean emailGiven = adminEmail != null && !adminEmail.trim().isEmpty();
+                        boolean newPassGiven = newPassword != null && !newPassword.trim().isEmpty();
+                        if ((nameGiven && !Validation.isValidUsername(adminUsername))
+                                || (emailGiven && !Validation.isValidEmail(adminEmail))) {
+                            response.sendRedirect(request.getContextPath() + "/AdminController?action=profile&error=invalid_input");
+                            return;
+                        }
+                        if (newPassGiven && !PasswordUtil.isValidPassword(newPassword.trim())) {
+                            response.sendRedirect(request.getContextPath() + "/AdminController?action=profile&error=weak_password");
+                            return;
+                        }
 
                         if (currentPasswordInput == null) {
                             currentPasswordInput = "";
@@ -141,10 +188,10 @@ public class AdminController extends HttpServlet {
 
                         // 2. CẬP NHẬT THÔNG TIN CƠ BẢN (Không dính dáng tới password)
                         if (adminUsername != null && !adminUsername.trim().isEmpty()) {
-                            adminUser.setUsername(adminUsername);
+                            adminUser.setUsername(adminUsername.trim());
                         }
                         if (adminEmail != null && !adminEmail.trim().isEmpty()) {
-                            adminUser.setEmail(adminEmail);
+                            adminUser.setEmail(adminEmail.trim());
                         }
 
                         boolean success = userDAO.updateUser(adminUser);
@@ -175,7 +222,18 @@ public class AdminController extends HttpServlet {
                 String role = "STUDENT";
                 int tierId = 2;
 
-                switch (accountType.toLowerCase()) {
+                // Whitelist (F-11). Form hiện gửi STUDENT hoặc ADMIN; free/premium là giá trị cũ vẫn được chấp nhận.
+                String accountKey = accountType == null ? "" : accountType.trim().toLowerCase();
+                if (!Validation.isOneOf(accountKey, "student", "free", "premium", "admin")
+                        || !Validation.isValidUsername(username)
+                        || !Validation.isValidEmail(email)
+                        || !PasswordUtil.isValidPassword(password)) {
+                    response.sendRedirect(request.getContextPath() + "/AdminController?action=listUsers&error=invalid_input");
+                    return;
+                }
+
+                switch (accountKey) {
+                    case "student":
                     case "free":
                         role = "STUDENT";
                         tierId = 2;
@@ -191,36 +249,55 @@ public class AdminController extends HttpServlet {
                 }
 
                 User newUser = new User();
-                newUser.setUsername(username);
-                newUser.setEmail(email);
+                newUser.setUsername(username.trim());
+                newUser.setEmail(email.trim());
                 newUser.setPasswordHash(PasswordUtil.hashPassword(password));
                 newUser.setRole(role);
                 newUser.setTierId(tierId);
                 newUser.setStatus("ACTIVE");
 
-                adminDAO.createUser(newUser);
+                if (!adminDAO.createUser(newUser)) {
+                    response.sendRedirect(request.getContextPath() + "/AdminController?action=listUsers&error=create_failed");
+                    return;
+                }
                 break;
 
             case "updateUser":
-                int userId = Integer.parseInt(request.getParameter("user_id"));
+                Integer userId = Validation.parseIntInRange(request.getParameter("user_id"), 1, Integer.MAX_VALUE);
                 String newUsername = request.getParameter("newUsername");
                 String newEmail = request.getParameter("newEmail");
                 String newRole = request.getParameter("newRole");
                 String newStatus = request.getParameter("newStatus");
-                int newBalance = Integer.parseInt(request.getParameter("newBalance"));
-                int newTierId = Integer.parseInt(request.getParameter("newTierId"));
+                Integer newBalance = Validation.parseIntInRange(request.getParameter("newBalance"), 0, MAX_BALANCE);
+                Integer newTierId = Validation.parseIntInRange(request.getParameter("newTierId"), 1, Integer.MAX_VALUE);
+
+                if (userId == null || newBalance == null || newTierId == null
+                        || !Validation.isValidUsername(newUsername)
+                        || !Validation.isValidEmail(newEmail)
+                        || !Validation.isOneOf(newRole, "STUDENT", "ADMIN")
+                        || !Validation.isOneOf(newStatus, "ACTIVE", "SUSPENDED", "BANNED")
+                        || !tierExists(newTierId)) {
+                    response.sendRedirect(request.getContextPath() + "/AdminController?action=listUsers&error=invalid_input");
+                    return;
+                }
+
+                // Admin không được tự hạ quyền / tự khóa mình (tránh mất quyền quản trị)
+                if (userId == currentAdminId && (!"ADMIN".equals(newRole) || !"ACTIVE".equals(newStatus))) {
+                    response.sendRedirect(request.getContextPath() + "/AdminController?action=listUsers&error=self_modify");
+                    return;
+                }
 
                 User user = userDAO.getUserById(userId);
                 if (user != null) {
-                    user.setUsername(newUsername);
-                    user.setEmail(newEmail);
+                    user.setUsername(newUsername.trim());
+                    user.setEmail(newEmail.trim());
                     user.setRole(newRole);
                     user.setStatus(newStatus);
                     user.setBalance(newBalance);
                     user.setTierId(newTierId);
                     userDAO.updateUser(user);
 
-                    if ("SUSPENDED".equalsIgnoreCase(newStatus)) {
+                    if ("SUSPENDED".equals(newStatus)) {
                         DocumentDAO docDAO = new DocumentDAO();
                         docDAO.privatizePublicDocumentsByUserId(userId);
                     }
@@ -228,7 +305,16 @@ public class AdminController extends HttpServlet {
                 break;
 
             case "deleteUser":
-                userDAO.deleteUserAndAssociatedData(Integer.parseInt(request.getParameter("user_id")));
+                Integer deleteId = Validation.parseIntInRange(request.getParameter("user_id"), 1, Integer.MAX_VALUE);
+                if (deleteId == null) {
+                    response.sendRedirect(request.getContextPath() + "/AdminController?action=listUsers&error=invalid_input");
+                    return;
+                }
+                if (deleteId == currentAdminId) {
+                    response.sendRedirect(request.getContextPath() + "/AdminController?action=listUsers&error=self_modify");
+                    return;
+                }
+                userDAO.deleteUserAndAssociatedData(deleteId);
                 break;
         }
 

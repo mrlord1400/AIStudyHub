@@ -11,13 +11,16 @@ import Model.DTO.Subscription;
 import Model.DTO.Document;
 import Model.DTO.Folder;
 import Model.DAO.DocumentTextDAO;
+import Model.DAO.ChatSessionDAO;
+import Model.DTO.ChatSession;
+import Model.Service.DocumentAccess;
+import Utils.Access;
 import Utils.GeminiService;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.Timestamp;
@@ -38,6 +41,8 @@ public class ChatBotController extends HttpServlet {
     private FolderDAO folderDAO;
     private DocumentDAO documentDAO;
     private DocumentTextDAO documentTextDAO;
+    private ChatSessionDAO chatSessionDAO;
+    private final DocumentAccess documentAccess = new DocumentAccess();
 
     private static final int MAX_AI_LOOP = 5;
 
@@ -53,6 +58,7 @@ public class ChatBotController extends HttpServlet {
         folderDAO = new FolderDAO();
         documentDAO = new DocumentDAO();
         documentTextDAO = new DocumentTextDAO();
+        chatSessionDAO = new ChatSessionDAO();
     }
 
     @Override
@@ -63,14 +69,14 @@ public class ChatBotController extends HttpServlet {
         response.setContentType("text/plain; charset=UTF-8");
         PrintWriter out = response.getWriter();
 
-        HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute("userId") == null) {
+        Integer sessionUserId = Access.currentUserId(request);
+        if (sessionUserId == null) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); 
             out.print("Vui lòng đăng nhập để sử dụng AI.");
             return;
         }
 
-        int userId = (int) session.getAttribute("userId");
+        int userId = sessionUserId;
 
         String userMessage = request.getParameter("message");
         String attachment = request.getParameter("attachment"); 
@@ -87,6 +93,14 @@ public class ChatBotController extends HttpServlet {
 
         try {
             int sessionId = Integer.parseInt(sessionIdStr);
+
+            // Phiên chat phải thuộc về người gọi, kiểm tra TRƯỚC khi trừ lượt hay lưu bất cứ thứ gì (F-06)
+            ChatSession chatSession = chatSessionDAO.getSessionById(sessionId);
+            if (chatSession == null || chatSession.getUserId() != userId) {
+                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                out.print("Không tìm thấy phiên trò chuyện.");
+                return;
+            }
 
             User user = userDAO.getUserById(userId);
             if (user == null) {
@@ -205,6 +219,10 @@ public class ChatBotController extends HttpServlet {
                         
                         if (docIdInt != null) {
                             foundDoc = documentDAO.findById(docIdInt);
+                            // Tài liệu không xem được trả lời y như không tồn tại (D-06)
+                            if (!documentAccess.canView(foundDoc, userId)) {
+                                foundDoc = null;
+                            }
                         }
                         
                         if (foundDoc == null) {
@@ -276,7 +294,7 @@ public class ChatBotController extends HttpServlet {
                         String contextPath = request.getContextPath();
                         String folderUrl = Utils.LinkUtil.getFolderUrl(contextPath, folderIdInt);
                         String systemMessage;
-                        if (folderDAO.getFolderById(folderIdInt) != null) {
+                        if (folderDAO.isOwnedBy(folderIdInt, userId)) {
                             systemMessage = "Thư mục có id \"" + folderId
                                     + "\" đã được tìm thấy tại đường link: " + folderUrl
                                     + "\n Hãy thông báo lại với học sinh và gửi đường link cho học sinh.";

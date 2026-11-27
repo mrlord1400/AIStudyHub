@@ -101,6 +101,7 @@
         </aside>
 
         <main class="flex-1 p-8 overflow-y-auto h-screen relative">
+            <%@ include file="/WEB-INF/jspf/admin_error_banner.jspf" %>
             <div class="flex justify-between items-center mb-6">
                 <h1 class="text-2xl font-bold text-gray-900 tracking-tight dark:text-white">Danh sách người dùng</h1>
                 <button onclick="openCreateModal()" class="btn-primary">
@@ -260,7 +261,6 @@
                         <div>
                             <label class="form-label">Phân quyền (Role)</label>
                             <select name="newRole" id="editRole" class="form-input cursor-pointer">
-                                <option value="GUEST">GUEST</option>
                                 <option value="STUDENT">STUDENT</option>
                                 <option value="ADMIN">ADMIN</option>
                             </select>

@@ -189,3 +189,17 @@ Status of each finding lives in `TASKS.md` (the task that fixes it), not here. A
 ## Accessibility & resilient UI (checklist §10) and Interface state (§01)
 
 Not audited in depth. Spot observations: clickable `<div>`s and icon-only buttons with only `title` exist; no visible error branch for failed `fetch` calls in `chat_session.jsp`. Schedule a dedicated pass (T8.x) after security work.
+
+---
+
+## Found during remediation
+
+### F-74 (M) Folder ids from requests were trusted (fixed in T1.6)
+- `FolderController.createFolder` / `updateFolder` accepted any `currentFolderId` / `parentFolderId` (a folder could be hung under another user's folder), and `viewFolder` / `editFolder` loaded another user's folder by id (`FolderDAO.getFolderById` is unscoped). Fixed with `FolderDAO.isOwnedBy` checks. Deeper cycles (folder under its own descendant) are still not prevented.
+
+### F-75 (M) Report abuse: unlimited reports and non-atomic scoring
+- `ReportController.createReport` had no "one PENDING report per user per document" check (only the form view called `checkValid`), so a user could repeat the POST to push any visible document over its auto-flag threshold. Duplicate guard fixed in T1.8.
+- Still open: the score recomputation is read-modify-write in Java in `createReport`, `updateReport` and `AdminReportController.adminDeleteReport` (lost updates under concurrency) -> T4.7.
+
+### F-76 (L) Admin user forms mislead
+- `admin_manageUser.jsp` create form: option `STUDENT` is labelled "Premium (VIP)" but creates a Free (tier 2) account. The edit form offered role `GUEST` (removed in T1.7). `admin_manageTrans.jsp` offered PENDING as a target status (now disabled) -> T8.3 for the label.

@@ -23,7 +23,7 @@ Each task should fit in one session. If it doesn't, split it here first.
 
 ## Phase 0 — Containment
 
-### [~] T0.1 Rotate leaked secrets and keep the Gemini key out of git
+### [x] T0.1 Rotate leaked secrets and keep the Gemini key out of git
 - **Findings:** F-08
 - **Owner:** the **user** does the rotation (an agent can't). The agent prepares the commit hygiene.
 - **Steps:**
@@ -37,8 +37,9 @@ Each task should fit in one session. If it doesn't, split it here first.
 - **Notes (2026-11-26):** agent part done: `revamp/d_dev` and this branch contain no key (`GeminiService` is read from config). The
   user still has to rotate the Gmail app password, the Gemini key and the DB password, and keep the real `GeminiService.java` edit on
   `fix-folder-error` uncommitted. Still unticked until the user confirms the old values are dead.
+- **Closed (2026-11-27):** Phase 0 was reported finished and approved by the user; merged to `revamp/d_dev` as PR #130. The "not verified" runtime items above were the user's to run and are covered by that approval.
 
-### [~] T0.2 Introduce `Utils.AppConfig` and move all secrets and env literals into it
+### [x] T0.2 Introduce `Utils.AppConfig` and move all secrets and env literals into it
 - **Findings:** F-08, F-70 (partly)
 - **Files:** new `src/java/Utils/AppConfig.java`; `DBUtils.java`, `EmailUtil.java`, `GeminiService.java`, `CookieUtil.java`;
   new `docs/remediation/app.properties.example` (already drafted, so keep it in sync); a startup validator (new `Listener/ConfigValidationListener.java`, or extend `AppStartupListener`).
@@ -54,8 +55,9 @@ Each task should fit in one session. If it doesn't, split it here first.
   remains in `src/` (checked against `git show main:`). *Not verified (needs Tomcat, SQL Server and real keys):* login, upload, chat and the OTP
   email with a complete properties file, and the startup log lines. Left for later: `STORAGE_DIR` is not validated until T2.1; `System.out`
   remains in other `UserDAO` methods (T5.1).
+- **Closed (2026-11-27):** Phase 0 was reported finished and approved by the user; merged to `revamp/d_dev` as PR #130. The "not verified" runtime items above were the user's to run and are covered by that approval.
 
-### [~] T0.3 Remove the seeded admin backdoor and the plaintext-password fallback
+### [x] T0.3 Remove the seeded admin backdoor and the plaintext-password fallback
 - **Findings:** F-02
 - **Files:** `src/java/Listener/AppStartupListener.java`, `UserDAO.seedTestUsers`, `AdminController.java` (~138).
 - **Steps:**
@@ -71,8 +73,9 @@ Each task should fit in one session. If it doesn't, split it here first.
   first-admin procedure is in `CODEBASE.md` §11. *Verified:* compiles; `AppConfig.getBoolean("DEV_SEED_TEST_USERS", false)` is false with no config.
   *Not verified:* a fresh start against a real DB (no `admin@gmail.com` row, `admin@gmail.com`/`123` rejected). *Step 4 is the user's:* remove or
   re-password `admin@gmail.com` and `user@gmail.com` in every existing database.
+- **Closed (2026-11-27):** Phase 0 was reported finished and approved by the user; merged to `revamp/d_dev` as PR #130. The "not verified" runtime items above were the user's to run and are covered by that approval.
 
-### [~] T0.4 Fix the `src/java/FIlter` directory name
+### [x] T0.4 Fix the `src/java/FIlter` directory name
 - **Findings:** CODEBASE §10 gotcha
 - **Steps:** `git mv src/java/FIlter src/java/FilterTmp && git mv src/java/FilterTmp src/java/Filter` (two steps, because Windows is case-insensitive). Clean and rebuild in NetBeans.
 - **Verify:** clean build succeeds; the app starts; SessionSyncFilter still runs (banning a user logs them out within 60 s).
@@ -80,12 +83,13 @@ Each task should fit in one session. If it doesn't, split it here first.
 - **Notes (2026-11-26):** done with two `git mv` steps; `git ls-files` shows `src/java/Filter/SessionSyncFilter.java`. *Verified:* the whole source tree
   compiles. *Not verified:* NetBeans clean build, app start, and the ban-logs-out-within-60-s check (needs Tomcat). Stale `nbproject/private` entries
   pointing at `FIlter` are gitignored and harmless.
+- **Closed (2026-11-27):** Phase 0 was reported finished and approved by the user; merged to `revamp/d_dev` as PR #130. The "not verified" runtime items above were the user's to run and are covered by that approval.
 
 ---
 
 ## Phase 1 — Authorization
 
-### [ ] T1.1 Single auth gate: `Utils.Access` + `Filter.AuthFilter`, filters ordered in `web.xml`
+### [~] T1.1 Single auth gate: `Utils.Access` + `Filter.AuthFilter`, filters ordered in `web.xml`
 - **Findings:** F-01, F-73
 - **Files:** new `Utils/Access.java`, new `Filter/AuthFilter.java`, `web/WEB-INF/web.xml`; remove `@WebFilter` from `SessionSyncFilter` and register it in `web.xml` instead.
 - **Steps:** implement Conv §2.1–2.2.
@@ -102,23 +106,26 @@ Each task should fit in one session. If it doesn't, split it here first.
   - Student session → 403 for `/AdminController?action=listUsers`, `/admin/system-config`, `/ReportConfigController?action=reportConfigDelete&reasonCode=SPAM`, `/admin_manageUser.jsp`, and `/MainController?action=listUsers` (the FORWARD path).
   - Admin session → all admin pages work. Guest → `guest_dashboard`, login, register, forgot-password still work.
 - **Depends:** T0.4.
+- **Notes (2026-11-27):** added `Utils.Access` (who is calling), `Utils.AccessRules` (the three path lists as a pure function) and `Filter.AuthFilter`; `web.xml` now declares `SessionSyncFilter` then `AuthFilter` (REQUEST + FORWARD) and the `@WebFilter` is gone. `AdminController`, `ReportConfigController`, `SystemConfigController`, `AdminReportController` and the two admin actions of `TransactionController` keep an `Access.isAdmin` check as the second layer. Deviations (D-10, D-11): `/DocumentController` is public **only** for `viewPublicPage`/`viewDoc` (stricter than the task text); `TransactionController` actions starting with `admin` are admin-only; admin path matching is case-insensitive; denials on AJAX endpoints answer 401/403 with a body that has both the legacy `success:false` and the `ok/code/message` envelope; `AuthFilter` sets UTF-8 before reading `action`. `/uploads/**` is now login-only by default, but any logged-in user can still fetch any file (T2.1). *Verified offline:* compiles; `FilterHarness` drives the real `AuthFilter` through 44 anonymous/student/admin scenarios (every item of the Verify list, public pages, default deny, case variants, AJAX 401s). *Not verified (needs Tomcat + SQL Server, none in the agent's environment):* the curl **Verify** steps above against a real instance. Offline checks are in `docs/remediation/verify/offline/` (`bash docs/remediation/verify/offline/run.sh`). Specifically still open: the real FORWARD from `MainController` (servletPath on forward, welcome file `/`), and walking the real pages for redirect loops.
 
-### [ ] T1.2 Document edit/delete scoped to the owner
+### [~] T1.2 Document edit/delete scoped to the owner
 - **Findings:** F-03
 - **Files:** `DocumentController.java` (`editDoc`, `updateDoc`, `deleteDoc`), `DocumentDAO.java` (new owner-scoped methods), and `UploadController` callers of `updateDocumentInfo`/`deleteDocument` (they use session-held ids, but switch them to owner-scoped too).
 - **Steps:** Conv §2.3. Delete the physical file **only after** the owner-scoped DB delete returns 1 row. The `isAdmin` branches in
   `DocumentController` suggest admins once used these actions. Grep the `admin_*.jsp` files (none were found at audit time). Admin deletion goes through `AdminReportController.adminDeleteDocument`.
 - **Verify:** user A cannot `editDoc`/`updateDoc`/`deleteDoc` user B's document (they get the `not_found` redirect, and B's row and file are unchanged). A can still do all three on their own documents.
 - **Depends:** T1.1.
+- **Notes (2026-11-27):** `DocumentDAO` mutations are now `updateDocumentInfoForOwner`, `updateSharingPermissionForOwner`, `replaceDocumentFileForOwner`, `deleteDocumentForOwner` (`WHERE ... AND user_id = ?`, must hit exactly 1 row); the unscoped versions are deleted. `DocumentController.deleteDoc` deletes the DB row first and the physical file only if it matched; not-yours answers the `not_found` redirect; the `isAdmin` branches are gone (admins delete through `AdminReportController`). `UploadController` uses the scoped methods and `handleReplace` also checks both documents belong to the caller. `document_view.jsp`: an admin viewing someone else's document no longer gets the edit button and the delete button targets `adminDeleteDocument` (which, after the independent review, now also removes the physical file via the new `Utils.StoredFiles`; the post-delete redirect is `listDashboard`, not `listPublicDocs` as before). *Verified offline:* `T12Test` (DAO level, 14 checks) and `T18Test` (controller level: A cannot edit/update/delete/re-permission B's document, row **and file** survive, admin cannot use `deleteDoc` on someone else's document, owner can do all of it). Run against the pre-Phase-1 sources (`revamp/d_dev` @ `17f4bde`) `T18Test` fails 18 of its first 24 checks (A could edit and delete B's document and file, strangers could read FRIENDS_ONLY files), so the checks are not vacuous. *Not verified (needs Tomcat + SQL Server, none in the agent's environment):* the curl **Verify** steps above against a real instance. Offline checks are in `docs/remediation/verify/offline/` (`bash docs/remediation/verify/offline/run.sh`).
 
-### [ ] T1.3 `DocumentAccess.canView` with a real friendship check, used everywhere
+### [~] T1.3 `DocumentAccess.canView` with a real friendship check, used everywhere
 - **Findings:** F-04
 - **Files:** new `Model/Service/DocumentAccess.java`; `DocumentController` (`viewPublicPage`, `viewDoc`, `downloadDoc`, `toggleBookmark`), `ChatBotController` (`VIEW/`, to be finished in T1.4), `ReportController.createReport`.
 - **Steps:** Conv §2.2. Friendship = an ACCEPTED row in either direction (`FriendshipDAO.getFriendshipStatus`). A flagged document is visible to its owner only, matching Explore's behaviour (verify).
 - **Verify:** C (not a friend of B) gets "not found" for B's FRIENDS_ONLY document on view, download and bookmark. B's accepted friend A can view it. Public documents still work for guests.
 - **Depends:** T1.1.
+- **Notes (2026-11-27):** new `Model.Service.DocumentAccess` (`canView(doc, viewerId[, isAdmin])`, `canEdit`) backed by the new `FriendshipDAO.areFriends` (an ACCEPTED row in either direction). Used by `viewPublicPage`, `viewDoc`, `downloadDoc`, `toggleBookmark`, `ReportController.report/createReport`; `viewDoc`/`downloadDoc` now answer 404 instead of 403 for anything not visible (D-06). Flagged documents are visible to their owner and admins only (D-13), which also closes the guest direct-link path. The ChatBot `VIEW/` use is in T1.4. *Verified offline:* `T13Test` (20 checks: guest/stranger/friend both directions/pending/blocked/flagged/admin/null) and `T18Test` (stranger gets 404 with no body for FRIENDS_ONLY view/download/bookmark; the friend gets the file and the download counter moves only for allowed requests). *Not verified (needs Tomcat + SQL Server, none in the agent's environment):* the curl **Verify** steps above against a real instance. Offline checks are in `docs/remediation/verify/offline/` (`bash docs/remediation/verify/offline/run.sh`).
 
-### [ ] T1.4 Chat sessions and messages scoped to the owner
+### [~] T1.4 Chat sessions and messages scoped to the owner
 - **Findings:** F-06
 - **Files:** `ChatBotController.java`, `SessionController.java`, `ChatSessionDAO.java`, `ChatMessageDAO.java`.
 - **Steps:**
@@ -127,8 +134,9 @@ Each task should fit in one session. If it doesn't, split it here first.
   - Replace the hand-built JSON in `handleFindSessionByName` with Gson.
 - **Verify:** A posting to B's `sessionId` → 403/404 and no message row inserted. A cannot rename, pin or delete B's session or messages. Search returns only A's sessions. Asking the bot to "VIEW/<B's private doc id>" gets "not found".
 - **Depends:** T1.3.
+- **Notes (2026-11-27):** `ChatBotController` loads the session and requires ownership before quota/storage (404 text otherwise); `VIEW/<id>` goes through `canView` and `GETLINK/<id>` through the new `FolderDAO.isOwnedBy`. `SessionController` passes the caller to rename/pin/delete-messages/search (DAO: `updateSessionNameForOwner`, `pinSessionForOwner`, `findSessionByName(userId, ...)`, `deleteMessagesFromId(msg, session, userId)` with a sub-select); not-yours = 404 with the legacy `{"success":false,...}` body; the search JSON is built with Gson. The chat JS still reads `data.success`; the envelope change is T5.5. *Verified offline:* `T14Test` (DAO) and `T18Test` (A posting to B's session gets 404 and neither B's messages nor A's quota change; rename/pin/delete-messages denied; search returns only A's sessions and a name containing quotes round-trips as valid JSON). The `VIEW/` branch of the AI loop needs Gemini and was **not** exercised. *Not verified (needs Tomcat + SQL Server, none in the agent's environment):* the curl **Verify** steps above against a real instance. Offline checks are in `docs/remediation/verify/offline/` (`bash docs/remediation/verify/offline/run.sh`).
 
-### [ ] T1.5 Enforce the friendship state machine
+### [~] T1.5 Enforce the friendship state machine
 - **Findings:** F-10
 - **Files:** `FriendController.java`, `FriendshipDAO.java`.
 - **Steps:** Conv §2.4. Split `updateFriendStatusByUsers` into:
@@ -138,26 +146,30 @@ Each task should fit in one session. If it doesn't, split it here first.
   Validate `returnPath` against a whitelist (`friendList`/`pendingList`/`blockedList`). Also consider preventing a reverse-pair duplicate row (B→A when A→B exists). `createFriendship` checks status in both directions; verify that.
 - **Verify:** a requester who tries to accept their own request → no change. A blocked user trying `status=ACCEPTED` → no change. Normal accept and block flows still work.
 - **Depends:** T1.1.
+- **Notes (2026-11-27):** `FriendshipDAO.acceptRequest` (addressee only, `status='PENDING'`), `block` (from PENDING/ACCEPTED, never overwrites an existing block, caller becomes `blocker_id`), `deleteFriendshipByUsers` (a BLOCKED row only deletable by `blocker_id`, checked in SQL), `createFriendship` refuses a pair that exists in either direction (`INSERT ... SELECT ... WHERE NOT EXISTS`); `updateFriendStatus`, `deleteFriendship(int)` and `updateFriendStatusByUsers` are removed. `FriendController` uses them, rejects `targetUserId == self` and whitelists `returnPath`. *Verified offline:* `T15Test` (25 checks) and `T18Test` through the controller. *Not verified:* the `INSERT ... SELECT ... WHERE NOT EXISTS` with `RETURN_GENERATED_KEYS` on real SQL Server (H2 accepted it); the race window is only closed by the T4.6 unique constraint. *Not verified (needs Tomcat + SQL Server, none in the agent's environment):* the curl **Verify** steps above against a real instance. Offline checks are in `docs/remediation/verify/offline/` (`bash docs/remediation/verify/offline/run.sh`).
 
-### [ ] T1.6 Folder ids from requests must belong to the caller
+### [~] T1.6 Folder ids from requests must belong to the caller
 - **Findings:** F-05 (last bullet)
 - **Files:** `UploadController` (`upload`, `confirm`), `DocumentController.updateDoc`.
 - **Steps:** add `FolderDAO.isOwnedBy(folderId, userId)`. If the id isn't owned, treat it as root (`null`) or reject with `error=invalid_folder`. Choose rejection and keep it consistent.
 - **Verify:** uploading or moving a document into B's folder id is rejected, and B's folder view doesn't show A's document.
 - **Depends:** T1.2.
+- **Notes (2026-11-27):** `FolderDAO.isOwnedBy`; `UploadController.upload/confirm` and `DocumentController.updateDoc` reject a foreign `folderId` with the page's `errorMessage` "Thư mục không hợp lệ." (the upload pages show the request attribute, not the `error` param; `upload` now validates before writing the file). **Extended beyond the task text** because the same hole existed in `FolderController`: `createFolder`/`updateFolder` parent ids, `viewFolder` and `editFolder` read or wrote another user's folder by id; all now require ownership (`error=invalid_folder` / `not_found`), and a folder cannot become its own parent. `user_dashboard.jsp` shows toasts for those two codes. *Verified offline:* `T18Test`. *Not exercised:* the multipart `UploadController` itself (no multipart support in the harness); only `isOwnedBy` and the wiring were reviewed. *Not verified (needs Tomcat + SQL Server, none in the agent's environment):* the curl **Verify** steps above against a real instance. Offline checks are in `docs/remediation/verify/offline/` (`bash docs/remediation/verify/offline/run.sh`).
 
-### [ ] T1.7 Validate admin inputs
+### [~] T1.7 Validate admin inputs
 - **Findings:** F-11
 - **Files:** `AdminController` (`createUser`, `updateUser`), `SystemConfigController.doPost`, `TransactionController.handleUpdateTransactionStatus`, `ReportConfigController.doPost`.
 - **Steps:** whitelist role (`STUDENT`/`ADMIN`), status (`ACTIVE`/`SUSPENDED`/`BANNED`), tier (existing ids), transaction status (`SUCCESS`/`CANCELLED`), severity. Add numeric ranges with caps. Make `SystemConfigController` validate every row **before** writing any, inside one DB transaction. Block an admin from demoting or banning themselves (avoids lock-out). Make `ReportConfig` delete POST-only.
 - **Verify:** invalid values → `error=invalid_input` and nothing written. Valid edits still work.
 - **Depends:** T1.1.
+- **Notes (2026-11-27):** new `Utils.Validation` and `PasswordUtil.isValidPassword` (the same rule as register/profile; the two private copies in `AuthController`/`UserController` are left for later). `AdminController`: role `STUDENT/ADMIN`, status `ACTIVE/SUSPENDED/BANNED`, tier must exist, balance `0..1e9`, username <= 50, email format, password strength; an admin cannot demote, ban or delete themself (`error=self_modify`); `createUser` accepts the form's `STUDENT`/`ADMIN` (and the old `free`/`premium`). `TransactionController.adminUpdateTransaction`: `PROCESSING/SUCCESS/CANCELLED` (D-12: the UI offers PROCESSING; PENDING can't be restored and is now a disabled option). `SystemConfigController`: every row validated first, then `SubscriptionDAO.updateSubscriptions` in one transaction. `ReportConfigController`: code `[A-Za-z0-9_-]{1,50}`, severity whitelist, scores `0..999.99` (a parse failure is now an error, not a silent 0), delete is POST-only (GET answers 405) and `admin_report_config.jsp` uses a POST form. Admin pages show a shared banner (`WEB-INF/jspf/admin_error_banner.jspf`); the edit-user role select no longer offers `GUEST`. *Verified offline:* `T17Test` (50 checks, incl. nothing written on any invalid input and the all-or-nothing tier write). The email check is deliberately loose (no whitespace/`<>"`, exactly one `@`) because registration does no server-side email check and browsers accept `o'neil@x.com` / `dev@localhost`; a stricter regex locked such users out of profile edits. Note for the user: the create-user form labels the `STUDENT` option "Premium (VIP)" but it creates a Free (tier 2) account, as before (F-76, T8.3). *Not verified (needs Tomcat + SQL Server, none in the agent's environment):* the curl **Verify** steps above against a real instance. Offline checks are in `docs/remediation/verify/offline/` (`bash docs/remediation/verify/offline/run.sh`).
 
-### [ ] T1.8 Sweep: confirm the remaining endpoints
+### [~] T1.8 Sweep: confirm the remaining endpoints
 - **Files:** `UserController` (`updateProfile`, `deleteAccount`), `SearchController`, `ReportController` (all actions), `AdminReportController`, `DocumentController.explore`, `MainController` `guest`.
 - **Steps:** for each action, record in `CODEBASE.md` §5: who may call it, what is scoped, and what's left. Fix small gaps here; open new tasks for big ones.
 - **Verify:** the `CODEBASE.md` §5 table has no ❌ left.
 - **Depends:** T1.2–T1.7.
+- **Notes (2026-11-27):** the `CODEBASE.md` §5 table is rewritten per controller/action (path gate, in-controller check, SQL scoping, and which later task closes each remaining ⚠); it has no ❌ left. Small gaps fixed here: `ReportController.createReport` now refuses a second PENDING report by the same user for the same document (F-75), `AdminReportController.adminUpdateReportStatus` whitelists the status, `UserController.updateProfile` validates username/email. Reviewed with no change: `SearchController` (both queries filter `user_id`), `DocumentController.explore` (SQL-limited), `MainController` guest. Deferred and tracked: GET-able mutations incl. `deleteAccount` (T3.2), score recalculation races (T4.7), `/uploads/**` (T2.1). *Verified offline:* `T18Test`. *Not verified (needs Tomcat + SQL Server, none in the agent's environment):* the curl **Verify** steps above against a real instance. Offline checks are in `docs/remediation/verify/offline/` (`bash docs/remediation/verify/offline/run.sh`).
 
 ---
 
@@ -279,6 +291,13 @@ Each task should fit in one session. If it doesn't, split it here first.
   Clean up existing duplicates first, with a dry-run report. Translate duplicate-key errors (SQL Server error 2601/2627) in one helper.
 - **Verify:** concurrently creating the same folder name twice → one succeeds, the other gets the friendly duplicate message.
 - **Depends:** T5.4 helps but isn't required.
+
+### [ ] T4.7 Atomic report score update
+- **Findings:** F-75 (second half)
+- **Files:** `ReportController.createReport/updateReport`, `AdminReportController.adminDeleteReport`, `DocumentDAO.updateReportMetrics`, `ReportDAO`.
+- **Steps:** insert the report and adjust `documents.total_report_score` / `is_flagged` in one DB transaction using `SET total_report_score = total_report_score + ?` (and the flag recomputed from the new value in SQL) instead of read-modify-write in Java. Same for the update-report and admin-delete-report paths.
+- **Verify:** 10 users reporting the same document concurrently add exactly the sum of their scores; deleting a report subtracts exactly its score.
+- **Depends:** T4.1 (pattern), T1.8.
 
 ---
 
@@ -404,3 +423,8 @@ Each task should fit in one session. If it doesn't, split it here first.
 
 ### [ ] T8.2 Accessibility pass
 - **Scope:** clickable `div`s → buttons, names for icon-only buttons, form labels, modal focus management, keyboard-only walkthrough of upload, chat and admin user edit.
+
+### [ ] T8.3 Admin user forms: labels that match what they do
+- **Findings:** F-76
+- **Scope:** `admin_manageUser.jsp`. The create form's account-type option `STUDENT` is labelled "Premium (VIP)" but creates a Free (tier 2) account; either relabel it "Học viên (Free)" and add a real Premium option (role STUDENT, tier 3, which `AdminController.createUser` already supports as `premium`), or decide it is intentional. Remove the stale `free`/`premium` string aliases once the form is settled.
+- **Verify:** creating each account type produces the role and tier its label says.

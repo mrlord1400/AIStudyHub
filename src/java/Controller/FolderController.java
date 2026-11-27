@@ -61,6 +61,12 @@ public class FolderController extends HttpServlet {
                     redirectUrl += "&folderId=" + parentFolderId;
                 }
 
+                // Thư mục cha đến từ request: phải là của chính người dùng
+                if (parentFolderId != null && !folderDao.isOwnedBy(parentFolderId, userId)) {
+                    response.sendRedirect(request.getContextPath() + "/FolderController?action=viewFolder&error=invalid_folder");
+                    return;
+                }
+
                 if (folderName != null && !folderName.trim().isEmpty()) {
                     String cleanFolderName = folderName.trim();
 
@@ -134,6 +140,12 @@ public class FolderController extends HttpServlet {
                     }
                 }
 
+                // Thư mục đang xem phải là của chính người dùng ("không phải của bạn" trả lời như "không tồn tại")
+                if (currentFolderId != null && !folderDao.isOwnedBy(currentFolderId, userId)) {
+                    response.sendRedirect(request.getContextPath() + "/FolderController?action=viewFolder&error=not_found");
+                    return;
+                }
+
                 // 1. DỮ LIỆU NGĂN TRÁI: Tải toàn bộ cấu trúc thư mục của người dùng để vẽ cây thư mục
                 List<Folder> allFolders = folderDao.getAllFoldersByUserId(userId);
 
@@ -163,7 +175,7 @@ public class FolderController extends HttpServlet {
                 Folder folder = folderDao.getFolderById(folderId);
                 List<Folder> myFolders = folderDao.getAllFoldersByUserId(userId);
 
-                if (folder != null) {
+                if (folder != null && folder.getUserId() == userId) {
                     request.setAttribute("folder", folder);
                     request.setAttribute("myFolders", myFolders);
                     request.getRequestDispatcher("/folder_edit.jsp").forward(request, response);
@@ -187,6 +199,12 @@ public class FolderController extends HttpServlet {
 
                 sharingPermission = (sharingPermission == null || sharingPermission.trim().isEmpty())
                         ? "PRIVATE" : sharingPermission.trim().toUpperCase();
+
+                // Thư mục cha mới phải là của chính người dùng và không được là chính thư mục này
+                if (newParentId != null && (newParentId == folderId || !folderDao.isOwnedBy(newParentId, userId))) {
+                    response.sendRedirect(request.getContextPath() + "/FolderController?action=viewFolder&error=invalid_folder");
+                    return;
+                }
 
                 boolean updated = folderDao.updateFolderInfo(folderId, userId, newName, newParentId, sharingPermission);
 

@@ -219,12 +219,15 @@ public class ChatMessageDAO {
         return null;
     }
 
-    public boolean deleteMessagesFromId(int messageId, int sessionId) {
-        String sql = "DELETE FROM chat_messages WHERE session_id = ? AND message_id >= ?";
+    /** Chỉ xóa khi session thuộc userId (Conv §2.3). */
+    public boolean deleteMessagesFromId(int messageId, int sessionId, int userId) {
+        String sql = "DELETE FROM chat_messages WHERE session_id = ? AND message_id >= ? "
+                + "AND session_id IN (SELECT session_id FROM chat_sessions WHERE user_id = ?)";
         try (Connection conn = DBUtils.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, sessionId);
             ps.setInt(2, messageId);
+            ps.setInt(3, userId);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();

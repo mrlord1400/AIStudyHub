@@ -14,6 +14,7 @@ The work spans many sessions and many agents. **These documents replace re-readi
 | 4 | [CODEBASE.md](./CODEBASE.md) | Architecture map: routing, controllers, DAOs, schema, session attributes, gotchas | When you need to find something |
 | 5 | [FINDINGS.md](./FINDINGS.md) | The original audit: every defect with file:line evidence, by checklist section | When a task references `F-xx` |
 | — | [app.properties.example](./app.properties.example) | Every config key the fixes introduce | When a task touches configuration |
+| — | [verify/offline/](./verify/offline/README.md) | Offline check harness (`bash docs/remediation/verify/offline/run.sh`): real controllers/DAOs on in-memory H2, no Tomcat | After changing controllers, filters or DAOs; add a check per task until Phase 7 replaces it |
 | 6 | [../standards/review-checklist.md](../standards/review-checklist.md) | The review checklist itself (rules referenced as "checklist §NN") | When you need the exact rule wording, and before opening a PR (use its Part 3) |
 
 ## Session protocol (every agent, every session)
@@ -33,6 +34,10 @@ The work spans many sessions and many agents. **These documents replace re-readi
    - Update `STATUS.md`: move the task, add a line to the *Session log*, record new blockers/decisions.
    - If you discovered a new defect, add it to `FINDINGS.md` (next free `F-` id) **and** a task to `TASKS.md`.
    - If code moved enough that `CODEBASE.md` is wrong, fix `CODEBASE.md`.
+7. Close your final reply to the user with a **completion summary** in this exact shape (the user does not want to ask for it each time):
+   - **2-3 sentences** on what was implemented. The subject is "This work" or "This task", never "I" or "We".
+   - **A short bulleted list of the main features**, one short sentence per bullet. Keep it to the headline items only, not every change.
+   - Then, separately and briefly, anything that was **not** verified and any decision needed from the user.
 
 ## Ground rules
 

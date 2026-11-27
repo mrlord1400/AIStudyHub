@@ -3,6 +3,7 @@ package Controller;
 import Model.DTO.Document;
 import Model.DAO.DocumentDAO;
 import Model.DAO.DocumentTextDAO;
+import Model.DAO.FolderDAO;
 import Model.DTO.User;
 import Model.DAO.UserDAO;
 
@@ -98,6 +99,21 @@ public class UploadController extends HttpServlet {
             clearPendingSession(session);
             clearDuplicateSession(session);
 
+            // folderId đến từ request: phải là thư mục của chính người dùng (F-05), nếu không thì từ chối trước khi ghi file
+            Integer folderId = null;
+            String folderIdParam = request.getParameter("folderId");
+            if (folderIdParam != null && !folderIdParam.trim().isEmpty() && !folderIdParam.equals("null")) {
+                try {
+                    folderId = Integer.parseInt(folderIdParam);
+                } catch (NumberFormatException ignored) {
+                }
+            }
+            if (!isFolderUsable(folderId, userId)) {
+                request.setAttribute("errorMessage", "Thư mục không hợp lệ.");
+                request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
+                return;
+            }
+
             Part filePart = request.getPart("file");
             if (filePart == null || filePart.getSize() == 0) {
                 System.err.println("[UploadController] Tải lên thất bại: File trống hoặc null.");
@@ -158,15 +174,6 @@ public class UploadController extends HttpServlet {
 
             double fileSizeMb = filePart.getSize() / (1024.0 * 1024.0);
             String cloudStorageUrl = request.getContextPath() + "/" + UPLOAD_DIR + "/" + userId + "/" + savedFileName;
-
-            Integer folderId = null;
-            String folderIdParam = request.getParameter("folderId");
-            if (folderIdParam != null && !folderIdParam.trim().isEmpty() && !folderIdParam.equals("null")) {
-                try {
-                    folderId = Integer.parseInt(folderIdParam);
-                } catch (NumberFormatException ignored) {
-                }
-            }
 
             Document doc = new Document();
             doc.setUserId(userId);
@@ -257,6 +264,12 @@ public class UploadController extends HttpServlet {
             }
         }
 
+        if (!isFolderUsable(newFolderId, userId)) {
+            request.setAttribute("errorMessage", "Thư mục không hợp lệ.");
+            request.getRequestDispatcher("/document_upload.jsp").forward(request, response);
+            return;
+        }
+
         DocumentDAO dao = new DocumentDAO();
         Document duplicate = dao.findDuplicateByTitle(userId, newTitle, newFolderId);
 
@@ -274,7 +287,7 @@ public class UploadController extends HttpServlet {
         String pendingFilePath = (String) session.getAttribute("pendingDocumentPath");
         String newCloudUrl = renameToFinalName(pendingFilePath, userId, newTitle, fileExt, request);
 
-        boolean updated = dao.updateDocumentInfo(documentId, newTitle, newFolderId, sharingPermission, newCloudUrl);
+        boolean updated = dao.updateDocumentInfoForOwner(documentId, userId, newTitle, newFolderId, sharingPermission, newCloudUrl);
         clearPendingSession(session);
 
         if (updated) {
@@ -333,15 +346,16 @@ public class UploadController extends HttpServlet {
         Document oldDoc = dao.findById(duplicateDocId);
         Document pendingDoc = dao.findById(pendingDocId);
 
-        if (oldDoc != null && pendingDoc != null) {
+        if (oldDoc != null && pendingDoc != null
+                && oldDoc.getUserId() == userId && pendingDoc.getUserId() == userId) {
             deletePhysicalFile(oldDoc.getCloudStorageUrl(), request);
 
             String newCloudUrl = renameToFinalName(pendingFilePath, userId, conflictTitle, pendingDoc.getFileExtension(), request);
 
-            dao.replaceDocumentFile(duplicateDocId, newCloudUrl, pendingDoc.getFileSizeMb(),
+            dao.replaceDocumentFileForOwner(duplicateDocId, userId, newCloudUrl, pendingDoc.getFileSizeMb(),
                     pendingDoc.getFileExtension(), conflictTitle, conflictFolderId, conflictSharingPermission);
 
-            dao.deleteDocument(pendingDocId);
+            dao.deleteDocumentForOwner(pendingDocId, userId);
 
             try {
                 String newExtractedText = extractTextFromFile(pendingFilePath, pendingDoc.getFileExtension());
@@ -402,7 +416,7 @@ public class UploadController extends HttpServlet {
         String uniqueTitle = generateUniqueTitle(dao, userId, conflictTitle, conflictFolderId, pendingDocId);
         String newCloudUrl = renameToFinalName(pendingFilePath, userId, uniqueTitle, fileExt, request);
 
-        boolean updated = dao.updateDocumentInfo(pendingDocId, uniqueTitle, conflictFolderId, conflictSharingPermission, newCloudUrl);
+        boolean updated = dao.updateDocumentInfoForOwner(pendingDocId, userId, uniqueTitle, conflictFolderId, conflictSharingPermission, newCloudUrl);
         clearPendingSession(session);
         clearDuplicateSession(session);
 
@@ -443,7 +457,7 @@ public class UploadController extends HttpServlet {
 
         if (documentId != null) {
             DocumentDAO dao = new DocumentDAO();
-            dao.deleteDocument(documentId);
+            dao.deleteDocumentForOwner(documentId, (int) session.getAttribute("userId"));
         }
 
         clearPendingSession(session);
@@ -465,6 +479,11 @@ public class UploadController extends HttpServlet {
     // ─────────────────────────────────────────────────────────────────────────
     private String sanitizeFileName(String fileName) {
         return fileName.replaceAll("[^a-zA-Z0-9.\\-_]", "_");
+    }
+
+    /** null (thư mục gốc) luôn hợp lệ; id khác phải thuộc về userId. */
+    private boolean isFolderUsable(Integer folderId, int userId) {
+        return folderId == null || new FolderDAO().isOwnedBy(folderId, userId);
     }
 
     private String stripExtension(String fileName) {

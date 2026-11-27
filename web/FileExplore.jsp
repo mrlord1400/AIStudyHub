@@ -501,7 +501,12 @@
                 fetch(`<%= request.getContextPath()%>/DocumentController?action=toggleBookmark&docId=\${docId}`, {
                     method: 'POST'
                 })
-                        .then(response => response.json())
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('HTTP ' + response.status);
+                            }
+                            return response.json();
+                        })
                         .then(data => {
                             const docIndex = internalDocs.findIndex(d => d.id == docId);
                             if (docIndex !== -1) {

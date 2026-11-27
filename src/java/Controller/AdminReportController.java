@@ -6,13 +6,14 @@ import Model.DAO.ReportReasonDAO;
 import Model.DTO.Report;
 import Model.DTO.Document;
 import Model.DTO.ReportReason;
+import Utils.Access;
+import Utils.Validation;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.List;
 
@@ -23,20 +24,18 @@ public class AdminReportController extends HttpServlet {
             throws ServletException, IOException {
         request.setCharacterEncoding("UTF-8");
 
-        // 1. Kiểm tra bảo mật Admin tối cao
-        HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute("userId") == null) {
+        // 1. Kiểm tra bảo mật Admin (AuthFilter đã chặn trước; đây là lớp phòng thủ thứ hai)
+        Integer adminIdOrNull = Access.currentUserId(request);
+        if (adminIdOrNull == null) {
             response.sendRedirect(request.getContextPath() + "/login.jsp");
             return;
         }
-
-        String role = (String) session.getAttribute("role");
-        if (!"ADMIN".equalsIgnoreCase(role)) {
-            response.sendRedirect(request.getContextPath() + "/user_dashboard.jsp");
+        if (!Access.isAdmin(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
-        int adminId = (int) session.getAttribute("userId"); // ID của admin đang đăng nhập
+        int adminId = adminIdOrNull; // ID của admin đang đăng nhập
         String action = request.getParameter("action");
 
         ReportDAO reportDao = new ReportDAO();
@@ -56,6 +55,12 @@ public class AdminReportController extends HttpServlet {
                 int reportId = Integer.parseInt(request.getParameter("reportId"));
                 int documentId = Integer.parseInt(request.getParameter("documentId"));
                 String newStatus = request.getParameter("status");
+
+                // Whitelist trạng thái báo cáo (khớp CHECK của document_reports.status)
+                if (!Validation.isOneOf(newStatus, "PENDING", "REVIEWED", "DISMISSED", "ACTION_TAKEN")) {
+                    response.sendRedirect(request.getContextPath() + "/MainController?action=adminReportList&documentId=" + documentId + "&error=invalid_input");
+                    return;
+                }
 
                 List<Report> allReps = reportDao.getReportList(documentId);
                 for (Report r : allReps) {
@@ -120,9 +125,14 @@ public class AdminReportController extends HttpServlet {
 
             } else if ("adminDeleteDocument".equals(action)) {
                 int documentId = Integer.parseInt(request.getParameter("documentId"));
+                Document toDelete = docDao.findById(documentId);
                 boolean isDeleted = docDao.deleteDocumentAndDependencies(documentId);
 
                 if (isDeleted) {
+                    // Chỉ xóa file vật lý sau khi DB đã xóa thành công (như DocumentController.deleteDoc)
+                    if (toDelete != null) {
+                        Utils.StoredFiles.delete(getServletContext(), request.getContextPath(), toDelete.getCloudStorageUrl());
+                    }
                     response.sendRedirect(request.getContextPath() + "/MainController?action=listDashboard");
                 } else {
                     response.sendRedirect(request.getContextPath() + "/MainController?action=adminReportList&documentId=" + documentId + "&error=delete_failed");

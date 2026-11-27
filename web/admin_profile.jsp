@@ -118,6 +118,10 @@
 
         <% if ("wrong_password".equals(error)) { %>
             <div class="max-w-3xl mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium dark:bg-red-950/40 dark:border-red-900 dark:text-red-400">Mật khẩu hiện tại không chính xác. Không thể cập nhật cấu hình Admin.</div>
+        <% } else if ("weak_password".equals(error)) { %>
+            <div class="max-w-3xl mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium dark:bg-red-950/40 dark:border-red-900 dark:text-red-400">Mật khẩu mới phải có ít nhất 8 ký tự, gồm chữ hoa, chữ số và ký tự đặc biệt.</div>
+        <% } else if ("invalid_input".equals(error)) { %>
+            <div class="max-w-3xl mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium dark:bg-red-950/40 dark:border-red-900 dark:text-red-400">Tên hoặc email không hợp lệ. Không có thay đổi nào được lưu.</div>
         <% } else if ("update_failed".equals(error)) { %>
             <div class="max-w-3xl mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium dark:bg-red-950/40 dark:border-red-900 dark:text-red-400">Lỗi cơ sở dữ liệu: Không thể cập nhật thông tin quản trị viên.</div>
         <% } else if ("1".equals(updateSuccess)) { %>

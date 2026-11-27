@@ -318,6 +318,8 @@
             <div class="max-w-3xl mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium dark:bg-red-950/40 dark:border-red-900 dark:text-red-400">Mật khẩu hiện tại không chính xác. Không thể lưu thay đổi.</div>
             <% } else if ("update_failed".equals(error)) { %>
             <div class="max-w-3xl mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium dark:bg-red-950/40 dark:border-red-900 dark:text-red-400">Lỗi hệ thống: Không thể cập nhật thông tin.</div>
+            <% } else if ("invalid_input".equals(error)) { %>
+            <div class="max-w-3xl mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium dark:bg-red-950/40 dark:border-red-900 dark:text-red-400">Tên hoặc email không hợp lệ. Không có thay đổi nào được lưu.</div>
             <% } else if ("weak_password".equals(error)) { %>
             <div class="max-w-3xl mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium dark:bg-red-950/40 dark:border-red-900 dark:text-red-400">Mật khẩu mới không đạt yêu cầu bảo mật! (Cần 8 ký tự, có số, chữ hoa, ký tự đặc biệt).</div>
             <% } else if ("1".equals(updateSuccess)) { %>

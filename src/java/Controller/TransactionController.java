@@ -5,6 +5,8 @@ import Model.DTO.Transaction;
 import Model.DAO.TransactionDAO;
 import Model.DTO.User;
 import Model.DAO.UserDAO;
+import Utils.Access;
+import Utils.Validation;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -142,9 +144,8 @@ public class TransactionController extends HttpServlet {
             HttpServletResponse response)
             throws ServletException, IOException {
 
-        HttpSession session = request.getSession(false);
-        if (session == null || !"ADMIN".equals(session.getAttribute("role"))) {
-            response.sendRedirect(request.getContextPath() + "/login.jsp");
+        if (!Access.isAdmin(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
@@ -164,22 +165,22 @@ public class TransactionController extends HttpServlet {
             HttpServletResponse response)
             throws IOException {
 
-        HttpSession session = request.getSession(false);
-        if (session == null || !"ADMIN".equals(session.getAttribute("role"))) {
-            response.sendRedirect(request.getContextPath() + "/login.jsp");
+        if (!Access.isAdmin(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
-        String transactionIdStr = request.getParameter("transactionId");
+        Integer transactionIdParsed = Validation.parseIntInRange(request.getParameter("transactionId"), 1, Integer.MAX_VALUE);
         String newStatus = request.getParameter("newStatus");
 
-        if (transactionIdStr == null || newStatus == null) {
+        // Admin được đánh dấu đang xử lý, duyệt hoặc hủy; không thể đưa về PENDING và mọi giá trị lạ đều bị từ chối
+        if (transactionIdParsed == null || !Validation.isOneOf(newStatus, "PROCESSING", "SUCCESS", "CANCELLED")) {
             response.sendRedirect(request.getContextPath()
                     + "/MainController?action=adminListTransactions&error=invalid_input");
             return;
         }
 
-        int transactionId = Integer.parseInt(transactionIdStr);
+        int transactionId = transactionIdParsed;
 
         TransactionDAO transactionDAO = new TransactionDAO();
         UserDAO userDAO = new UserDAO();

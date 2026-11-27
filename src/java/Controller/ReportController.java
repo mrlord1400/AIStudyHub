@@ -6,6 +6,8 @@ import Model.DAO.DocumentDAO;
 import Model.DTO.Report;
 import Model.DTO.ReportReason;
 import Model.DTO.Document;
+import Model.Service.DocumentAccess;
+import Utils.Access;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -17,6 +19,8 @@ import java.io.IOException;
 
 @WebServlet(name = "ReportController", urlPatterns = {"/ReportController"})
 public class ReportController extends HttpServlet {
+
+    private final DocumentAccess documentAccess = new DocumentAccess();
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -48,6 +52,12 @@ public class ReportController extends HttpServlet {
                 // Đọc documentId từ request tham số gửi lên
                 int documentId = Integer.parseInt(request.getParameter("documentId"));
 
+                // Chỉ báo cáo được tài liệu mình có quyền xem (không dò được tài liệu riêng tư của người khác)
+                if (!documentAccess.canView(docDao.findById(documentId), userId, Access.isAdmin(request))) {
+                    response.sendRedirect(request.getContextPath() + "/FileExplore.jsp?error=not_found");
+                    return;
+                }
+
                 // Kiểm tra tính hợp lệ (Chưa có báo cáo nào ở trạng thái PENDING)
                 boolean isValid = reportDao.checkValid(userId, documentId);
 
@@ -70,6 +80,17 @@ public class ReportController extends HttpServlet {
                 int documentId = Integer.parseInt(request.getParameter("documentId"));
                 String reasonCode = request.getParameter("reasonCode");
                 String details = request.getParameter("details");
+
+                if (!documentAccess.canView(docDao.findById(documentId), userId, Access.isAdmin(request))) {
+                    response.sendRedirect(request.getContextPath() + "/FileExplore.jsp?error=not_found");
+                    return;
+                }
+
+                // Mỗi người chỉ có 1 báo cáo PENDING cho mỗi tài liệu; nếu không có thể gọi lặp để đẩy điểm và cắm cờ tài liệu của người khác
+                if (!reportDao.checkValid(userId, documentId)) {
+                    response.sendRedirect(request.getContextPath() + "/FileExplore.jsp?error=create_report_failed");
+                    return;
+                }
 
                 // Tạo đối tượng Report mới (mặc định ban đầu là PENDING)
                 Report newReport = new Report();
