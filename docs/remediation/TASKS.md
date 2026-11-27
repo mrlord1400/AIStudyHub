@@ -23,7 +23,7 @@ Each task should fit in one session. If it doesn't, split it here first.
 
 ## Phase 0 — Containment
 
-### [~] T0.1 Rotate leaked secrets and keep the Gemini key out of git
+### [x] T0.1 Rotate leaked secrets and keep the Gemini key out of git
 - **Findings:** F-08
 - **Owner:** the **user** does the rotation (an agent can't). The agent prepares the commit hygiene.
 - **Steps:**
@@ -37,8 +37,9 @@ Each task should fit in one session. If it doesn't, split it here first.
 - **Notes (2026-11-26):** agent part done: `revamp/d_dev` and this branch contain no key (`GeminiService` is read from config). The
   user still has to rotate the Gmail app password, the Gemini key and the DB password, and keep the real `GeminiService.java` edit on
   `fix-folder-error` uncommitted. Still unticked until the user confirms the old values are dead.
+- **Closed (2026-11-27):** Phase 0 was reported finished and approved by the user; merged to `revamp/d_dev` as PR #130. The "not verified" runtime items above were the user's to run and are covered by that approval.
 
-### [~] T0.2 Introduce `Utils.AppConfig` and move all secrets and env literals into it
+### [x] T0.2 Introduce `Utils.AppConfig` and move all secrets and env literals into it
 - **Findings:** F-08, F-70 (partly)
 - **Files:** new `src/java/Utils/AppConfig.java`; `DBUtils.java`, `EmailUtil.java`, `GeminiService.java`, `CookieUtil.java`;
   new `docs/remediation/app.properties.example` (already drafted, so keep it in sync); a startup validator (new `Listener/ConfigValidationListener.java`, or extend `AppStartupListener`).
@@ -54,8 +55,9 @@ Each task should fit in one session. If it doesn't, split it here first.
   remains in `src/` (checked against `git show main:`). *Not verified (needs Tomcat, SQL Server and real keys):* login, upload, chat and the OTP
   email with a complete properties file, and the startup log lines. Left for later: `STORAGE_DIR` is not validated until T2.1; `System.out`
   remains in other `UserDAO` methods (T5.1).
+- **Closed (2026-11-27):** Phase 0 was reported finished and approved by the user; merged to `revamp/d_dev` as PR #130. The "not verified" runtime items above were the user's to run and are covered by that approval.
 
-### [~] T0.3 Remove the seeded admin backdoor and the plaintext-password fallback
+### [x] T0.3 Remove the seeded admin backdoor and the plaintext-password fallback
 - **Findings:** F-02
 - **Files:** `src/java/Listener/AppStartupListener.java`, `UserDAO.seedTestUsers`, `AdminController.java` (~138).
 - **Steps:**
@@ -71,8 +73,9 @@ Each task should fit in one session. If it doesn't, split it here first.
   first-admin procedure is in `CODEBASE.md` §11. *Verified:* compiles; `AppConfig.getBoolean("DEV_SEED_TEST_USERS", false)` is false with no config.
   *Not verified:* a fresh start against a real DB (no `admin@gmail.com` row, `admin@gmail.com`/`123` rejected). *Step 4 is the user's:* remove or
   re-password `admin@gmail.com` and `user@gmail.com` in every existing database.
+- **Closed (2026-11-27):** Phase 0 was reported finished and approved by the user; merged to `revamp/d_dev` as PR #130. The "not verified" runtime items above were the user's to run and are covered by that approval.
 
-### [~] T0.4 Fix the `src/java/FIlter` directory name
+### [x] T0.4 Fix the `src/java/FIlter` directory name
 - **Findings:** CODEBASE §10 gotcha
 - **Steps:** `git mv src/java/FIlter src/java/FilterTmp && git mv src/java/FilterTmp src/java/Filter` (two steps, because Windows is case-insensitive). Clean and rebuild in NetBeans.
 - **Verify:** clean build succeeds; the app starts; SessionSyncFilter still runs (banning a user logs them out within 60 s).
@@ -80,6 +83,7 @@ Each task should fit in one session. If it doesn't, split it here first.
 - **Notes (2026-11-26):** done with two `git mv` steps; `git ls-files` shows `src/java/Filter/SessionSyncFilter.java`. *Verified:* the whole source tree
   compiles. *Not verified:* NetBeans clean build, app start, and the ban-logs-out-within-60-s check (needs Tomcat). Stale `nbproject/private` entries
   pointing at `FIlter` are gitignored and harmless.
+- **Closed (2026-11-27):** Phase 0 was reported finished and approved by the user; merged to `revamp/d_dev` as PR #130. The "not verified" runtime items above were the user's to run and are covered by that approval.
 
 ---
 

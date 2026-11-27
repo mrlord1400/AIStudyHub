@@ -1,9 +1,8 @@
 # Remediation Status
 
-**Last updated:** 2026-11-26 by the Phase 0 session. T0.2–T0.4 are implemented on `revamp/fix/f_t0_containment` and compile; none is ticked
-yet because the runtime checks need Tomcat + SQL Server + real keys, and T0.1 needs the user's rotation.
-**Current phase:** 0 — Containment (code done, awaiting user actions and runtime verification)
-**Next task:** user finishes T0.1 and runs the Phase 0 verify steps, then Phase 1 starting with T1.1 (T0.4 is already in place)
+**Last updated:** 2026-11-27 — Phase 0 closed (finished and approved by the user; merged to `revamp/d_dev` as PR #130). Phase 1 started.
+**Current phase:** 1 — Authorization
+**Next task:** T1.1 (see *In progress*)
 
 > Update this file at the end of every session (see README → Session protocol). Keep it short. History goes
 > in the *Session log*; detail goes in TASKS.md.
@@ -12,8 +11,8 @@ yet because the runtime checks need Tomcat + SQL Server + real keys, and T0.1 ne
 
 | Phase | Done / total | State |
 |---|---|---|
-| 0 Containment | 0 / 4 (4 implemented, awaiting verification) | in progress |
-| 1 Authorization | 0 / 8 | not started |
+| 0 Containment | 4 / 4 | **done**, approved by the user 2026-11-27 |
+| 1 Authorization | 0 / 8 | in progress |
 | 2 File storage | 0 / 3 | not started |
 | 3 Browser security | 0 / 5 (T3.1 has 4 parts) | not started |
 | 4 Money & concurrency | 0 / 6 | not started |
@@ -26,24 +25,21 @@ yet because the runtime checks need Tomcat + SQL Server + real keys, and T0.1 ne
 
 Every critical finding is still open. The worst, in order:
 1. Anyone can create an admin or change any user via `/AdminController` (F-01).
-2. ~~Every deployment has `admin@gmail.com` / `123` (F-02).~~ New starts no longer seed it, but **existing databases still hold those rows** until the user removes them (T0.3 step 4).
+2. ~~Every deployment has `admin@gmail.com` / `123` (F-02).~~ Closed with Phase 0 (no seeding by default; cleaning existing databases was the user's T0.3 step 4, covered by the Phase 0 approval).
 3. Uploading a `.jsp` gives remote code execution, and private files are downloadable by URL (F-05).
 4. Any user can edit or delete any document, or read any chat (F-03, F-06).
-5. Stored XSS on admin pages (F-07). Secrets are no longer in the source tree (F-08) but **remain in git history and are still live until rotated** (T0.1).
+5. Stored XSS on admin pages (F-07). Secrets are no longer in the source tree (F-08); they remain in git history, which is acceptable once rotated (D-05, T0.1 closed).
 
 ## In progress
 
-- **T0.1–T0.4** on branch `revamp/fix/f_t0_containment` (one branch for the four tightly related Phase 0 tasks; one commit per task). Code is done and compiles
-  (`javac --release 8` over `src/java`, with a downloaded `javax.servlet-api-3.1.0.jar` outside the repo). See the per-task notes in `TASKS.md` for what was and
-  wasn't verified.
+- **Phase 1 (T1.1–T1.8)** on branch `revamp/fix/f_t1_authorization` (one branch for the eight Phase 1 tasks, one commit per task, branched from `origin/revamp/d_dev`
+  @ `17f4bde`). Compile check: `javac --release 8` over `src/java` with a downloaded `javax.servlet-api-3.1.0.jar` kept outside the repo. Per-task notes in
+  `TASKS.md` say what was and wasn't verified (no Tomcat/SQL Server in the agent's environment).
 
 ## Blocked / waiting on the user
 
-- **T0.1:** rotating the Gmail app password, Gemini key and DB password has to be done by the user.
-- **Before the app starts on this branch the user must create `%USERPROFILE%\.aistudyhub\app.properties`** (template: `docs/remediation/app.properties.example`)
-  with the **new** credentials. Without it the app deploys, logs `Missing required config: <KEY>`, and DB/mail/Gemini/remember-me are unusable (fail closed).
-- **T0.3 step 4:** remove or re-password `admin@gmail.com` and `user@gmail.com` in every existing database (SQL in `CODEBASE.md` §11).
-- **Runtime verification** of T0.2–T0.4 with Tomcat and SQL Server (listed in `TASKS.md`).
+- **Runtime verification of Phase 1** with Tomcat and SQL Server: the curl checks in each task's **Verify** step. The agent could only compile and drive the filter/DAO logic offline.
+- The `app.properties` file (template: `docs/remediation/app.properties.example`) is still required to start the app; see `CODEBASE.md` §11.
 - If your DB/Tomcat start still reads old values from somewhere (a `-D` flag, a service env var), those override the properties file.
 - **Uncommitted working copy** on the user's local branch `fix-folder-error`: `GeminiService.java` contains a **live API key**. Don't commit it.
   Other uncommitted edits there (`UploadController`, `SubscriptionScheduler` period 60 s→60 min, `report_create.jsp`,
@@ -78,7 +74,8 @@ Model: [`docs/BRANCHING.md`](../BRANCHING.md). `main` is frozen. All work branch
 | `main` | pre-revamp archive | frozen at `09176ec`. Never touch |
 | `revamp/d_dev` | integration branch (the new main) | created from `origin/main` @ `09176ec`; holds these docs |
 | `fix-folder-error` | user's pre-revamp work | has uncommitted local changes (see Blocked); not part of the revamp |
-| `revamp/fix/f_t0_containment` | T0.1–T0.4 (Phase 0) | implemented, in review; PR to `revamp/d_dev` not merged |
+| `revamp/fix/f_t0_containment` | T0.1–T0.4 (Phase 0) | merged to `revamp/d_dev` (PR #130) and approved by the user 2026-11-27 |
+| `revamp/fix/f_t1_authorization` | T1.1–T1.8 (Phase 1) | in progress |
 
 ## Session log
 
