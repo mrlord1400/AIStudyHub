@@ -34,6 +34,10 @@ The work spans many sessions and many agents. **These documents replace re-readi
    - Update `STATUS.md`: move the task, add a line to the *Session log*, record new blockers/decisions.
    - If you discovered a new defect, add it to `FINDINGS.md` (next free `F-` id) **and** a task to `TASKS.md`.
    - If code moved enough that `CODEBASE.md` is wrong, fix `CODEBASE.md`.
+7. Close your final reply to the user with a **completion summary** in this exact shape (the user does not want to ask for it each time):
+   - **2-3 sentences** on what was implemented. The subject is "This work" or "This task", never "I" or "We".
+   - **A short bulleted list of the main features**, one short sentence per bullet. Keep it to the headline items only, not every change.
+   - Then, separately and briefly, anything that was **not** verified and any decision needed from the user.
 
 ## Ground rules
 
