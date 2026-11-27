@@ -42,8 +42,11 @@ ASH_Database.sql          schema + seed data
 src/java/
   Controller/             17 servlets (one per feature area)
   Filter/                 package `Filter` (directory renamed from the "FIlter" typo in T0.4)
-    SessionSyncFilter.java   registered in web.xml (no longer @WebFilter): runs first
-    AuthFilter.java          default-deny gate (T1.1), REQUEST + FORWARD, runs second
+    SecurityHeadersFilter.java   nosniff, X-Frame-Options SAMEORIGIN, Referrer-Policy; runs first, also on error pages (T3.3)
+    RememberMeFilter.java    signs the user in from the remember_token cookie when there is no session (T3.4)
+    SessionSyncFilter.java   registered in web.xml (no longer @WebFilter)
+    AuthFilter.java          default-deny gate (T1.1), REQUEST + FORWARD
+    CsrfFilter.java          POST needs the session token (403), GET on a mutating action = 405 (T3.2); runs last
   Listener/AppStartupListener.java   seeds dev test users only when DEV_SEED_TEST_USERS=true (T0.3)
   Listener/ConfigValidationListener.java   logs which required config keys are present/missing (T0.2)
   Model/DAO/              12 DAOs, plain JDBC
@@ -51,12 +54,12 @@ src/java/
   Model/Service/SubscriptionRenewalService.java
   Model/Service/DocumentAccess.java   canView / canEdit: the one place that decides document visibility (T1.3)
   Utils/                  AppConfig, Access (who is calling), FileStorage + FileTypes (where uploads live, allowed types, T2), StorageMigration (one-off CLI, T2.2), AccessRules (public/admin/authenticated path lists), Html (`esc`, output escaping for scriptlets, T3.1),
-                          Validation (whitelists, ranged numbers), DBUtils, PasswordUtil, CookieUtil, EmailUtil, GeminiService,
+                          Validation (whitelists, ranged numbers), Csrf (token + the list of mutating actions), RateLimiter + AuthLimits (login/OTP limits), DBUtils, PasswordUtil, EmailUtil, GeminiService,
                           LinkUtil, SubscriptionScheduler
 web/
   js/security.js          escapeHtml + renderMarkdown (DOMPurify) for pages that build HTML in the browser; loaded by pages as T3.1b-d convert them (none yet after T3.1a); public in AccessRules
   *.jsp                   30 pages (no WEB-INF protection: all directly reachable)
-  WEB-INF/web.xml         maps SystemConfigController, declares the filter order (SessionSyncFilter, AuthFilter), session timeout 30 min
+  WEB-INF/web.xml         maps SystemConfigController, declares the filter order (SecurityHeadersFilter, RememberMeFilter, SessionSyncFilter, AuthFilter, CsrfFilter), session timeout 30 min
   WEB-INF/jspf/admin_error_banner.jspf   shared error banner included by admin_manageUser / admin_manageTrans / admin_report_config
   WEB-INF/tags/AdminLayout.tag   shared admin chrome
   WEB-INF/lib/            runtime jars
@@ -69,11 +72,15 @@ docs/standards/           review checklist
 
 ```
 Browser
+  └─> SecurityHeadersFilter (web.xml, REQUEST + ERROR)   nosniff / X-Frame-Options SAMEORIGIN / Referrer-Policy on every response
+  └─> RememberMeFilter (web.xml, REQUEST)    no session but a remember_token cookie: validate (selector/validator), rotate the cookie, sign in
   └─> SessionSyncFilter (web.xml, REQUEST)   every 60 s re-reads user from DB: refreshes role/tier/balance,
   │                                          invalidates the session if the user is BANNED or deleted
   └─> AuthFilter (web.xml, REQUEST + FORWARD) classifies the path with Utils.AccessRules: PUBLIC / AUTHENTICATED / ADMIN.
   │                                          Not logged in -> redirect login.jsp (401 JSON/text for AJAX endpoints);
   │                                          logged in but not admin on an ADMIN path -> 403. Anything unlisted = AUTHENTICATED.
+  └─> CsrfFilter (web.xml, REQUEST)          POST/PUT/DELETE: token must match the session (header X-CSRF-Token or field _csrf) else 403;
+  │                                          GET/HEAD on an action in Utils.Csrf.MUTATING_ACTIONS -> 405
   ├─> /MainController?action=X  ── switch(action) ──> forward to /XController   (most JSP links/forms use this)
   └─> /XController?action=Y     (many JSPs and JS fetch calls hit controllers directly)
          └─> DAO (new DAO() per request, new Connection per method) ──> SQL Server
@@ -95,8 +102,8 @@ Reviewed in T1.8 (2026-11-27). "Path gate" is `AuthFilter`/`AccessRules`. "In-co
 | Controller (URL) | Actions | Path gate | In-controller / SQL scoping |
 |---|---|---|---|
 | `MainController` | router; `guest` renders `guest_dashboard.jsp` | public (the forward target is re-checked) | ✅ nothing sensitive of its own |
-| `AuthController` | GET `logout`; POST `register`, `login`, `processResetPassword` | public | ✅ reset needs session flag `ALLOW_RESET_<email>`. ⚠ session fixation, remember-me, rate limits: T3.3-T3.5 |
-| `ForgotPasswordController` | `sendOTP`, `verifyOTP` (JSON) | public | ⚠ OTP generation, lockout, rate limit: T3.5 |
+| `AuthController` | POST `register`, `login`, `logout`, `processResetPassword` (GET answers 405 for these) | public | ✅ reset needs session flag `ALLOW_RESET_<email>`; login is rate limited, changes the session id, answers BANNED before checking the password (T3.3, T3.5) |
+| `ForgotPasswordController` | `sendOTP`, `verifyOTP` (JSON) | public | ✅ SecureRandom OTP, send limits per (IP,email)/email/IP, wrong guesses counted per issued code in the requester's session, no email-wide lock (T3.5) |
 | `UserController` | `profile`, `updateProfile`, `deleteAccount` | authenticated | ✅ acts only on `session.userId`; `updateProfile` needs the current password and validates name/email. ⚠ `deleteAccount` and other mutations are GET-able: T3.2 |
 | `DocumentController` | `explore` | authenticated | ✅ SQL limits to PUBLIC (non-flagged) / accepted-friends' FRIENDS_ONLY |
 | | `viewPublicPage`, `viewDoc` | **public** (guests allowed, only these two actions) | ✅ `DocumentAccess.canView`; invisible = 404 / `not_found` |
@@ -132,9 +139,13 @@ Reviewed in T1.8 (2026-11-27). "Path gate" is `AuthFilter`/`AccessRules`. "In-co
 | `pendingDocumentId`, `pendingDocumentTitle`, `pendingFileExtension` | | UploadController | the upload wizard between steps |
 | `conflictTitle`, `conflictFolderId`, `conflictSharingPermission`, `duplicateDocId` | | UploadController.confirm | duplicate-title resolution step |
 | `returnChatSessionId`, `newAttachedDocTitle` | String | UploadController | return to chat after uploading from chat |
-| `RECOVERY_OTP_<email>`, `RECOVERY_TIME_<email>`, `ALLOW_RESET_<email>` | | ForgotPasswordController | password-reset flow |
+| `RECOVERY_OTP_<email>`, `RECOVERY_TIME_<email>`, `RECOVERY_ATTEMPTS_<email>`, `ALLOW_RESET_<email>` | | ForgotPasswordController | password-reset flow (the OTP and its attempt counter live and die with that browser session) |
+| `csrfToken` | String | `Utils.Csrf.token(session)` (printed by `csrf_head.jspf`) | renewed at login and after a completed reset |
 
-Cookie `remember_token` = Base64url(`email|expiry|hmac`) signed by `CookieUtil`. It's consumed by a scriptlet in `web/login.jsp`, which logs the user in.
+Cookie `remember_token` = `<selector>.<validator>` (T3.4). `remember_tokens` stores `selector`, `SHA-256(validator)`, `expires_at` (30 days, `REMEMBER_ME_DAYS`).
+`RememberMeFilter` consumes it and rotates the validator on every use; `RememberMeService` also issues it (login with the checkbox) and forgets it (logout).
+Rows are deleted on logout, on `UserDAO.updatePassword` (change and reset), on `UserDAO.updateUser` when the status is not ACTIVE, and when the user is deleted (FK cascade).
+The cookie is HttpOnly, SameSite=Lax (Tomcat `CookieProcessor` in `META-INF/context.xml`), Secure when `APP_HTTPS=true`. The old stateless HMAC cookie and `REMEMBER_ME_SECRET` are gone.
 
 ## 7. Data model (`ASH_Database.sql`)
 
@@ -172,7 +183,7 @@ Triggers maintain `updated_at` on `users`, `documents` and `friendships`.
 | `SubscriptionDAO` | tiers, `getPremiumPrice()` (returns <0 on failure) |
 | `AdminDAO` | `getAllUsers`, `createUser` |
 | `Utils.PasswordUtil` | BCrypt hash/verify ✅ |
-| `Utils.CookieUtil` | remember-me token sign/verify |
+| `Model.Service.RememberMeService` + `RememberTokenDAO` | remember-me issue / authenticate+rotate / forget (T3.4) |
 | `Utils.EmailUtil` | OTP email, premium warning/downgrade emails (HTML built by string concat) |
 | `Utils.GeminiService` | single `getGeminiResponse(List<ChatMessage>)`, model `gemini-3.1-flash-lite` |
 | `Utils.SubscriptionScheduler` | `@WebListener`, hourly: `processExpiryWarnings()` (72 h before expiry) + `processExpiredSubscriptions()` (renew if balance ≥ price, else downgrade to tier 2) |
@@ -201,7 +212,8 @@ Triggers maintain `updated_at` on `users`, `documents` and `friendships`.
 ## 10. Gotchas
 
 - `src/java/Filter/` was once misspelled `FIlter` (fixed in T0.4). On a clone that still has the old directory name in an IDE cache, clean and rebuild.
-- Annotated `@WebFilter`s have **no defined order**. Filters are declared in `web.xml` (SessionSyncFilter, then AuthFilter); add `CsrfFilter` after them (T3.2). Do not add `@WebFilter`.
+- Annotated `@WebFilter`s have **no defined order**. Filters are declared in `web.xml` (SecurityHeadersFilter, RememberMeFilter, SessionSyncFilter, AuthFilter, CsrfFilter). Do not add `@WebFilter`.
+- **A new mutating action must be added to `Utils.Csrf.MUTATING_ACTIONS`** (so GET answers 405) and invoked by POST: a `<form method="post">`, a `fetch` with `method: 'POST'`, or an `<a data-post data-confirm="...">` link. `web/js/csrf.js` (loaded by `WEB-INF/jspf/csrf_head.jspf`, which every page includes before `</head>`) adds the token to all of these. Never put the token in a GET URL.
 - **A new page or controller is "authenticated" by default.** To make it public or admin-only add it to the lists in `Utils/AccessRules.java`. A missing public page shows up as a redirect loop to `login.jsp`.
 - `AuthFilter` sets request encoding to UTF-8 before reading `action`. Do not read request parameters in a filter before that, or Vietnamese form values get mangled.
 - On a FORWARD, `request.getServletPath()` is the forward target. The `action` parameter is the original one unless the forward URL has its own query string (e.g. `DocumentController` forwards to `/MainController?action=editDoc&docId=...`), in which case the forward's value wins; `AuthFilter` re-reads it on every dispatch, so it classifies what the target will actually see.
@@ -216,7 +228,7 @@ Triggers maintain `updated_at` on `users`, `documents` and `friendships`.
 ## 11. Configuration and the first admin (T0.2 / T0.3)
 
 **Local setup.** Copy `docs/remediation/app.properties.example` to `%USERPROFILE%\.aistudyhub\app.properties` and fill in the
-required keys (`DB_URL`, `DB_USER`, `DB_PASSWORD`, `SMTP_USER`, `SMTP_PASSWORD`, `REMEMBER_ME_SECRET`, and `GEMINI_API_KEY` while
+required keys (`DB_URL`, `DB_USER`, `DB_PASSWORD`, `SMTP_USER`, `SMTP_PASSWORD`, `STORAGE_DIR`, and `GEMINI_API_KEY` while
 `AI_ENABLED` is not `false`). Environment variables and `-D` system properties override the file. If Tomcat runs as a service its
 `user.home` differs, so point `AISTUDYHUB_CONFIG` at the file instead. At startup `ConfigValidationListener` logs which required
 key names are missing; any code path that needs a missing key throws `Missing required config: KEY`.

@@ -1,9 +1,8 @@
 # Remediation Status
 
-**Last updated:** 2026-11-27 — Phase 2 merged to `revamp/d_dev` (PR #132; the runtime checks and the T2.2 migration are still the user's). Phase 3 started: T3.1a (escaping helpers + the eight admin pages) implemented on `revamp/fix/f_t3_1a_escape_admin_pages`,
-checked offline (327 checks, `docs/remediation/verify/offline/run.sh`, now including real JSP rendering on embedded Tomcat), not yet run against a real Tomcat + SQL Server.
-**Current phase:** 3 — Browser security (T3.1a done in code, awaiting review/merge)
-**Next task:** T3.1b (chat pages), then T3.1c, T3.1d, T3.2 CSRF. T3.3 (session/headers) and T3.5 (rate limiting) do not depend on T3.1 and can go earlier. Phase 4 (T4.1) is independent and can run in parallel.
+**Last updated:** 2026-11-27 — Phase 2 merged to `revamp/d_dev` (PR #132; the runtime checks and the T2.2 migration are still the user's). **Phase 3 (T3.1a-d, T3.2-T3.5) implemented** on `revamp/fix/f_t3_1a_escape_admin_pages`, checked offline (484 checks, `docs/remediation/verify/offline/run.sh`; since Phase 3 the harness also runs the real `web.xml`, filters and JSPs on embedded Tomcat 9), one independent review at the end of the phase. Not run against a real Tomcat + SQL Server or a browser.
+**Current phase:** 3 — Browser security (code done; awaiting the user's migration, runtime checks and PR approval)
+**Next task:** Phase 4 (T4.1 atomic balance changes first); it is independent of what is left of Phase 3.
 
 > Update this file at the end of every session (see README → Session protocol). Keep it short. History goes
 > in the *Session log*; detail goes in TASKS.md.
@@ -15,7 +14,7 @@ checked offline (327 checks, `docs/remediation/verify/offline/run.sh`, now inclu
 | 0 Containment | 4 / 4 | **done**, approved by the user 2026-11-27 |
 | 1 Authorization | 8 / 8 | **done**, approved by the user 2026-11-27 (PR #131) |
 | 2 File storage | 0 / 3 (3 implemented, `[~]`, awaiting runtime verification) | merged (PR #132); runtime checks + T2.2 migration pending |
-| 3 Browser security | 0 / 5 (T3.1 has 4 parts; T3.1a implemented `[~]`) | in progress |
+| 3 Browser security | 0 / 5 (all implemented, `[~]`, awaiting runtime verification) | in review |
 | 4 Money & concurrency | 0 / 7 | not started |
 | 5 Failure & observability | 0 / 6 | not started |
 | 6 Data, config, ops | 0 / 8 | not started |
@@ -29,16 +28,17 @@ Every critical finding is still open. The worst, in order:
 2. ~~Every deployment has `admin@gmail.com` / `123` (F-02).~~ Closed with Phase 0 (no seeding by default; cleaning existing databases was the user's T0.3 step 4, covered by the Phase 0 approval).
 3. ~~Uploading a `.jsp` gives remote code execution, and private files are downloadable by URL (F-05).~~ Closed in code by T2.1-T2.3 (files outside the web root, allow-list + content check, `/uploads/**` = 404). Needs the checks on a real instance **and the T2.2 migration run**, otherwise old documents answer 404.
 4. ~~Any user can edit or delete any document, or read any chat (F-03, F-06).~~ Closed in code by T1.2-T1.4 (F-04 FRIENDS_ONLY and F-10 friendship too). The "any logged-in user can read any file by URL" gap is closed by T2.1.
-5. Stored XSS (F-07): the admin pages are closed in code by T3.1a; chat, document/explore and the remaining user pages are still open (T3.1b-d). Secrets are no longer in the source tree (F-08); they remain in git history, which is acceptable once rotated (D-05, T0.1 closed).
+5. Stored XSS (F-07) and the session/CSRF/brute-force gaps (F-09): closed in code by T3.1-T3.5; need the click-through on a real instance. Secrets are no longer in the source tree (F-08); they remain in git history, which is acceptable once rotated (D-05, T0.1 closed). Secrets are no longer in the source tree (F-08); they remain in git history, which is acceptable once rotated (D-05, T0.1 closed).
 
 ## In progress
 
-- **T3.1a** on branch `revamp/fix/f_t3_1a_escape_admin_pages` (from `origin/revamp/d_dev` @ `c56f587`, the merge of PR #132). `[~]`: implemented and checked offline by `T31Test`; the click-through (edit-user modal, report-reason edit/delete buttons) is not done. See the T3.1a notes in `TASKS.md`.
-- **Phase 2 (T2.1–T2.3)** on branch `revamp/fix/f_t2_file_storage` (one branch, branched from `origin/revamp/d_dev` @ `6110934`, the merge of PR #131). All three are `[~]`: implemented, compiled with `javac --release 8`, and checked offline by
-  `bash docs/remediation/verify/offline/run.sh` (308 checks pass, 76 of them new in `T2Test`). The per-task notes in `TASKS.md` say what was **not** verified.
+- **Phase 3 (T3.1a-d, T3.2, T3.3, T3.4, T3.5)** on branch `revamp/fix/f_t3_1a_escape_admin_pages` (one branch, from `origin/revamp/d_dev` @ `c56f587`, the merge of PR #132). All are `[~]`: implemented and checked offline; the per-task notes in `TASKS.md` say what was **not** verified.
 
 ## Blocked / waiting on the user
 
+- **Before the first run of the Phase 3 branch: run `db/migrations/001_remember_tokens.sql`** on your SQL Server database (creates `remember_tokens`; the rollback script undoes it) and record it under *Migrations*. Without it "remember me" fails closed (login with a password still works). **Every existing remember-me cookie stops working** (the 10-year unrevocable cookie is gone): users sign in once more. `REMEMBER_ME_SECRET` is no longer read; you can delete it from your `app.properties`.
+- **Runtime verification of Phase 3** (Conv §11), highest value first: (1) log in, upload, delete a document and a folder, log out, and use the chat, friend buttons and the admin edit modals: all must still work now that every write is a POST with a token (`csrf.js`); (2) a hostile name (`"><img src=x onerror=alert(1)>`) in a username, folder, document, chat session and report reason shows as text on every page; (3) tick "remember me", close the browser, reopen: you are in; then log out and replay: you are not; (4) the 6th wrong password within a minute is throttled; "forgot password" sends one code per minute; (5) with HTTPS set `APP_HTTPS=true` and check the cookies carry `Secure`.
+- Behind a reverse proxy the login/OTP limits key on the proxy's address unless Tomcat's `RemoteIpValve` is set up (T3.5 notes).
 - **Before the first run of this branch: add `STORAGE_DIR` to your `app.properties`** (absolute path outside the web app, e.g. `C:/aistudyhub-data/uploads`; see the example file). Without it uploads fail closed and the startup log says `Missing required config: STORAGE_DIR`.
 - **Run the T2.2 migration** (commands in the T2.2 notes in `TASKS.md`): dry run first, read the counts, the per-extension list of documents that will NOT be migrated (decision D-17) and the "needs a human look" list, then `--apply`. Until then, existing documents answer 404 (their rows still hold `/AIStudyHub/uploads/...`). Record the run under *Migrations* below. The old `uploads/` folder is dead (404) but still on disk: delete it after you have opened a sample of old documents.
 - **Runtime verification of Phase 2** with Tomcat and SQL Server (Conv §11), highest value first:
@@ -79,6 +79,7 @@ Every critical finding is still open. The worst, in order:
 | # | File | Applied to | Date | By |
 |---|---|---|---|---|
 | T2.2 | `Utils.StorageMigration` (CLI, commands in TASKS T2.2). Not a SQL file: it rewrites `documents.cloud_storage_url` | not run yet | | |
+| T3.4 | `db/migrations/001_remember_tokens.sql` (rollback: `001_remember_tokens.rollback.sql`) | not run yet | | |
 
 ## Branches
 
@@ -92,7 +93,7 @@ Model: [`docs/BRANCHING.md`](../BRANCHING.md). `main` is frozen. All work branch
 | `revamp/fix/f_t0_containment` | T0.1–T0.4 (Phase 0) | merged to `revamp/d_dev` (PR #130) and approved by the user 2026-11-27 |
 | `revamp/fix/f_t1_authorization` | T1.1–T1.8 (Phase 1) | merged to `revamp/d_dev` (PR #131) and approved by the user 2026-11-27 |
 | `revamp/fix/f_t2_file_storage` | T2.1–T2.3 (Phase 2) | merged to `revamp/d_dev` (PR #132) |
-| `revamp/fix/f_t3_1a_escape_admin_pages` | T3.1a (Phase 3) | implemented, checked offline; independent review and push: see the session log |
+| `revamp/fix/f_t3_1a_escape_admin_pages` | T3.1a-d, T3.2-T3.5 (all of Phase 3, one branch) | implemented, checked offline; independent review and push: see the session log |
 
 ## Session log
 
@@ -105,3 +106,4 @@ Model: [`docs/BRANCHING.md`](../BRANCHING.md). `main` is frozen. All work branch
 | 2026-11-27 | Phase 2 | Closed Phase 1 in the docs. Created `revamp/fix/f_t2_file_storage` from `origin/revamp/d_dev` (6110934). T2.1 `Utils.FileStorage` + `FileTypes`: uploads in `STORAGE_DIR/<uid>/<uuid>.<ext>`, `cloud_storage_url` holds the key, served only by `DocumentController` with `nosniff`, `/uploads/**` = 404 in `AuthFilter`, every delete path deletes the DB row before the file, account deletion removes the user's directory, `STORAGE_DIR` now required and validated at startup, `StoredFiles` removed. T2.2 `Utils.StorageMigration` (dry run default, copy not move). T2.3 extension allow-list, magic-byte checks, per-file cap from the tier, generic error text instead of exception messages in `UploadController`. Added `T2Test` (76 checks) and extended `Http` (shared session, multipart part) and `Db.str`. Decisions D-14..D-16; F-05 marked fixed in code | User: add `STORAGE_DIR`, run the T2.2 migration, run the checks in *Blocked*, confirm D-15/Q-1, approve the PR. Next: T3.1a (or T4.1 in parallel). Note: the user's `fix-folder-error` has uncommitted edits to `UploadController` that will conflict with this branch |
 | 2026-11-27 | Phase 2 review | Independent review by a separate Opus agent: no blocker, three should-fix items, all fixed: (1) the migration tool advised `--delete-old` after a plain `--apply`, which cannot work (old paths are gone) -> advice corrected, `--delete-old` now deletes after all rows and only files no unmigrated row needs; (2) old files with types outside the allow-list silently become unreachable -> reported per extension, recorded as open decision D-17; (3) `confirm`/`keepBoth`/`cancel` used a file key kept in the session, so overlapping uploads could make two rows share a file -> the key now comes from the owner-checked DB row (session attribute removed), `replace` no longer deletes the old file when the pending row could not be removed. Also from the review: `0` in `max_storage_mb` now means "no uploads", stray files are cleaned up if an upload fails after saving, configuration errors are no longer reported as "file too large", `STORAGE_DIR` under Tomcat `webapps/` is flagged at startup. Known and left: `FolderController.deleteFolder` reads the tree's documents and deletes in two steps (a failed listing would orphan files); the Office preview in `viewDoc` writes document text unescaped (already T3.1d) | Re-review, then push |
 | 2026-11-27 | Phase 3 (T3.1a) | Created `revamp/fix/f_t3_1a_escape_admin_pages` from `origin/revamp/d_dev` (c56f587). Added `Utils.Html`, `web/js/security.js`, pinned marked/DOMPurify tags with SRI (Conv §3), `/js/security.js` public (D-18). Escaped every dynamic value on the eight `admin_*.jsp` pages and `AdminLayout.tag`; the inline `onclick` handlers that interpolated values now read `data-*`. New harness piece `Web.java` + `T31Test`: the real `web.xml` and JSPs on embedded Tomcat 9 (the first JSP compile/render in the offline harness), 17 checks; all 8 page checks fail on the pre-change JSPs | Review, then push. Next: T3.1b (chat). `profile.jsp` and other user pages still render hostile names raw (T3.1d) |
+| 2026-11-27 | Phase 3 (T3.1b-T3.5) | Continued on the same branch, one commit per step. **T3.1b-d**: Gson for server data in JS, `escapeHtml`/`renderMarkdown` in templates, `c:out`/`Html.esc` everywhere, `data-*` instead of interpolated `onclick`, preview CSP, `EmailUtil` escapes; `T31Test` renders 25 pages and compiles every JSP. **T3.2**: `Csrf` + `CsrfFilter` + `csrf.js` + `csrf_head.jspf`, POST-only logout/delete links (`data-post`), GET on mutating actions = 405; found and fixed `logout` existing only in `doGet`. **T3.3**: `SecurityHeadersFilter`, session cookie flags, new session id and token at login, banned-before-password. **T3.4**: `remember_tokens` migration, selector/validator service + `RememberMeFilter`, `CookieUtil`/`REMEMBER_ME_SECRET` removed. **T3.5**: `RateLimiter`/`AuthLimits`, login throttle, OTP with `SecureRandom`, per-code attempts, no email-wide lock. New harness pieces `Web` (embedded Tomcat) and `T31Test`-`T35Test`; decisions D-18..D-22. The T3.1a reviewer's fixes were applied before the rest (DOMPurify 3.5.0 instead of 3.1.6 which has published advisories) | Independent review of the whole phase, then push. User: run the migration, the runtime checks above, answer the open decisions, approve the PR. Next: Phase 4 |

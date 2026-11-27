@@ -32,6 +32,7 @@ public class Web {
     }
 
     private static Tomcat tomcat;
+    private static Context webapp;
     private static Path baseDir;
     private static int port;
     public static final String CONTEXT = "/AIStudyHub";
@@ -48,9 +49,20 @@ public class Web {
         WebResourceRoot res = new StandardRoot(ctx);
         res.addPreResources(new DirResourceSet(res, "/WEB-INF/classes", new File(classesDir).getAbsolutePath(), "/"));
         ctx.setResources(res);
+        webapp = ctx;
         tomcat.start();
         port = tomcat.getConnector().getLocalPort();
         CookieHandler.setDefault(COOKIES);
+    }
+
+    /**
+     * Calls a static method on the class as the WEB APP loaded it. Tomcat's webapp class loader keeps its own copies of
+     * the controllers and Utils, so state set on the test JVM's copies (limiters, hooks) would not reach the app.
+     */
+    public static Object invokeInApp(String className, String method, Class<?>[] types, Object... args) throws Exception {
+        ClassLoader cl = webapp.getLoader().getClassLoader();
+        Class<?> c = Class.forName(className, true, cl);
+        return c.getMethod(method, types).invoke(null, args);
     }
 
     public static void stop() throws Exception {

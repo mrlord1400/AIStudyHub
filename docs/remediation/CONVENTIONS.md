@@ -94,11 +94,10 @@ Pinned browser libraries (T3.1a; both SRI hashes were computed from the jsDelivr
 
 ## 4. CSRF and HTTP methods (T3.2)
 
-- Use a synchronizer token: `session.csrfToken` (32 random bytes from `SecureRandom`, Base64url), created at login or on first use.
-- Forms include `<input type="hidden" name="_csrf" value="${fn:escapeXml(sessionScope.csrfToken)}">`.
-- `fetch` calls send the header `X-CSRF-Token`, read from `<meta name="csrf-token" content="...">`.
-- `Filter.CsrfFilter` rejects any POST without a valid token (constant-time compare) with **403**.
-- **GET must never change state.** A state-changing action reached by GET responds `405` once it has been converted.
+- Use a synchronizer token: `session.csrfToken` (32 random bytes from `SecureRandom`, Base64url), created on first use (`Utils.Csrf.token(session)`), renewed at login.
+- Every page includes `<%@ include file="/WEB-INF/jspf/csrf_head.jspf" %>` before `</head>`: it prints `<meta name="csrf-token" content="...">` and loads `web/js/csrf.js`. **The script, not each form, adds the token** (decision D-20): a hidden `_csrf` input to every `method="post"` form at submit time (and `_csrf` on the action URL of multipart forms), the header `X-CSRF-Token` to every non-GET `fetch`, and it turns `<a data-post [data-confirm="..."]>` into a POST. A form written by hand without that script would not work, so do not remove the include.
+- `Filter.CsrfFilter` rejects any POST without a valid token (constant-time compare) with **403** (JSON envelope for AJAX, plain text for the chat endpoint).
+- **GET must never change state.** `Utils.Csrf.MUTATING_ACTIONS` is the one list of state-changing actions; a GET/HEAD to one of them answers `405` with `Allow: POST`. Add every new write action to it. (`downloadDoc` still bumps a counter on GET; that is a statistic, not a state change that matters, and is left.)
 
 ## 5. Logging (T5.1)
 
@@ -209,3 +208,7 @@ Record the exact commands and results in the task's notes in `TASKS.md`.
 | D-16 | 2026-11-27 | T2.2 migration **copies** old files and only deletes them with an explicit `--delete-old`; rows with a disallowed extension or mismatching content are reported and left alone | A failed or wrong migration must be undoable; old dangerous files (an uploaded `.jsp`) need a human decision | Adopted in T2.2 |
 | D-17 | 2026-11-27 | Documents whose file type is not in the new allow-list (old uploads such as `.doc`, `.xls`, `.zip`; the old code accepted anything) are **not migrated** by T2.2 and therefore answer 404 | Serving arbitrary types from the app's origin is the F-05 risk; whether to migrate some as download-only (`Content-Disposition: attachment`, `application/octet-stream`) is a product decision | **Open: the user decides.** The migration summary lists the counts per extension |
 | D-18 | 2026-11-27 | `/js/security.js` is a PUBLIC path in `AccessRules` (exact match); every other static path keeps the default "authenticated" | Login, register and the guest dashboard need the escaping helper too (T3.1c/d). The file holds no data | Adopted in T3.1a |
+| D-19 | 2026-11-27 | `X-Frame-Options` is `SAMEORIGIN`, not `DENY` as the T3.3 text says | The document page embeds its own preview with an iframe on the same origin (`DocumentController?action=viewDoc`); `DENY` would blank it. Other origins still cannot frame the app | Adopted in T3.3 |
+| D-20 | 2026-11-27 | The CSRF token is added by `web/js/csrf.js` (forms, fetch, `data-post` links) instead of hand-written hidden inputs in every form | ~30 pages and every dynamically built form/`fetch` would otherwise each need an edit that is easy to forget; one script plus one include per page is checked by `T32Test` | Adopted in T3.2 |
+| D-21 | 2026-11-27 | OTP and login limits: per (IP, email) cooldown and hourly cap, per-email hourly aggregate, per-IP cap; wrong guesses counted per issued OTP in the session; throttled answers stay HTTP 200 with `throttled:true` | Per-email-only limits let anyone lock a victim out of reset (the F-09 finding); the old client JS treats non-200 as "cannot connect", so status codes wait for T5.5. Limiters are in memory (D-07) and the IP is `getRemoteAddr()` | Adopted in T3.5 |
+| D-22 | 2026-11-27 | Remember-me: selector/validator rows in `remember_tokens`, 30 days, rotated on use; a wrong validator for a known selector deletes that token; a refused or raced use never touches the user's other tokens | A stolen-and-rotated pair dies together without logging the user out of their other devices; parallel requests carrying the same cookie must not wipe all tokens | Adopted in T3.4 |

@@ -9,11 +9,16 @@ import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.*;
 import Utils.PasswordUtil;
 import Utils.Access;
+import Utils.AuthLimits;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import Model.Service.RememberMeService;
 import Utils.Csrf;
 
 @WebServlet(name = "AuthController", urlPatterns = {"/AuthController"})
 public class AuthController extends HttpServlet {
+
+    private static final Logger LOG = Logger.getLogger(AuthController.class.getName());
 
     @Override
     protected void doGet(HttpServletRequest request,
@@ -160,6 +165,15 @@ public class AuthController extends HttpServlet {
         String password = request.getParameter("password");
         String remember = request.getParameter("remember"); 
 
+        // Giới hạn đăng nhập sai (T3.5): theo cặp (IP, email) và theo IP. Bị chặn thì không kiểm tra mật khẩu nữa.
+        String ip = AuthLimits.clientIp(request);
+        String pairKey = ip + "|" + AuthLimits.emailKey(email);
+        if (AuthLimits.loginPair().isBlocked(pairKey) || AuthLimits.loginIp().isBlocked(ip)) {
+            LOG.log(Level.WARNING, "login throttled ip={0}", ip);
+            response.sendRedirect(request.getContextPath() + "/login.jsp?error=too_many_attempts");
+            return;
+        }
+
         UserDAO dao = new UserDAO();
 
         User user = dao.getUserByEmail(email);
@@ -167,6 +181,8 @@ public class AuthController extends HttpServlet {
         // Chặn tài khoản BANNED trước khi kiểm tra mật khẩu: trả lời không phụ thuộc mật khẩu đúng hay sai,
         // nên không dùng được để dò mật khẩu của tài khoản bị khóa (F-09).
         if (user != null && "BANNED".equalsIgnoreCase(user.getStatus())) {
+            AuthLimits.loginPair().hit(pairKey);
+            AuthLimits.loginIp().hit(ip);
             response.sendRedirect(
                     request.getContextPath()
                             + "/login.jsp?error=banned");
@@ -177,6 +193,8 @@ public class AuthController extends HttpServlet {
                 PasswordUtil.verifyPassword(
                         password,
                         user.getPasswordHash())){
+
+            AuthLimits.loginPair().clear(pairKey);
 
             HttpSession session = request.getSession();
             // Chống session fixation: đổi id phiên khi quyền thay đổi, và bỏ token CSRF của phiên trước đăng nhập.
@@ -203,6 +221,8 @@ public class AuthController extends HttpServlet {
 
         } else {
 
+            AuthLimits.loginPair().hit(pairKey);
+            AuthLimits.loginIp().hit(ip);
             response.sendRedirect(
                     request.getContextPath()
                             + "/login.jsp?error=invalid_credentials");

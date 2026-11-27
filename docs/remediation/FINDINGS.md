@@ -52,6 +52,7 @@ Status of each finding lives in `TASKS.md` (the task that fixes it), not here. A
 - `viewSession` and `deleteSession` *do* check ownership.
 
 ### F-07 (C) Stored XSS everywhere — no output escaping
+- **Status (2026-11-27): fixed in code by T3.1a-d, checked by `T31Test` (25 rendered pages with hostile data), not yet clicked through in a browser.** Every dynamic value is escaped on output, JS data goes through Gson, chat markdown through DOMPurify (pinned, SRI). The bullets below describe the original defect.
 - 0 uses of `c:out` / `fn:escapeXml` across 30 JSPs. EL `${...}` and scriptlet `<%= %>` do not escape.
 - Highest risk (attacker-controlled data shown to admins or other users):
   `web/admin_manageUser.jsp:131,132,168` (username/email, also inside an `onclick='...'` JS string),
@@ -70,6 +71,7 @@ Status of each finding lives in `TASKS.md` (the task that fixes it), not here. A
 - `src/java/Utils/GeminiService.java:15` — **live API key in the uncommitted working copy** (committed version is `""`). Key also sent in the URL query string (`:16`), so it ends up in proxy/access logs.
 
 ### F-09 (C) Session / authentication weaknesses
+- **Status (2026-11-27): fixed in code by T3.2-T3.5, checked by `T32Test`-`T35Test` on embedded Tomcat, not yet run against a real instance.** CSRF token + POST-only mutations, session id changes at login, revocable remember-me, rate limits, SecureRandom OTP counted per code, banned check before the password. The bullets below describe the original defect.
 - No CSRF protection anywhere. `MainController` and most controllers route GET and POST identically, so every mutation is GET-able. Logout is GET (`AuthController.java:23`).
 - Session fixation: login reuses the pre-login session (`AuthController.java:173`), no `changeSessionId()`.
 - Remember-me (`CookieUtil.java`): stateless, 10-year expiry (`:30`), cannot be revoked (logout only deletes the browser cookie; password reset doesn't invalidate), no `Secure` flag, non-constant-time compare (`:65`). Consumed by a scriptlet in `web/login.jsp`.
