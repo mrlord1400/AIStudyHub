@@ -50,7 +50,7 @@ src/java/
   Model/DTO/              10 POJOs
   Model/Service/SubscriptionRenewalService.java
   Model/Service/DocumentAccess.java   canView / canEdit: the one place that decides document visibility (T1.3)
-  Utils/                  AppConfig, Access (who is calling), AccessRules (public/admin/authenticated path lists),
+  Utils/                  AppConfig, Access (who is calling), StoredFiles (delete a stored file after the DB row is gone), AccessRules (public/admin/authenticated path lists),
                           Validation (whitelists, ranged numbers), DBUtils, PasswordUtil, CookieUtil, EmailUtil, GeminiService,
                           LinkUtil, SubscriptionScheduler
 web/
@@ -112,7 +112,7 @@ Reviewed in T1.8 (2026-11-27). "Path gate" is `AuthFilter`/`AccessRules`. "In-co
 | `TransactionController` | `createTransaction`, `listTransactions`, `buyPremium` | authenticated | ✅ `listTransactions` scoped to the caller. ⚠ type/amount unvalidated, balance races, non-atomic Premium: T4.1-T4.4 |
 | | `adminListTransactions`, `adminUpdateTransaction` | **admin** (any `admin*` action on this URL) | ✅ also `Access.isAdmin`; status whitelist `PROCESSING/SUCCESS/CANCELLED`. ⚠ double approval: T4.2 |
 | `AdminController` | all (`listUsers`, `listDashboard`, `listTransactions`, `profile`, `listPublicDocs`, `adminViewDoc`, `updateAdminProfile`, `createUser`, `updateUser`, `deleteUser`) | **admin** | ✅ also `Access.isAdmin`; role/status/tier/balance/name/email/password validated; an admin cannot demote, ban or delete themself |
-| `AdminReportController` | `adminReportList`, `adminUpdateReportStatus`, `adminDeleteReport`, `adminDeleteDocument` | **admin** | ✅ also `Access.isAdmin`; status whitelisted. ⚠ mutations are GET-able: T3.2 |
+| `AdminReportController` | `adminReportList`, `adminUpdateReportStatus`, `adminDeleteReport`, `adminDeleteDocument` | **admin** | ✅ also `Access.isAdmin`; status whitelisted; `adminDeleteDocument` removes the physical file after the DB delete (`Utils.StoredFiles`). ⚠ mutations are GET-able: T3.2 |
 | `ReportConfigController` (`/admin/report-config`, `/ReportConfigController`) | GET `reportConfigList`; POST `reportConfigAdd/Update/Delete` | **admin** | ✅ also `Access.isAdmin`; code/severity/scores validated; delete is POST-only (GET answers 405) |
 | `SystemConfigController` (`/admin/system-config`, mapped in web.xml **and** by annotation) | GET list tiers; POST update tiers | **admin** | ✅ also `Access.isAdmin`; every row validated first, then one DB transaction |
 | `/uploads/**` (static files) | direct file URLs | authenticated (default) | ⚠ any logged-in user can still fetch any file by URL: T2.1 |
@@ -203,7 +203,7 @@ Triggers maintain `updated_at` on `users`, `documents` and `friendships`.
 - Annotated `@WebFilter`s have **no defined order**. Filters are declared in `web.xml` (SessionSyncFilter, then AuthFilter); add `CsrfFilter` after them (T3.2). Do not add `@WebFilter`.
 - **A new page or controller is "authenticated" by default.** To make it public or admin-only add it to the lists in `Utils/AccessRules.java`. A missing public page shows up as a redirect loop to `login.jsp`.
 - `AuthFilter` sets request encoding to UTF-8 before reading `action`. Do not read request parameters in a filter before that, or Vietnamese form values get mangled.
-- On a FORWARD, `request.getServletPath()` is the forward target and the `action` parameter is unchanged; `AuthFilter` relies on both.
+- On a FORWARD, `request.getServletPath()` is the forward target. The `action` parameter is the original one unless the forward URL has its own query string (e.g. `DocumentController` forwards to `/MainController?action=editDoc&docId=...`), in which case the forward's value wins; `AuthFilter` re-reads it on every dispatch, so it classifies what the target will actually see.
 - `SystemConfigController` is mapped twice (annotation + `web.xml`). That works because the mappings are identical, but keep it in mind.
 - `getFolderById`, `DocumentDAO.findById`, `ChatSessionDAO.getSessionById` are **unscoped lookups**. Always follow them with an ownership/`DocumentAccess` check.
 - `DocumentController` derives the on-disk path from `cloud_storage_url` by stripping the context path. Any change to storage must update `viewDoc`, `downloadDoc`, `deleteDoc`, `UploadController.deletePhysicalFile`/`renameToFinalName`, `AdminReportController.adminDeleteDocument`, and `UserDAO.deleteUserAndAssociatedData` (verify the last two when you get there).

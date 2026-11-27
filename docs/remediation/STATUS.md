@@ -1,7 +1,7 @@
 # Remediation Status
 
 **Last updated:** 2026-11-27 — Phase 0 closed (finished and approved by the user; merged to `revamp/d_dev` as PR #130). Phase 1 (T1.1-T1.8) implemented on `revamp/fix/f_t1_authorization`,
-checked offline (229 checks, `docs/remediation/verify/offline/run.sh`), not yet run against Tomcat + SQL Server.
+checked offline (230 checks, `docs/remediation/verify/offline/run.sh`), not yet run against Tomcat + SQL Server.
 **Current phase:** 1 — Authorization (code done, awaiting the user's runtime verification and PR approval)
 **Next task:** after Phase 1 is approved: Phase 2 starting with T2.1 (file storage). Phase 3 (T3.1+) can start in parallel only on files Phase 1 did not touch.
 
@@ -35,7 +35,7 @@ Every critical finding is still open. The worst, in order:
 
 - **Phase 1 (T1.1–T1.8)** on branch `revamp/fix/f_t1_authorization` (one branch for the eight Phase 1 tasks, one commit per task, branched from `origin/revamp/d_dev`
   @ `17f4bde`). All eight are `[~]`: implemented, compiled with `javac --release 8`, and checked offline by `bash docs/remediation/verify/offline/run.sh`
-  (real filter/controllers/DAOs; in-memory H2 in SQL Server mode; 229 checks pass). The per-task notes in `TASKS.md` say what was **not** verified. A review by a separate agent is recorded in the session log.
+  (real filter/controllers/DAOs; in-memory H2 in SQL Server mode; 230 checks pass). The per-task notes in `TASKS.md` say what was **not** verified. An independent review (Opus agent) is recorded in the session log.
 
 ## Blocked / waiting on the user
 
@@ -84,7 +84,7 @@ Model: [`docs/BRANCHING.md`](../BRANCHING.md). `main` is frozen. All work branch
 | `revamp/d_dev` | integration branch (the new main) | created from `origin/main` @ `09176ec`; holds these docs |
 | `fix-folder-error` | user's pre-revamp work | has uncommitted local changes (see Blocked); not part of the revamp |
 | `revamp/fix/f_t0_containment` | T0.1–T0.4 (Phase 0) | merged to `revamp/d_dev` (PR #130) and approved by the user 2026-11-27 |
-| `revamp/fix/f_t1_authorization` | T1.1–T1.8 (Phase 1) | implemented and checked offline; independent review pending; PR to `revamp/d_dev` not opened/merged |
+| `revamp/fix/f_t1_authorization` | T1.1–T1.8 (Phase 1) | implemented, checked offline and independently reviewed; pushed to origin; PR to `revamp/d_dev` not opened/merged |
 
 ## Session log
 
@@ -93,3 +93,4 @@ Model: [`docs/BRANCHING.md`](../BRANCHING.md). `main` is frozen. All work branch
 | 2026-11-26 | audit | Audited the codebase against the review checklist. Wrote `docs/remediation/*` (README, STATUS, TASKS, FINDINGS, CONVENTIONS, CODEBASE, app.properties.example), `docs/standards/review-checklist.md` and the root `CLAUDE.md` pointer. Added `docs/BRANCHING.md`; created `revamp/d_dev` from `origin/main` and committed the docs there | Start T0.1/T0.2 on `revamp/fix/f_t0_2_app_config`. User to answer the open decisions |
 | 2026-11-26 | Phase 0 | Created `revamp/fix/f_t0_containment`. T0.4 renamed `FIlter`→`Filter`. T0.2 added `AppConfig` and `ConfigValidationListener` and moved the DB, SMTP, Gemini and remember-me secrets into config. T0.3 gated seeding behind `DEV_SEED_TEST_USERS` and removed the stored-hash password fallback. Updated CODEBASE (§3, §8, §10, new §11), CONVENTIONS (D-08) and the example properties | User: rotate secrets, create `app.properties`, delete seeded admin rows, run runtime checks, then tick T0.1–T0.4. Next code task: T1.1 |
 | 2026-11-27 | Phase 1 | Closed Phase 0 in the docs. Created `revamp/fix/f_t1_authorization` from `origin/revamp/d_dev` (17f4bde). T1.1 `Access`/`AccessRules`/`AuthFilter` + `web.xml` filter order; T1.2 owner-scoped document mutations; T1.3 `DocumentAccess` + friendship check; T1.4 chat scoping; T1.5 friendship state machine in SQL; T1.6 folder-id ownership (also `FolderController`); T1.7 `Validation` + admin input checks; T1.8 sweep and the rewritten CODEBASE §5. Added `docs/remediation/verify/offline/` (229 checks). New findings F-74..F-76, new tasks T4.7 and T8.3, decisions D-09..D-13 | User: run the curl/click-through checks (see *Blocked*), answer D-12 / F-76, approve the PR. Next: T2.1 |
+| 2026-11-27 | Phase 1 review | Independent review of the branch by a separate Opus agent: no authorization bypass found; harness re-run (229 then, 230 now). Four fixes made from it: (1) the admin error banner fragment was read as ISO-8859-1 (garbled Vietnamese; confirmed with Tomcat's Jasper) -> `pageEncoding` + a `*.jspf` property group in `web.xml`; (2) admin delete from `document_view.jsp` no longer removed the file -> `AdminReportController.adminDeleteDocument` deletes it after the DB delete via `Utils.StoredFiles`; (3) the new email regex rejected addresses registration accepts (`o'neil@x.com`, `dev@localhost`) -> made deliberately loose; (4) `FileExplore.jsp` bookmark JS now checks `response.ok`. Three doc inaccuracies corrected. Left as the reviewer noted: `createFriendship`'s `INSERT ... SELECT ... WHERE NOT EXISTS` is valid T-SQL by inspection but only ran on H2 | User: runtime checks (see *Blocked*), D-12 / F-76 answers, PR approval |
