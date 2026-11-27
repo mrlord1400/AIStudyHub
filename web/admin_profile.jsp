@@ -94,9 +94,9 @@
 
         <div class="pt-4 border-t border-gray-100 dark:border-gray-700">
             <a href="<%= request.getContextPath()%>/admin_profile.jsp" class="flex items-center space-x-3 px-2 py-2 mb-2 rounded-xl bg-gray-50 dark:bg-gray-700/50 transition-colors cursor-pointer group">
-                <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs uppercase"><%= currentUsername != null && !currentUsername.isEmpty() ? currentUsername.substring(0, 1) : "A"%></div>
+                <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs uppercase"><%= Utils.Html.esc(currentUsername != null && !currentUsername.isEmpty() ? currentUsername.substring(0, 1) : "A")%></div>
                 <div class="flex-1 min-w-0">
-                    <p class="text-sm font-bold text-red-600 truncate dark:text-red-400"><%= currentUsername != null ? currentUsername : "Admin"%></p>
+                    <p class="text-sm font-bold text-red-600 truncate dark:text-red-400"><%= Utils.Html.esc(currentUsername != null ? currentUsername : "Admin")%></p>
                     <p class="text-[11px] text-gray-400 font-medium">Hồ sơ cá nhân</p>
                 </div>
             </a>
@@ -150,11 +150,11 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
                     <div>
                         <label class="form-label">Tên đăng nhập Admin</label>
-                        <input type="text" name="username" value="<%= currentUser.getUsername()%>" required class="form-input" />
+                        <input type="text" name="username" value="<%= Utils.Html.esc(currentUser.getUsername())%>" required class="form-input" />
                     </div>
                     <div>
                         <label class="form-label">Email tiếp nhận</label>
-                        <input type="email" name="email" value="<%= currentUser.getEmail() != null ? currentUser.getEmail() : ""%>" required class="form-input" />
+                        <input type="email" name="email" value="<%= Utils.Html.esc(currentUser.getEmail())%>" required class="form-input" />
                     </div>
                 </div>
 

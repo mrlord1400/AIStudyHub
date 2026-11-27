@@ -80,6 +80,18 @@ project (no Maven). Keep new code in the existing packages and naming style: `Co
 
 Escape on **output**. Don't HTML-escape before storing in the DB.
 
+Pinned browser libraries (T3.1a; both SRI hashes were computed from the jsDelivr files, `sha384`):
+
+```html
+<script src="${pageContext.request.contextPath}/js/security.js"></script>   <%-- escapeHtml(), renderMarkdown() --%>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"
+        integrity="sha384-/TQbtLCAerC3jgaim+N78RZSDYV7ryeoBCVqTuzRrFec2akfBkHS7ACQ3PQhvMVi" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"
+        integrity="sha384-+VfUPEb0PdtChMwmBcBmykRMDd+v6D/oFmB3rZM/puCMDYcIvF968OimRh4KQY9a" crossorigin="anonymous"></script>
+```
+
+`renderMarkdown(text)` (in `security.js`) returns `DOMPurify.sanitize(marked.parse(text))`, and falls back to escaped plain text if either library failed to load. Never call `marked` on its own.
+
 ## 4. CSRF and HTTP methods (T3.2)
 
 - Use a synchronizer token: `session.csrfToken` (32 random bytes from `SecureRandom`, Base64url), created at login or on first use.
@@ -196,3 +208,4 @@ Record the exact commands and results in the task's notes in `TASKS.md`.
 | D-15 | 2026-11-27 | Per-file upload cap = `subscriptions.max_storage_mb` of the user's tier read from the DB, at most 100 MB (the `@MultipartConfig` limit). A value `<= 0`, or no tier found, means uploads are not allowed | The dashboard already presents `max_storage_mb` as the per-file limit; this is the Q-1 default, enforced for the first time | Adopted in T2.3, confirm Q-1 with the user |
 | D-16 | 2026-11-27 | T2.2 migration **copies** old files and only deletes them with an explicit `--delete-old`; rows with a disallowed extension or mismatching content are reported and left alone | A failed or wrong migration must be undoable; old dangerous files (an uploaded `.jsp`) need a human decision | Adopted in T2.2 |
 | D-17 | 2026-11-27 | Documents whose file type is not in the new allow-list (old uploads such as `.doc`, `.xls`, `.zip`; the old code accepted anything) are **not migrated** by T2.2 and therefore answer 404 | Serving arbitrary types from the app's origin is the F-05 risk; whether to migrate some as download-only (`Content-Disposition: attachment`, `application/octet-stream`) is a product decision | **Open: the user decides.** The migration summary lists the counts per extension |
+| D-18 | 2026-11-27 | `/js/security.js` is a PUBLIC path in `AccessRules` (exact match); every other static path keeps the default "authenticated" | Login, register and the guest dashboard need the escaping helper too (T3.1c/d). The file holds no data | Adopted in T3.1a |

@@ -87,9 +87,9 @@
 
             <div class="pt-4 border-t border-gray-100 dark:border-gray-700">
                 <a href="<%= request.getContextPath()%>/admin_profile.jsp" class="flex items-center space-x-3 px-2 py-2 mb-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group">
-                    <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs uppercase group-hover:bg-red-200 transition-colors"><%= currentUsername != null && !currentUsername.isEmpty() ? currentUsername.substring(0, 1) : "A"%></div>
+                    <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs uppercase group-hover:bg-red-200 transition-colors"><%= Utils.Html.esc(currentUsername != null && !currentUsername.isEmpty() ? currentUsername.substring(0, 1) : "A")%></div>
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-bold text-gray-900 truncate dark:text-white group-hover:text-red-600 transition-colors"><%= currentUsername != null ? currentUsername : "Admin"%></p>
+                        <p class="text-sm font-bold text-gray-900 truncate dark:text-white group-hover:text-red-600 transition-colors"><%= Utils.Html.esc(currentUsername != null ? currentUsername : "Admin")%></p>
                         <p class="text-[11px] text-gray-400 font-medium">Hồ sơ cá nhân</p>
                     </div>
                 </a>
@@ -129,8 +129,8 @@
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                 <td class="px-6 py-4 font-medium">#<%= u.getUserId()%></td>
                                 <td class="px-6 py-4">
-                                    <p class="font-bold text-gray-900 dark:text-white"><%= u.getUsername()%></p>
-                                    <p class="text-xs text-gray-500"><%= u.getEmail() != null ? u.getEmail() : "N/A"%></p>
+                                    <p class="font-bold text-gray-900 dark:text-white"><%= Utils.Html.esc(u.getUsername())%></p>
+                                    <p class="text-xs text-gray-500"><%= Utils.Html.esc(u.getEmail() != null ? u.getEmail() : "N/A")%></p>
                                 </td>
                                 <td class="px-6 py-4">
                                     <p class="font-semibold text-amber-600 dark:text-amber-400"><%= String.format("%,d", u.getBalance())%> Coin</p>
@@ -144,7 +144,7 @@
                                     <% if ("ADMIN".equals(u.getRole())) { %>
                                     <span class="px-2.5 py-1 text-[11px] font-bold bg-red-100 text-red-700 rounded-lg dark:bg-red-900/30 dark:text-red-400">ADMIN</span>
                                     <% } else {%>
-                                    <span class="px-2.5 py-1 text-[11px] font-bold bg-indigo-100 text-indigo-700 rounded-lg dark:bg-indigo-900/30 dark:text-indigo-400"><%= u.getRole()%></span>
+                                    <span class="px-2.5 py-1 text-[11px] font-bold bg-indigo-100 text-indigo-700 rounded-lg dark:bg-indigo-900/30 dark:text-indigo-400"><%= Utils.Html.esc(u.getRole())%></span>
                                     <% } %>
                                 </td>
                                 <td class="px-6 py-4">
@@ -166,7 +166,7 @@
                                     <% }%>
                                 </td>
                                 <td class="px-6 py-4 text-right space-x-2">
-                                    <button onclick="openEditModal('<%= u.getUserId()%>', '<%= u.getUsername()%>', '<%= u.getEmail() != null ? u.getEmail() : ""%>', '<%= u.getBalance()%>', '<%= u.getRole()%>', '<%= u.getTierId()%>', '<%= u.getStatus()%>')" class="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors dark:hover:bg-gray-700 inline-flex" title="Chỉnh sửa">
+                                    <button type="button" class="js-edit-user p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors dark:hover:bg-gray-700 inline-flex" data-id="<%= u.getUserId()%>" data-username="<%= Utils.Html.esc(u.getUsername())%>" data-email="<%= Utils.Html.esc(u.getEmail() != null ? u.getEmail() : "")%>" data-balance="<%= u.getBalance()%>" data-role="<%= Utils.Html.esc(u.getRole())%>" data-tier="<%= u.getTierId()%>" data-status="<%= Utils.Html.esc(u.getStatus())%>" title="Chỉnh sửa">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                                     </button>
 
@@ -292,16 +292,24 @@
                 document.getElementById('createUserModal').classList.add('hidden');
             }
 
-            function openEditModal(id, username, email, balance, role, tier, status) {
-                document.getElementById('editUserId').value = id;
-                document.getElementById('editUsername').value = username;
-                document.getElementById('editEmail').value = email;
-                document.getElementById('editBalance').value = balance;
-                document.getElementById('editRole').value = role;
-                document.getElementById('editTier').value = tier;
-                document.getElementById('editStatus').value = status;
+            // Giá trị của dòng nằm trong thuộc tính data-* (đã escape phía server), không nối vào onclick.
+            function openEditModal(btn) {
+                const d = btn.dataset;
+                document.getElementById('editUserId').value = d.id;
+                document.getElementById('editUsername').value = d.username;
+                document.getElementById('editEmail').value = d.email;
+                document.getElementById('editBalance').value = d.balance;
+                document.getElementById('editRole').value = d.role;
+                document.getElementById('editTier').value = d.tier;
+                document.getElementById('editStatus').value = d.status;
                 document.getElementById('editUserModal').classList.remove('hidden');
             }
+
+            document.querySelectorAll('.js-edit-user').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    openEditModal(btn);
+                });
+            });
 
             function closeEditModal() {
                 document.getElementById('editUserModal').classList.add('hidden');

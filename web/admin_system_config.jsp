@@ -78,9 +78,9 @@
 
         <div class="pt-4 border-t border-gray-100 dark:border-gray-700">
             <a href="<%= request.getContextPath()%>/admin_profile.jsp" class="flex items-center space-x-3 px-2 py-2 mb-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group">
-                <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs uppercase group-hover:bg-red-200 transition-colors"><%= currentUsername != null && !currentUsername.isEmpty() ? currentUsername.substring(0, 1) : "A"%></div>
+                <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs uppercase group-hover:bg-red-200 transition-colors"><%= Utils.Html.esc(currentUsername != null && !currentUsername.isEmpty() ? currentUsername.substring(0, 1) : "A")%></div>
                 <div class="flex-1 min-w-0">
-                    <p class="text-sm font-bold text-gray-900 truncate dark:text-white group-hover:text-red-600 transition-colors"><%= currentUsername != null ? currentUsername : "Admin"%></p>
+                    <p class="text-sm font-bold text-gray-900 truncate dark:text-white group-hover:text-red-600 transition-colors"><%= Utils.Html.esc(currentUsername != null ? currentUsername : "Admin")%></p>
                     <p class="text-[11px] text-gray-400 font-medium">Hồ sơ cá nhân</p>
                 </div>
             </a>
@@ -101,14 +101,14 @@
             <c:if test="${not empty successMessage}">
                 <div class="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-xl flex items-center space-x-2 dark:bg-green-950/40 dark:border-green-900 dark:text-green-400">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
-                    <span class="font-medium text-sm">${successMessage}</span>
+                    <span class="font-medium text-sm"><c:out value="${successMessage}"/></span>
                 </div>
             </c:if>
             
             <c:if test="${not empty errorMessage}">
                 <div class="mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl flex items-center space-x-2 dark:bg-red-950/40 dark:border-red-900 dark:text-red-400">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    <span class="font-medium text-sm">${errorMessage}</span>
+                    <span class="font-medium text-sm"><c:out value="${errorMessage}"/></span>
                 </div>
             </c:if>
 
@@ -120,7 +120,7 @@
                             <c:forEach var="sub" items="${subList}">
                                 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden relative dark:bg-gray-800 dark:border-gray-700">
                                     <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center dark:bg-gray-900/50 dark:border-gray-700">
-                                        <h3 class="text-lg font-bold text-gray-900 uppercase dark:text-white">${sub.tierName}</h3>
+                                        <h3 class="text-lg font-bold text-gray-900 uppercase dark:text-white"><c:out value="${sub.tierName}"/></h3>
                                         <c:if test="${sub.tierName eq 'Premium'}">
                                             <span class="bg-amber-100 text-amber-700 text-xs px-2 py-1 rounded-md font-bold dark:bg-amber-900/30 dark:text-amber-400">PRO</span>
                                         </c:if>

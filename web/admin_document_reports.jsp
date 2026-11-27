@@ -116,14 +116,14 @@
                             <tbody class="text-sm divide-y divide-gray-100 dark:divide-gray-700">
                                 <c:forEach items="${documentReports}" var="rep">
                                     <tr class="hover:bg-gray-50 transition-colors dark:hover:bg-gray-700/50">
-                                        <td class="p-4 text-gray-500 font-medium whitespace-nowrap">${rep.createdAt}</td>
+                                        <td class="p-4 text-gray-500 font-medium whitespace-nowrap"><c:out value="${rep.createdAt}"/></td>
                                         <td class="p-4 font-bold text-indigo-600 dark:text-indigo-400">#${rep.reporterId}</td>
-                                        <td class="p-4 font-bold text-red-600 dark:text-red-400">${rep.reasonCode}</td>
-                                        <td class="p-4 text-gray-600 dark:text-gray-300 max-w-xs break-words">${rep.details}</td>
+                                        <td class="p-4 font-bold text-red-600 dark:text-red-400"><c:out value="${rep.reasonCode}"/></td>
+                                        <td class="p-4 text-gray-600 dark:text-gray-300 max-w-xs break-words"><c:out value="${rep.details}"/></td>
                                         <td class="p-4 text-center">
                                             <span class="px-2 py-1 text-[10px] font-bold uppercase rounded-md 
                                                   ${rep.status eq 'PENDING' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}">
-                                                ${rep.status}
+                                                <c:out value="${rep.status}"/>
                                             </span>
                                         </td>
                                         <td class="p-4 text-center space-x-2 flex items-center justify-center">

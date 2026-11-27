@@ -114,9 +114,9 @@
 
             <div class="pt-4 border-t border-gray-100 dark:border-gray-700">
                 <a href="<%= request.getContextPath()%>/admin_profile.jsp" class="flex items-center space-x-3 px-2 py-2 mb-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group">
-                    <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs uppercase group-hover:bg-red-200 transition-colors"><%= currentUsername != null && !currentUsername.isEmpty() ? currentUsername.substring(0, 1) : "A"%></div>
+                    <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs uppercase group-hover:bg-red-200 transition-colors"><%= Utils.Html.esc(currentUsername != null && !currentUsername.isEmpty() ? currentUsername.substring(0, 1) : "A")%></div>
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-bold text-gray-900 truncate dark:text-white group-hover:text-red-600 transition-colors"><%= currentUsername != null ? currentUsername : "Admin"%></p>
+                        <p class="text-sm font-bold text-gray-900 truncate dark:text-white group-hover:text-red-600 transition-colors"><%= Utils.Html.esc(currentUsername != null ? currentUsername : "Admin")%></p>
                         <p class="text-[11px] text-gray-400 font-medium">Hồ sơ cá nhân</p>
                     </div>
                 </a>
@@ -185,7 +185,7 @@
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                 <td class="px-6 py-4 font-medium text-indigo-600 dark:text-indigo-400">#<%= t.getTransactionId()%></td>
                                 <td class="px-6 py-4">
-                                    <p class="font-bold text-gray-900 dark:text-white"><%= t.getUsername() != null ? t.getUsername() : "Chưa cập nhật"%></p>
+                                    <p class="font-bold text-gray-900 dark:text-white"><%= Utils.Html.esc(t.getUsername() != null ? t.getUsername() : "Chưa cập nhật")%></p>
                                     <p class="text-[11px] text-gray-400">ID người dùng: <%= t.getUserId()%></p>
                                 </td>
                                 <td class="px-6 py-4">

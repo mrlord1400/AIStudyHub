@@ -30,7 +30,7 @@ Admins manage users, transactions, reported documents, report-reason config and 
 | Libraries | gson 2.14, jbcrypt 0.4, pdfbox-app 3.0.3, poi/poi-ooxml 5.3.0, javax.mail 1.6.2 + activation, commons-compress/collections4, xmlbeans, log4j-api (unused) |
 | Library paths | `nbproject/project.properties` references `C:\FPT\JavaLib\*.jar`, which is machine-specific. Some jars are also copied to `web/WEB-INF/lib` |
 | Front end | Server-rendered JSP with Tailwind-style classes, inline `<script>`, `fetch` in chat/explore pages, `marked` from CDN for bot markdown |
-| Tests | `test/` exists but is empty (JUnit comes in Phase 7). Until then `docs/remediation/verify/offline/` runs the real code against in-memory H2 without Tomcat |
+| Tests | `test/` exists but is empty (JUnit comes in Phase 7). Until then `docs/remediation/verify/offline/` runs the real code against in-memory H2; since T3.1a `T31Test` also runs the real `web.xml` + JSPs in an embedded Tomcat 9 and checks the rendered HTML |
 | External | Google Gemini REST (`Utils.GeminiService`), Gmail SMTP (`Utils.EmailUtil`) |
 
 `nbproject/*` files show as modified in git because NetBeans rewrites them per machine. Don't commit those changes unless intended.
@@ -50,10 +50,11 @@ src/java/
   Model/DTO/              10 POJOs
   Model/Service/SubscriptionRenewalService.java
   Model/Service/DocumentAccess.java   canView / canEdit: the one place that decides document visibility (T1.3)
-  Utils/                  AppConfig, Access (who is calling), FileStorage + FileTypes (where uploads live, allowed types, T2), StorageMigration (one-off CLI, T2.2), AccessRules (public/admin/authenticated path lists),
+  Utils/                  AppConfig, Access (who is calling), FileStorage + FileTypes (where uploads live, allowed types, T2), StorageMigration (one-off CLI, T2.2), AccessRules (public/admin/authenticated path lists), Html (`esc`, output escaping for scriptlets, T3.1),
                           Validation (whitelists, ranged numbers), DBUtils, PasswordUtil, CookieUtil, EmailUtil, GeminiService,
                           LinkUtil, SubscriptionScheduler
 web/
+  js/security.js          escapeHtml + renderMarkdown (DOMPurify) for every page that builds HTML in the browser (T3.1); public in AccessRules
   *.jsp                   30 pages (no WEB-INF protection: all directly reachable)
   WEB-INF/web.xml         maps SystemConfigController, declares the filter order (SessionSyncFilter, AuthFilter), session timeout 30 min
   WEB-INF/jspf/admin_error_banner.jspf   shared error banner included by admin_manageUser / admin_manageTrans / admin_report_config
@@ -207,6 +208,7 @@ Triggers maintain `updated_at` on `users`, `documents` and `friendships`.
 - `SystemConfigController` is mapped twice (annotation + `web.xml`). That works because the mappings are identical, but keep it in mind.
 - `getFolderById`, `DocumentDAO.findById`, `ChatSessionDAO.getSessionById` are **unscoped lookups**. Always follow them with an ownership/`DocumentAccess` check.
 - **Files are only touched through `Utils.FileStorage`** (`resolve`/`fileOrNull`/`delete`/`deleteUserFiles`). Never build a path from `cloud_storage_url` yourself, never call `getRealPath` for uploads. Delete the DB row first and the file after (`deleteDoc`, `adminDeleteDocument`, `deleteFolder`, account deletion all do). New code that stores a file must use `FileStorage.save` and `FileTypes` (extension allow-list + `contentMatches`).
+- **Escape every value you print** (Conv §3): `<%= Utils.Html.esc(x) %>` in scriptlets, `<c:out>`/`fn:escapeXml` in EL, `data-*` attributes instead of `onclick='fn("...")'`. `T31Test` renders the admin pages with hostile data and fails on any raw payload; add the new page to it when you convert one.
 - Comments are a mix of Vietnamese and English. User-facing strings are Vietnamese, so keep them Vietnamese.
 - Many JSPs contain scriptlets that call DAOs directly (e.g. `user_dashboard.jsp`, `login.jsp`). Grep JSPs too when you change a DAO signature.
 - The seeded `user@gmail.com` uses tier 1 (Guest), but registration uses tier 2. The tier ids are magic numbers (F-70).
